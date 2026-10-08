@@ -5,7 +5,6 @@ import type { CodeBlock, RobotKind, RobotState, GameStatus, TilePosition } from 
 export type Robot = RobotState & { cooldown: number; phaseTimer: number };
 export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
-  attackCooldown: number; chaseTarget: TilePosition | null;
 };
 export type Shot = { from: TilePosition; to: TilePosition; kind: RobotKind; chain?: boolean; player?: boolean };
 export const ROUTE: readonly TilePosition[] = [{ x: 1, y: 4 }, { x: 12, y: 4 }, { x: 12, y: 6 }, { x: 3, y: 6 }];
@@ -38,6 +37,26 @@ export class DefenseSimulation {
 
   constructor(random: () => number = Math.random) { this.random = random; }
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
+
+  canMovePlayer(x: number, y: number): boolean {
+    return isWalkable(x, y) && !isRouteTile(x, y) && !this.robots.some(r => r.x === x && r.y === y);
+  }
+  nextPlayerStep(target: TilePosition): TilePosition | null {
+    if (!this.canMovePlayer(target.x, target.y)) return null;
+    const queue: { tile: TilePosition; first: TilePosition | null }[] = [{ tile: this.player, first: null }];
+    const visited = new Set([`${this.player.x},${this.player.y}`]);
+    for (let i = 0; i < queue.length; i++) {
+      const entry = queue[i];
+      if (entry.tile.x === target.x && entry.tile.y === target.y) return entry.first;
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const tile = { x: entry.tile.x + dx, y: entry.tile.y + dy };
+        const key = `${tile.x},${tile.y}`;
+        if (visited.has(key) || !this.canMovePlayer(tile.x, tile.y)) continue;
+        visited.add(key); queue.push({ tile, first: entry.first ?? tile });
+      }
+    }
+    return null;
+  }
 
   placeRobot(x: number, y: number): string {
     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 소환할 수 있어요.';
@@ -106,7 +125,7 @@ export class DefenseSimulation {
     if (this.status !== 'running') return [];
     this.elapsed += dt; this.spawnTimer -= dt;
     if (this.spawned < WAVE_ONE.enemies && this.spawnTimer <= 0) {
-      this.enemies.push({ ...ROUTE[0], id: ++this.sequence, health: WAVE_ONE.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0, attackCooldown: 0, chaseTarget: null });
+      this.enemies.push({ ...ROUTE[0], id: ++this.sequence, health: WAVE_ONE.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
       this.spawned++; this.spawnTimer += WAVE_ONE.spawnInterval;
     }
     for (const enemy of this.enemies) {
@@ -137,57 +156,23 @@ export class DefenseSimulation {
     });
   }
   private moveEnemies(dt: number): void {
-    for (const enemy of this.enemies) {
-      if (enemy.waypoint >= ROUTE.length) { this.chasePlayer(enemy, dt); continue; }
+    this.enemies = this.enemies.filter(enemy => {
+      if (this.health === 0) return true;
       const target = ROUTE[enemy.waypoint];
       const gap = distance(target, enemy);
       const movement = dt * WAVE_ONE.speed * (enemy.slowTime > 0 ? 0.6 : 1);
       if (gap <= movement) {
         enemy.x = target.x; enemy.y = target.y; enemy.waypoint++;
-        if (enemy.waypoint === ROUTE.length) this.escaped++;
+        if (enemy.waypoint === ROUTE.length) {
+          this.escaped++; this.health = 0;
+          return false;
+        }
       } else {
         enemy.x += (target.x - enemy.x) / gap * movement;
         enemy.y += (target.y - enemy.y) / gap * movement;
       }
-    }
-  }
-  private chasePlayer(enemy: Enemy, dt: number): void {
-    enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
-    if (distance(enemy, this.player) > WAVE_ONE.attackRange) {
-      enemy.chaseTarget ??= this.nextChaseStep(enemy);
-      const target = enemy.chaseTarget;
-      if (target) {
-        const gap = distance(enemy, target);
-        const movement = dt * WAVE_ONE.chaseSpeed * (enemy.slowTime > 0 ? 0.6 : 1);
-        if (gap <= movement) {
-          enemy.x = target.x; enemy.y = target.y; enemy.chaseTarget = null;
-        } else {
-          enemy.x += (target.x - enemy.x) / gap * movement;
-          enemy.y += (target.y - enemy.y) / gap * movement;
-        }
-      }
-    }
-    if (distance(enemy, this.player) <= WAVE_ONE.attackRange && enemy.attackCooldown === 0) {
-      this.health = Math.max(0, this.health - WAVE_ONE.attackDamage);
-      enemy.attackCooldown = WAVE_ONE.attackInterval;
-    }
-  }
-  private nextChaseStep(enemy: Enemy): TilePosition | null {
-    // Follow the player through floor tiles, turning only at tile centers.
-    const start = { x: Math.round(enemy.x), y: Math.round(enemy.y) };
-    const queue: { tile: TilePosition; first: TilePosition | null }[] = [{ tile: start, first: null }];
-    const visited = new Set([`${start.x},${start.y}`]);
-    for (let i = 0; i < queue.length; i++) {
-      const entry = queue[i];
-      if (entry.tile.x === this.player.x && entry.tile.y === this.player.y) return entry.first;
-      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-        const tile = { x: entry.tile.x + dx, y: entry.tile.y + dy };
-        const key = `${tile.x},${tile.y}`;
-        if (visited.has(key) || !isWalkable(tile.x, tile.y)) continue;
-        visited.add(key); queue.push({ tile, first: entry.first ?? tile });
-      }
-    }
-    return null;
+      return true;
+    });
   }
   private phase(robot: Robot, block: CodeBlock, timer: number): void {
     robot.activeBlock = block; robot.phaseTimer = timer;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import SpaceDefenseRoom from './components/space-defense-room.vue';
 import { ROBOTS, SUMMON_COST, WAVE_ONE } from './game/wave-one';
 import type { DefenseState, RobotKind } from './game/types';
@@ -13,7 +13,14 @@ const portraitUrl = 'url("' + import.meta.env.BASE_URL + 'codmos-assets/player/i
 const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies, escaped: 0, elapsed: 0, countdown: 5, robots: [], selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '' });
 const canDeploy = computed(() => ready.value && ['ready', 'running'].includes(state.value.status));
 const canSummon = computed(() => canDeploy.value && state.value.credits >= SUMMON_COST && state.value.robots.length < 8);
-const finished = computed(() => ['cleared', 'defeat'].includes(state.value.status));
+const finished = ref(false);
+let resultTimer: ReturnType<typeof setTimeout> | undefined;
+watch(() => state.value.status, status => {
+  clearTimeout(resultTimer);
+  finished.value = status === 'cleared';
+  if (status === 'defeat') resultTimer = setTimeout(() => { finished.value = true; }, 1400);
+});
+onBeforeUnmount(() => clearTimeout(resultTimer));
 const selected = computed(() => state.value.robots.find(r => r.id === state.value.selectedId));
 const canMerge = computed(() => canDeploy.value && selected.value && selected.value.grade < 3 && state.value.robots.some(r => r.id !== selected.value!.id && r.kind === selected.value!.kind && r.grade === selected.value!.grade));
 const kindOrder = ['electric', 'ice', 'fire'] as const;
@@ -70,7 +77,7 @@ function dialogKey(event: KeyboardEvent) {
     <div class="wave-hud" aria-label="전투 현황">
       <div class="wave-counter"><small>WAVE</small><strong>01</strong></div>
       <div class="battle-progress"><div><b>{{ state.status === 'ready' ? '잠시 후 자동 시작' : '우주정거장 방어' }}</b><span>{{ state.kills }} / {{ state.total }}</span></div><div class="progress-track"><i :style="{ width: state.kills / state.total * 100 + '%' }" /></div></div>
-      <div class="player-health" :class="{ danger: state.health <= 30 }" :aria-label="'캐릭터 체력 ' + state.health"><span>♥</span><b>{{ state.health }}</b></div>
+      <div class="player-health" :class="{ danger: state.health <= 30 }" :aria-label="'정거장 내구도 ' + state.health"><span>♥</span><b>{{ state.health }}</b></div>
     </div>
     <div v-if="ready && state.status === 'ready' && !summonOpen" class="countdown-hud" role="status"><small>괴물 출현까지</small><strong>{{ state.countdown }}</strong><span>바닥을 눌러 움직여 보세요</span></div>
     <div class="bottom-controls">
@@ -99,7 +106,7 @@ function dialogKey(event: KeyboardEvent) {
       </section>
     </div>
     <div v-if="finished" class="screen-overlay result-overlay">
-      <section class="game-modal result-modal" aria-label="1웨이브 결과"><small>WAVE 01</small><div class="result-symbol">{{ state.status === 'cleared' ? '★' : '↻' }}</div><h1>{{ state.status === 'cleared' ? '방어 성공!' : '게임 오버' }}</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/12</b></span><span>내 체력 <b>♥ {{ state.health }}</b></span></div><p v-if="state.status === 'cleared'" class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><p v-else>살아남은 괴물에게 공격당했어요.<br />괴물을 피해 이동하며 로봇과 함께 싸워보세요!</p><button class="launch-button" @click="room?.reset()">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
+      <section class="game-modal result-modal" aria-label="1웨이브 결과"><small>WAVE 01</small><div class="result-symbol">{{ state.status === 'cleared' ? '★' : '↻' }}</div><h1>{{ state.status === 'cleared' ? '방어 성공!' : '게임 오버' }}</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/12</b></span><span>탈출 <b>{{ state.escaped }}마리</b></span></div><p v-if="state.status === 'cleared'" class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><p v-else>괴물이 우리 기지로 탈출해<br />우주정거장이 파괴됐어요!</p><button class="launch-button" @click="room?.reset()">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
     </div>
   </main>
 </template>

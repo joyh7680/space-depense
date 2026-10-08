@@ -21,6 +21,8 @@ export class DefenseScene extends Phaser.Scene {
   private route!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Graphics;
   private ranges!: Phaser.GameObjects.Graphics;
+  private core!: Phaser.GameObjects.Graphics;
+  private stationDamage!: Phaser.GameObjects.Graphics;
   private unitLabels = new Map<number, Phaser.GameObjects.Text>();
   private target: TilePosition | null = null;
   private playerTile = { ...this.simulation.player };
@@ -60,7 +62,9 @@ export class DefenseScene extends Phaser.Scene {
     this.units = this.add.graphics().setDepth(12);
     this.ranges = this.add.graphics().setDepth(4);
     this.hover = this.add.graphics().setDepth(4);
+    this.stationDamage = this.add.graphics().setDepth(23);
     this.createPlayer();
+    this.createCore();
     const start = ROUTE[0];
     this.add.text(center(start.x), center(start.y), 'IN →', { fontFamily: 'sans-serif', fontSize: '22px', color: '#6f5731', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.onPointer(pointer));
@@ -101,6 +105,44 @@ export class DefenseScene extends Phaser.Scene {
     this.player.skeleton.setSlotsToSetupPose();
   }
 
+  private createCore(): void {
+    const end = ROUTE[ROUTE.length - 1];
+    const x = center(end.x), y = center(end.y);
+    this.core = this.add.graphics().setDepth(10);
+    this.core.fillStyle(0x76f0e9, 0.14); this.core.fillCircle(x, y, 79);
+    this.core.lineStyle(3, 0x77eae1, 0.55); this.core.strokeCircle(x, y, 57);
+    this.core.fillStyle(0x286579); this.core.fillRoundedRect(x - 35, y - 34, 70, 68, 14);
+    this.core.fillStyle(0xa2fcf0); this.core.fillRoundedRect(x - 23, y - 24, 46, 48, 8);
+    this.add.text(x, y + 73, '우리 기지', { fontFamily: 'sans-serif', fontSize: '22px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
+  }
+
+  private destroyStation(): void {
+    this.target = null; this.tweens.killTweensOf(this.player); this.player.play('idle', true);
+    const end = ROUTE[ROUTE.length - 1];
+    const x = center(end.x), y = center(end.y);
+    this.core.setAlpha(0.15);
+    this.cameras.main.shake(1000, 0.014);
+    this.cameras.main.flash(350, 255, 120, 60);
+    this.stationDamage.fillStyle(0x220d17, 0.45);
+    this.stationDamage.fillRect(100, 300, 1400, 600);
+    this.stationDamage.fillStyle(0x130d18, 0.85); this.stationDamage.fillCircle(x, y, 85);
+    for (const [dx, dy] of [[-160, -200], [340, -250], [700, -180], [870, 120], [300, 190], [-180, 130]]) {
+      this.stationDamage.lineStyle(12, 0x150912);
+      this.stationDamage.beginPath(); this.stationDamage.moveTo(x, y);
+      this.stationDamage.lineTo(x + dx * 0.35 + 35, y + dy * 0.35);
+      this.stationDamage.lineTo(x + dx * 0.65 - 25, y + dy * 0.65);
+      this.stationDamage.lineTo(x + dx, y + dy); this.stationDamage.strokePath();
+      this.stationDamage.lineStyle(3, 0xf27649, 0.8); this.stationDamage.strokePath();
+    }
+    for (let i = 0; i < 18; i++) {
+      const angle = i * Math.PI * 2 / 18;
+      const fragment = this.add.rectangle(x, y, 18 + i % 3 * 10, 16, i % 2 ? 0xffb862 : 0x879aab).setDepth(24);
+      this.tweens.add({ targets: fragment, x: x + Math.cos(angle) * (150 + i * 25), y: y + Math.sin(angle) * 180, angle: i * 70, alpha: 0, duration: 1100, onComplete: () => fragment.destroy() });
+    }
+    const blast = this.add.circle(x, y, 30, 0xffa24b, 0.9).setDepth(24);
+    this.tweens.add({ targets: blast, scale: 7, alpha: 0, duration: 800, onComplete: () => blast.destroy() });
+  }
+
   private fitRoom(): void {
     const { width, height } = this.scale;
     const side = width > 760 ? 225 : 78;
@@ -127,7 +169,7 @@ export class DefenseScene extends Phaser.Scene {
       const moved = this.simulation.robots.find(r => r.id === this.simulation.selectedId);
       if (moved?.x === tile.x && moved.y === tile.y) this.mode = 'move';
     } else if (this.canMove(tile.x, tile.y)) this.target = tile;
-    else this.notice = '방 안의 빈 바닥을 선택해 주세요.';
+    else this.notice = '괴물 길에는 들어갈 수 없어요. 길 밖의 빈 바닥을 선택해 주세요.';
     this.publish();
   }
 
@@ -135,27 +177,19 @@ export class DefenseScene extends Phaser.Scene {
     this.hover.clear();
     const tile = this.tileAt(pointer);
     if (!isWalkable(tile.x, tile.y)) return;
-    this.hover.lineStyle(3, this.mode === 'relocate' ? (isRouteTile(tile.x, tile.y) ? 0xff7070 : 0xf3bd6f) : 0x89e4dd, 0.85);
+    this.hover.lineStyle(3, isRouteTile(tile.x, tile.y) ? 0xff7070 : this.mode === 'relocate' ? 0xf3bd6f : 0x89e4dd, 0.85);
     this.hover.strokeRect(tile.x * 100 + 5, tile.y * 100 + 5, 90, 90);
   }
 
   private canMove(x: number, y: number): boolean {
-    return isWalkable(x, y) && !this.simulation.robots.some(t => t.x === x && t.y === y);
+    return this.simulation.canMovePlayer(x, y);
   }
 
   update(time: number, delta: number): void {
     if (!this.room) return;
     const previousHealth = this.simulation.health;
     const shots = this.interactionLocked ? [] : this.simulation.step(delta / 1000);
-    if (this.simulation.health < previousHealth) {
-      const hit = this.add.circle(center(this.playerTile.x), center(this.playerTile.y), 65, 0xff527d, 0.45).setDepth(21);
-      const damage = this.add.text(center(this.playerTile.x), center(this.playerTile.y) - 75, `−${previousHealth - this.simulation.health}`, { fontFamily: 'sans-serif', fontSize: '32px', color: '#ff799c', fontStyle: 'bold' }).setOrigin(0.5).setDepth(22);
-      this.tweens.add({ targets: hit, alpha: 0, scale: 1.5, duration: 300, onComplete: () => hit.destroy() });
-      this.tweens.add({ targets: damage, alpha: 0, y: damage.y - 65, duration: 650, onComplete: () => damage.destroy() });
-      if (this.simulation.status === 'defeat') {
-        this.target = null; this.tweens.killTweensOf(this.player); this.player.play('idle', true); this.player.setAngle(-70);
-      }
-    }
+    if (previousHealth > 0 && this.simulation.status === 'defeat') this.destroyStation();
     if (!this.interactionLocked && !['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
     this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
     this.drawUnits();
@@ -170,7 +204,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private movePlayer(time: number): void {
     if (time < this.moveAt || !this.target) return;
-    const next = this.findNextStep(this.target);
+    const next = this.simulation.nextPlayerStep(this.target);
     if (!next) { this.target = null; return; }
     this.playerTile = next;
     this.simulation.player = { ...next };
@@ -178,22 +212,6 @@ export class DefenseScene extends Phaser.Scene {
     this.player.play('move', true, true);
     this.tweens.add({ targets: this.player, x: center(next.x), y: center(next.y) + 30, duration: 145, onComplete: () => this.player.play('idle', true) });
     this.room.updateWall(next.y);
-  }
-
-  private findNextStep(target: TilePosition): TilePosition | null {
-    const queue: { tile: TilePosition; first: TilePosition | null }[] = [{ tile: this.playerTile, first: null }];
-    const visited = new Set([`${this.playerTile.x},${this.playerTile.y}`]);
-    for (let index = 0; index < queue.length; index++) {
-      const entry = queue[index];
-      if (entry.tile.x === target.x && entry.tile.y === target.y) return entry.first;
-      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-        const next = { x: entry.tile.x + dx, y: entry.tile.y + dy };
-        const key = `${next.x},${next.y}`;
-        if (visited.has(key) || !this.canMove(next.x, next.y)) continue;
-        visited.add(key); queue.push({ tile: next, first: entry.first ?? next });
-      }
-    }
-    return null;
   }
 
   private drawUnits(): void {
@@ -238,9 +256,7 @@ export class DefenseScene extends Phaser.Scene {
         this.aliens.set(enemy.id, actor);
       }
       actor.setPosition(x, y - 22 + Math.sin(this.time.now / 160 + enemy.id) * 3);
-      const chasing = enemy.waypoint >= ROUTE.length;
-      actor.setFlipX(chasing ? (enemy.chaseTarget?.x ?? s.player.x) < enemy.x : enemy.waypoint === 3);
-      actor.setTint(chasing ? 0xffb1bd : 0xffffff);
+      actor.setFlipX(enemy.waypoint === 3);
       this.units.fillStyle(0x162c36); this.units.fillRoundedRect(x - 28, y - 85, 56, 7, 3);
       this.units.fillStyle(enemy.burnTime > 0 ? 0xffac70 : 0xe79bce); this.units.fillRoundedRect(x - 28, y - 85, 56 * Math.max(0, enemy.health / WAVE_ONE.health), 7, 3);
     }
@@ -283,6 +299,8 @@ export class DefenseScene extends Phaser.Scene {
     this.simulation = new DefenseSimulation(); this.mode = 'move'; this.target = null;
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
     this.player.setAngle(0);
+    this.stationDamage.clear(); this.core.setAlpha(1);
+    this.cameras.main.resetFX();
     this.player.setPosition(center(this.playerTile.x), center(this.playerTile.y) + 30); this.room.updateWall(this.playerTile.y);
     this.draggedRobot = null; this.dragStart = null; this.moveAt = 0;
     this.notice = '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
@@ -290,7 +308,7 @@ export class DefenseScene extends Phaser.Scene {
   }
   private publish(): void {
     const s = this.simulation;
-    const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물의 공격으로 캐릭터 체력이 0이 됐어요. 게임 오버!' : this.notice;
+    const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
     const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message };
     this.options.onState?.(state);
   }

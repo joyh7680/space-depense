@@ -5,7 +5,7 @@ import { DEPLOY_SLOTS, WAVE_ONE } from '../src/game/wave-one.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 
 const advance = (game: DefenseSimulation, seconds: number) => { for (let i = 0; i < seconds * 20 && ['ready', 'running'].includes(game.status); i++) game.step(0.05); };
-const enemy = (id: number, x: number, y = ROUTE[0].y): Enemy => ({ id, x, y, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0, attackCooldown: 0, chaseTarget: null });
+const enemy = (id: number, x: number, y = ROUTE[0].y): Enemy => ({ id, x, y, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
 
 test('room boundaries and flipped wall tiles cannot be walked on; every deploy slot is valid', () => {
   assert.equal(isWalkable(7, 6), true);
@@ -110,7 +110,7 @@ test('fire applies damage over time, ice slows, and electric chains to one nearb
   assert.equal(shots.length, 2); assert.equal(shots[1].chain, true); assert.ok(game.enemies[1].health < 1000);
 });
 
-test('a burning enemy killed before finishing the route awards energy without starting a chase', () => {
+test('a burning enemy killed before reaching the base awards energy without destroying the station', () => {
   const game = new DefenseSimulation(); game.summon(); game.startWave();
   const end = ROUTE[ROUTE.length - 1];
   game.enemies = [{ ...enemy(100, end.x + 0.001, end.y), waypoint: ROUTE.length - 1, health: 0.01, burnTime: 1, burnDamage: 10 }];
@@ -129,70 +129,60 @@ test('three starting robots can clear wave 1 with every single-kind starting dra
   }
 });
 
-test('a surviving monster kills the player and defeat cannot restart or duplicate rewards', () => {
-  const game = new DefenseSimulation(); game.startWave();
-  game.spawned = WAVE_ONE.enemies;
-  game.enemies = [{ ...enemy(100, game.player.x, game.player.y), waypoint: ROUTE.length }];
-  advance(game, 8); assert.equal(game.status, 'defeat'); assert.equal(game.health, 0);
-  assert.ok(game.enemies[0].health > 0);
-  const balance = game.credits; advance(game, 90); assert.equal(game.credits, balance); assert.equal(game.startWave(), false);
-});
-
-test('route survivors stay alive, chase the player, and prevent premature wave completion', () => {
+test('one survivor escapes through the base and destroys the station instead of clearing the wave', () => {
   const game = new DefenseSimulation(); game.startWave(); game.spawned = WAVE_ONE.enemies;
   const end = ROUTE.at(-1)!;
   const survivor = { ...enemy(100, end.x + 0.001, end.y), waypoint: ROUTE.length - 1 };
   game.enemies = [survivor];
+  const balance = game.credits;
   game.step(0.05);
-  assert.equal(game.enemies.length, 1); assert.equal(game.escaped, 1);
-  assert.equal(game.health, 100); assert.equal(game.status, 'running');
-  const before = Math.hypot(survivor.x - game.player.x, survivor.y - game.player.y);
-  advance(game, 1);
-  assert.ok(Math.hypot(survivor.x - game.player.x, survivor.y - game.player.y) < before);
-  assert.equal(game.escaped, 1); assert.equal(game.health, 100);
+  assert.equal(game.enemies.length, 0); assert.equal(game.escaped, 1);
+  assert.equal(game.health, 0); assert.equal(game.status, 'defeat'); assert.equal(game.kills, 0);
+  assert.equal(game.credits, balance);
+  const snapshot = JSON.stringify(game);
+  for (let i = 0; i < 40; i++) game.step(0.05);
+  game.summon(); game.merge(); assert.equal(game.startWave(), false);
+  assert.equal(JSON.stringify(game), snapshot);
 });
 
-test('an actual unguarded wave pursues and defeats a player away from the route', () => {
+test('an actual unguarded wave ends on the first escape, regardless of player position', () => {
   const game = new DefenseSimulation(); game.player = { x: 14, y: 8 };
   advance(game, 90);
   assert.equal(game.status, 'defeat'); assert.equal(game.health, 0);
-  assert.ok(game.escaped > 0);
-  assert.ok(game.enemies.some(e => e.waypoint >= ROUTE.length));
+  assert.equal(game.escaped, 1);
+  assert.ok(game.enemies.every(e => e.waypoint < ROUTE.length));
+  const fresh = new DefenseSimulation(); assert.equal(fresh.health, 100); assert.equal(fresh.escaped, 0);
 });
 
-test('chasing monsters retarget a moving player, stay on the floor, and attack only within reach', () => {
-  const game = new DefenseSimulation(); game.startWave(); game.spawned = WAVE_ONE.enemies;
-  game.player = { x: 9, y: 7 };
-  const survivor = { ...enemy(100, 3, 6), waypoint: ROUTE.length };
-  game.enemies = [survivor]; advance(game, 1);
-  assert.equal(game.health, 100);
-  game.player = { x: 3, y: 3 };
-  const before = Math.hypot(survivor.x - game.player.x, survivor.y - game.player.y);
-  for (let i = 0; i < 40; i++) {
-    game.step(0.05);
-    assert.ok(isWalkable(Math.round(survivor.x), Math.round(survivor.y)));
+test('every road tile rejects player destinations, robot summons, and robot relocation', () => {
+  const game = new DefenseSimulation(() => 0); game.summon();
+  const robot = game.robots[0], original = { x: robot.x, y: robot.y }, balance = game.credits;
+  for (let y = 3; y <= 7; y++) for (let x = 1; x <= 14; x++) {
+    if (!isRouteTile(x, y)) continue;
+    assert.equal(game.canMovePlayer(x, y), false);
+    assert.equal(game.nextPlayerStep({ x, y }), null);
+    game.placeRobot(x, y); game.moveRobot(robot.id, x, y);
+    assert.deepEqual({ x: robot.x, y: robot.y }, original);
   }
-  assert.ok(Math.hypot(survivor.x - game.player.x, survivor.y - game.player.y) < before);
-  assert.equal(game.health, 100);
-  advance(game, 3); assert.ok(game.health < 100);
+  assert.equal(game.credits, balance); assert.equal(game.robots.length, 1);
 });
 
-test('monster attacks respect cooldown and pause, and survivors can still be killed for a clear', () => {
-  const game = new DefenseSimulation(); game.startWave(); game.spawned = WAVE_ONE.enemies;
-  const survivor = { ...enemy(100, game.player.x, game.player.y), waypoint: ROUTE.length };
-  game.enemies = [survivor]; game.step(0.05);
-  assert.equal(game.health, 100 - WAVE_ONE.attackDamage);
-  advance(game, 0.5); assert.equal(game.health, 100 - WAVE_ONE.attackDamage);
-  game.togglePause(); const snapshot = JSON.stringify(game);
-  for (let i = 0; i < 20; i++) game.step(0.05);
-  assert.equal(JSON.stringify(game), snapshot);
-  game.togglePause(); advance(game, 0.4);
-  assert.equal(game.health, 100 - 2 * WAVE_ONE.attackDamage);
-  survivor.health = 0.01; survivor.burnTime = 1; survivor.burnDamage = 10;
-  const balance = game.credits; game.step(0.05);
-  assert.equal(game.status, 'cleared'); assert.equal(game.kills, 1);
-  assert.equal(game.credits, balance + WAVE_ONE.killEnergy + WAVE_ONE.clearEnergy);
-  const fresh = new DefenseSimulation(); assert.equal(fresh.health, 100); assert.equal(fresh.enemies.length, 0);
+test('player pathfinding takes a floor-only detour and respects robots placed in the way', () => {
+  const game = new DefenseSimulation(() => 0);
+  assert.equal(isRouteTile(game.player.x, game.player.y), false);
+  const target = { x: 14, y: 8 };
+  for (let i = 0; i < 100 && (game.player.x !== target.x || game.player.y !== target.y); i++) {
+    const next = game.nextPlayerStep(target); assert.ok(next);
+    assert.equal(Math.abs(next.x - game.player.x) + Math.abs(next.y - game.player.y), 1);
+    assert.equal(isRouteTile(next.x, next.y), false); assert.ok(isWalkable(next.x, next.y));
+    game.player = next;
+  }
+  assert.deepEqual(game.player, target);
+  const blocked = new DefenseSimulation(() => 0);
+  assert.deepEqual(blocked.nextPlayerStep({ x: 11, y: 5 }), { x: 6, y: 5 });
+  blocked.placeRobot(6, 5);
+  assert.equal(blocked.canMovePlayer(6, 5), false);
+  assert.equal(blocked.nextPlayerStep({ x: 11, y: 5 }), null);
 });
 
 test('new games do not share combat, selection or resource state', () => {
