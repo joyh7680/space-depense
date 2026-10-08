@@ -322,7 +322,7 @@ export class DefenseScene extends Phaser.Scene {
       }
       const attackEnabled = robot.missionStatus === 'completed';
       art.setAlpha(attackEnabled ? 1 : 0.55);
-      label.setVisible(attackEnabled).setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n공격 중`);
+      label.setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n${attackEnabled ? '공격 중' : '공격 대기'}`);
     }
     for (const [id, label] of this.unitLabels) { if (!deployedRobots.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
     for (const [id, art] of this.robotArt) if (!deployedRobots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); }
@@ -387,7 +387,11 @@ export class DefenseScene extends Phaser.Scene {
     this.simulation.selectRobot(id);
     const deployed = this.simulation.deployedRobots.some(robot => robot.id === id);
     this.inspectRange = deployed; this.mode = deployed ? 'relocate' : 'move'; this.target = null;
-    this.notice = deployed ? '빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.' : '코딩 미션을 완료하면 로봇이 방에 배치돼요.';
+    const robot = this.simulation.robots.find(robot => robot.id === id);
+    this.notice = deployed
+      ? robot?.missionStatus === 'completed' ? '빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.' : '공격 대기 중이에요. 오른쪽 코딩 미션을 완료해 공격을 활성화하세요.'
+      : robot?.missionMessage ?? '로봇 소환 버튼에서 로봇을 선택하세요.';
+    this.drawUnits();
     this.options.parent.focus({ preventScroll: true }); this.publish();
   }
   updateCode(id: number, slot: number, block: CodingBlockId | null): void {

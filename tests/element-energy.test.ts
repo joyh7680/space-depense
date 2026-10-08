@@ -32,10 +32,14 @@ test('three matching elements store a waiting robot without deploying it and con
   }
 
   const first = game.robots[0];
-  game.selectRobot(first.id);
   game.moveRobot(first.id, 4, 7);
-  assert.equal(first.deployed, false, 'moving a stored robot cannot bypass its coding mission');
+  assert.equal(first.deployed, false, 'moving a stored robot does not deploy it');
   assert.equal(game.canMovePlayer(4, 7), true, 'stored robots do not block room tiles');
+  game.selectRobot(first.id);
+  assert.equal(first.deployed, true, 'selecting a stored robot deploys it in waiting state');
+  assert.equal(first.missionStatus, 'waiting');
+  assert.equal(game.deployedRobots.length, 1);
+  game.moveRobot(first.id, 4, 7);
   assert.equal(game.robotCount, 3, 'selecting and moving robots does not increase the count');
   assert.equal(new DefenseSimulation().robotCount, 0, 'a new game resets the count');
 });

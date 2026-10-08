@@ -82,21 +82,43 @@ test('automatic summons can create two independent missions in one reward batch 
   assert.deepEqual(game.robots.map(robot => [robot.serial, robot.missionStatus]), [[1, 'waiting'], [2, 'waiting']]);
   const [first, second] = game.robots;
   game.selectRobot(first.id);
-  assert.equal(game.deployedRobots.length, 0, 'selecting a robot from the hangar does not deploy it');
+  assert.deepEqual(game.deployedRobots.map(robot => robot.id), [first.id], 'selecting from the hangar deploys only that robot');
+  assert.equal(first.missionStatus, 'waiting');
+  const position = [first.x, first.y];
+  game.selectRobot(first.id);
+  assert.deepEqual([first.x, first.y], position, 'reselecting a robot keeps its position');
+  game.enemies = [enemy(200, 3)];
+  assert.deepEqual(advance(game, 11), [], 'selected waiting robots cannot attack');
   game.runCode(first.id);
   assert.equal(first.missionStatus, 'error');
-  assert.equal(game.deployedRobots.length, 0, 'invalid code leaves the robot in storage');
+  assert.deepEqual(game.deployedRobots.map(robot => robot.id), [first.id], 'invalid code keeps the selected robot deployed');
+  assert.deepEqual(advance(game, 11), [], 'failed coding missions cannot enable attacks');
   complete(game);
   assert.deepEqual(game.deployedRobots.map(robot => robot.id), [first.id]);
   assert.equal(second.missionStatus, 'waiting'); assert.equal(second.deployed, false);
   assert.equal(game.canMovePlayer(first.x, first.y), false);
   game.enemies = [enemy(200, 3)];
   assert.equal(advance(game, 11).length, 3, 'the deployed robot starts its existing attack behavior');
+  game.selectRobot(second.id);
+  assert.equal(second.missionStatus, 'waiting');
   complete(game, second.id);
   assert.equal(game.deployedRobots.length, 2);
   assert.notDeepEqual([first.x, first.y], [second.x, second.y]);
   assert.equal(game.robotCount, 2, 'deployment does not change the owned robot count');
   assert.equal(game.elementEnergy.ice, 1, 'deployment does not spend more energy');
+});
+
+test('paused and finished games cannot deploy stored robots through selection', () => {
+  const game = new DefenseSimulation(() => 0.4); game.startWave();
+  game.enemies = Array.from({ length: 3 }, (_, id) => ({ ...enemy(100 + id, 3), health: 0 }));
+  game.step(0.05);
+  const robot = game.robots[0];
+  for (const status of ['paused', 'cleared', 'defeat'] as const) {
+    game.status = status;
+    const before = JSON.stringify(game);
+    game.selectRobot(robot.id);
+    assert.equal(JSON.stringify(game), before);
+  }
 });
 
 test('automatic summons retain energy at capacity and never spend it in a paused or ended game', () => {

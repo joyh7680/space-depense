@@ -87,7 +87,7 @@ export class DefenseSimulation {
   }
   private createRobot(kind: RobotKind, position: TilePosition | null, select = true): void {
     const config = ROBOTS[kind];
-    // Stored robots have no room tile until their coding mission is completed.
+    // Stored robots have no room tile until the player selects them from the hangar.
     const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, activeBlock: 'find', attacks: 0, targetId: null,
       serial: ++this.robotSerial[kind], code: CODING_MISSIONS[kind].slots.map(() => null), missionStatus: 'waiting', missionMessage: '블록을 조합하고 코드를 실행해 공격을 활성화하세요.' };
     this.robots.push(robot);
@@ -105,7 +105,21 @@ export class DefenseSimulation {
     const slot = this.findRobotSlot();
     return slot ? this.placeRobot(slot.x, slot.y, kind) : '배치 칸이 가득 찼어요. 같은 로봇을 합성해 보세요.';
   }
-  selectRobot(id: number): void { if (this.robots.some(d => d.id === id)) this.selectedId = id; }
+  private deployRobot(robot: Robot): boolean {
+    if (robot.deployed) return true;
+    const slot = this.findRobotSlot();
+    if (!slot) {
+      robot.missionMessage = '배치할 빈 바닥이 없어요. 자리를 비운 뒤 다시 선택해 주세요.';
+      return false;
+    }
+    robot.x = slot.x; robot.y = slot.y; robot.deployed = true;
+    return true;
+  }
+  selectRobot(id: number): void {
+    const robot = this.robots.find(robot => robot.id === id);
+    if (!this.canDeploy || !robot || !this.deployRobot(robot)) return;
+    this.selectedId = id;
+  }
   updateCode(id: number, slot: number, block: CodingBlockId | null): void {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot || robot.missionStatus === 'completed' || !Number.isInteger(slot) || slot < 0 || slot >= robot.code.length) return;
@@ -118,14 +132,7 @@ export class DefenseSimulation {
     if (!this.canDeploy || !robot) return '지금은 코드를 실행할 수 없어요.';
     if (robot.missionStatus === 'completed') return robot.missionMessage;
     const result = validateRobotCode(robot.kind, robot.code);
-    if (result.success && !robot.deployed) {
-      const slot = this.findRobotSlot();
-      if (!slot) {
-        robot.missionMessage = '배치할 빈 바닥이 없어요. 자리를 비운 뒤 코드를 다시 실행해 주세요.';
-        return robot.missionMessage;
-      }
-      robot.x = slot.x; robot.y = slot.y; robot.deployed = true;
-    }
+    if (result.success && !this.deployRobot(robot)) return robot.missionMessage;
     robot.missionStatus = result.success ? 'completed' : 'error';
     robot.missionMessage = result.message;
     robot.activeBlock = 'find'; robot.phaseTimer = 0;
@@ -142,7 +149,7 @@ export class DefenseSimulation {
   moveRobot(id: number, x: number, y: number): string {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot) return '옮길 로봇을 선택해 주세요.';
-    if (!robot.deployed) return '로봇 목록에서 코딩 미션을 완료하면 방에 배치돼요.';
+    if (!robot.deployed) return '로봇 소환 버튼에서 로봇을 선택하면 방에 배치돼요.';
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥에 배치해 주세요.';
     if (this.deployedRobots.some(r => r.id !== id && r.x === x && r.y === y)) return '다른 로봇이 있는 자리예요.';
     robot.x = x; robot.y = y; robot.targetId = null;
