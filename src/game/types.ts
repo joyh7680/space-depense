@@ -14,6 +14,7 @@ export type DefenseState = {
   mode: GameMode; grid: boolean; message: string; countdown: number;
 };
 export type GameController = {
+  setInteractionLocked: (locked: boolean) => void;
   setMode: (mode: GameMode) => void;
   summon: () => void;
   selectRobot: (id: number) => void;

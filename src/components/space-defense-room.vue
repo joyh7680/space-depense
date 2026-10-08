@@ -27,6 +27,7 @@ onMounted(async () => {
 onBeforeUnmount(() => { disposed = true; controller?.destroy(); });
 
 defineExpose({
+  setInteractionLocked: (locked: boolean) => controller?.setInteractionLocked(locked),
   setMode: (mode: GameMode) => controller?.setMode(mode),
   summon: () => controller?.summon(),
   selectRobot: (id: number) => controller?.selectRobot(id),

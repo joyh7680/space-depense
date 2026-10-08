@@ -32,6 +32,7 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
   });
   observer.observe(options.parent);
   return {
+    setInteractionLocked: locked => scene.setInteractionLocked(locked),
     setMode: mode => scene.setMode(mode),
     summon: () => scene.summon(),
     selectRobot: id => scene.selectRobot(id),

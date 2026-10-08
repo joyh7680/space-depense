@@ -29,6 +29,7 @@ export class DefenseScene extends Phaser.Scene {
   private dragStart: TilePosition | null = null;
   private publishAt = 0;
   private moveAt = 0;
+  private interactionLocked = false;
   private options: GameOptions;
 
   constructor(options: GameOptions) { super('DefenseScene'); this.options = options; }
@@ -114,8 +115,9 @@ export class DefenseScene extends Phaser.Scene {
   private fitRoom(): void {
     const { width, height } = this.scale;
     const side = width > 760 ? 225 : 78;
+    this.cameras.main.setViewport(0, 0, width, height);
     this.cameras.main.setZoom(Math.min((width - side - 24) / 1600, (height - 200) / 1130));
-    this.cameras.main.centerOn(800 - side / (2 * this.cameras.main.zoom), 620);
+    this.cameras.main.centerOn(800, 620);
   }
 
   private tileAt(pointer: Phaser.Input.Pointer): TilePosition {
@@ -125,7 +127,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private onPointer(pointer: Phaser.Input.Pointer): void {
     this.options.parent.focus({ preventScroll: true });
-    if (['paused', 'defeat', 'cleared'].includes(this.simulation.status)) return;
+    if (this.interactionLocked || ['paused', 'defeat', 'cleared'].includes(this.simulation.status)) return;
     const tile = this.tileAt(pointer);
     if (this.simulation.robots.some(d => d.x === tile.x && d.y === tile.y)) {
       const robot = this.simulation.robots.find(d => d.x === tile.x && d.y === tile.y)!;
@@ -155,8 +157,8 @@ export class DefenseScene extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     if (!this.room) return;
-    const shots = this.simulation.step(delta / 1000);
-    if (!['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
+    const shots = this.interactionLocked ? [] : this.simulation.step(delta / 1000);
+    if (!this.interactionLocked && !['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
     this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
     this.drawUnits();
     for (const shot of shots) {
@@ -256,6 +258,7 @@ export class DefenseScene extends Phaser.Scene {
     }
   }
 
+  setInteractionLocked(locked: boolean): void { this.interactionLocked = locked; this.clearHover(); }
   setMode(mode: GameMode): void {
     this.mode = mode; this.target = null;
     this.notice = mode === 'relocate' ? '선택한 로봇을 빈 바닥에 배치해 주세요.' : '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
