@@ -16,7 +16,6 @@ const canSummon = computed(() => canDeploy.value && state.value.credits >= SUMMO
 const finished = computed(() => ['cleared', 'defeat'].includes(state.value.status));
 const selected = computed(() => state.value.robots.find(r => r.id === state.value.selectedId));
 const canMerge = computed(() => canDeploy.value && selected.value && selected.value.grade < 3 && state.value.robots.some(r => r.id !== selected.value!.id && r.kind === selected.value!.kind && r.grade === selected.value!.grade));
-const hint = computed(() => state.value.mode === 'relocate' ? '빈 바닥을 눌러 로봇 배치 · 드래그도 가능' : '바닥 클릭·터치로 이동 · 자동 공격');
 const kindOrder = ['electric', 'ice', 'fire'] as const;
 const robotGroups = computed(() => (['fire', 'ice', 'electric'] as const).map(kind => ({ kind, count: state.value.robots.filter(r => r.kind === kind).length })));
 const robotArt = {
@@ -71,14 +70,13 @@ function dialogKey(event: KeyboardEvent) {
     <div class="wave-hud" aria-label="전투 현황">
       <div class="wave-counter"><small>WAVE</small><strong>01</strong></div>
       <div class="battle-progress"><div><b>{{ state.status === 'ready' ? '잠시 후 자동 시작' : '우주정거장 방어' }}</b><span>{{ state.kills }} / {{ state.total }}</span></div><div class="progress-track"><i :style="{ width: state.kills / state.total * 100 + '%' }" /></div></div>
-      <div class="base-health" :class="{ danger: state.health <= 30 }"><span>♥</span><b>{{ state.health }}</b></div>
+      <div class="player-health" :class="{ danger: state.health <= 30 }" :aria-label="'캐릭터 체력 ' + state.health"><span>♥</span><b>{{ state.health }}</b></div>
     </div>
     <div v-if="ready && state.status === 'ready' && !summonOpen" class="countdown-hud" role="status"><small>괴물 출현까지</small><strong>{{ state.countdown }}</strong><span>바닥을 눌러 움직여 보세요</span></div>
     <div class="bottom-controls">
       <div class="action-area">
         <div class="robot-elements" aria-label="속성별 로봇 보유 수량"><span v-for="kind in kindOrder" :key="kind" :class="kind" :aria-label="ROBOTS[kind].name + ' ' + state.robots.filter(r => r.kind === kind).length"><i>{{ ROBOTS[kind].symbol }}</i><small>{{ ROBOTS[kind].name }}</small><b>{{ state.robots.filter(r => r.kind === kind).length }}</b></span></div>
         <div class="action-dock"><button class="summon-button" :disabled="!canDeploy" aria-haspopup="dialog" :aria-expanded="summonOpen" @click="openSummon"><span class="button-icon">＋</span><span><b>로봇 소환</b><small>보유 {{ state.robots.length }}/8</small></span></button></div>
-        <div class="game-hint" role="status">{{ hint }}</div>
       </div>
     </div>
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
@@ -101,7 +99,7 @@ function dialogKey(event: KeyboardEvent) {
       </section>
     </div>
     <div v-if="finished" class="screen-overlay result-overlay">
-      <section class="game-modal result-modal" aria-label="1웨이브 결과"><small>WAVE 01</small><div class="result-symbol">{{ state.status === 'cleared' ? '★' : '↻' }}</div><h1>{{ state.status === 'cleared' ? '방어 성공!' : '다시 도전!' }}</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/12</b></span><span>기지 <b>♥ {{ state.health }}</b></span></div><p v-if="state.status === 'cleared'" class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><p v-else>로봇을 소환하고 길 옆에 배치해 보세요!</p><button class="launch-button" @click="room?.reset()">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
+      <section class="game-modal result-modal" aria-label="1웨이브 결과"><small>WAVE 01</small><div class="result-symbol">{{ state.status === 'cleared' ? '★' : '↻' }}</div><h1>{{ state.status === 'cleared' ? '방어 성공!' : '게임 오버' }}</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/12</b></span><span>내 체력 <b>♥ {{ state.health }}</b></span></div><p v-if="state.status === 'cleared'" class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><p v-else>살아남은 괴물에게 공격당했어요.<br />괴물을 피해 이동하며 로봇과 함께 싸워보세요!</p><button class="launch-button" @click="room?.reset()">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
     </div>
   </main>
 </template>

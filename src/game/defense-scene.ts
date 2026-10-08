@@ -3,7 +3,7 @@ import { DefenseSimulation, ROUTE, isRouteTile } from './defense-simulation';
 import { Room } from './room/room';
 import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
-import { DEPLOY_SLOTS, ROBOTS, WAVE_ONE } from './wave-one';
+import { ROBOTS, WAVE_ONE } from './wave-one';
 import type { DefenseState, GameMode, GameOptions, TilePosition } from './types';
 
 const center = (value: number) => value * 100 + 50;
@@ -61,11 +61,8 @@ export class DefenseScene extends Phaser.Scene {
     this.ranges = this.add.graphics().setDepth(4);
     this.hover = this.add.graphics().setDepth(4);
     this.createPlayer();
-    this.createCore();
     const start = ROUTE[0];
     this.add.text(center(start.x), center(start.y), 'IN →', { fontFamily: 'sans-serif', fontSize: '22px', color: '#6f5731', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
-    const end = ROUTE[ROUTE.length - 1];
-    this.add.text(center(end.x), center(end.y) + 73, '우리 기지', { fontFamily: 'sans-serif', fontSize: '22px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.onPointer(pointer));
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       const tile = this.tileAt(pointer);
@@ -102,16 +99,6 @@ export class DefenseScene extends Phaser.Scene {
     this.player = this.add.spine(center(this.playerTile.x), center(this.playerTile.y) + 30, 'player', 'idle', true).setScale(0.19).setDepth(20);
     this.player.setSkinByName('purple');
     this.player.skeleton.setSlotsToSetupPose();
-  }
-
-  private createCore(): void {
-    const core = this.add.graphics().setDepth(10);
-    const end = ROUTE[ROUTE.length - 1];
-    core.fillStyle(0x76f0e9, 0.14); core.fillCircle(center(end.x), center(end.y), 79);
-    core.lineStyle(3, 0x77eae1, 0.55); core.strokeCircle(center(end.x), center(end.y), 57);
-    core.fillStyle(0x286579); core.fillRoundedRect(center(end.x) - 35, center(end.y) - 34, 70, 68, 14);
-    core.fillStyle(0xa2fcf0); core.fillRoundedRect(center(end.x) - 23, center(end.y) - 24, 46, 48, 8);
-    this.tweens.add({ targets: core, alpha: 0.65, duration: 1500, yoyo: true, repeat: -1 });
   }
 
   private fitRoom(): void {
@@ -153,13 +140,22 @@ export class DefenseScene extends Phaser.Scene {
   }
 
   private canMove(x: number, y: number): boolean {
-    const end = ROUTE[ROUTE.length - 1];
-    return isWalkable(x, y) && !(x === end.x && y === end.y) && !this.simulation.robots.some(t => t.x === x && t.y === y);
+    return isWalkable(x, y) && !this.simulation.robots.some(t => t.x === x && t.y === y);
   }
 
   update(time: number, delta: number): void {
     if (!this.room) return;
+    const previousHealth = this.simulation.health;
     const shots = this.interactionLocked ? [] : this.simulation.step(delta / 1000);
+    if (this.simulation.health < previousHealth) {
+      const hit = this.add.circle(center(this.playerTile.x), center(this.playerTile.y), 65, 0xff527d, 0.45).setDepth(21);
+      const damage = this.add.text(center(this.playerTile.x), center(this.playerTile.y) - 75, `−${previousHealth - this.simulation.health}`, { fontFamily: 'sans-serif', fontSize: '32px', color: '#ff799c', fontStyle: 'bold' }).setOrigin(0.5).setDepth(22);
+      this.tweens.add({ targets: hit, alpha: 0, scale: 1.5, duration: 300, onComplete: () => hit.destroy() });
+      this.tweens.add({ targets: damage, alpha: 0, y: damage.y - 65, duration: 650, onComplete: () => damage.destroy() });
+      if (this.simulation.status === 'defeat') {
+        this.target = null; this.tweens.killTweensOf(this.player); this.player.play('idle', true); this.player.setAngle(-70);
+      }
+    }
     if (!this.interactionLocked && !['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
     this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
     this.drawUnits();
@@ -204,14 +200,6 @@ export class DefenseScene extends Phaser.Scene {
     this.units.clear();
     this.ranges.clear();
     const s = this.simulation;
-    for (const slot of DEPLOY_SLOTS) {
-      const occupied = s.robots.some(d => d.x === slot.x && d.y === slot.y);
-      this.ranges.fillStyle(0x90ffe6, occupied ? 0.08 : 0.12);
-      this.ranges.fillRoundedRect(slot.x * 100 + 8, slot.y * 100 + 8, 84, 84, 16);
-      this.ranges.lineStyle(this.mode === 'relocate' ? 4 : 2, 0x8de7d7, occupied ? 0.25 : 0.55);
-      this.ranges.strokeRoundedRect(slot.x * 100 + 8, slot.y * 100 + 8, 84, 84, 16);
-      if (!occupied) { this.ranges.lineBetween(center(slot.x) - 12, center(slot.y), center(slot.x) + 12, center(slot.y)); this.ranges.lineBetween(center(slot.x), center(slot.y) - 12, center(slot.x), center(slot.y) + 12); }
-    }
     for (const robot of s.robots) {
       const x = center(robot.x), y = center(robot.y), color = ROBOTS[robot.kind].color;
       if (this.inspectRange && robot.id === s.selectedId) {
@@ -250,7 +238,9 @@ export class DefenseScene extends Phaser.Scene {
         this.aliens.set(enemy.id, actor);
       }
       actor.setPosition(x, y - 22 + Math.sin(this.time.now / 160 + enemy.id) * 3);
-      actor.setFlipX(enemy.waypoint === 3);
+      const chasing = enemy.waypoint >= ROUTE.length;
+      actor.setFlipX(chasing ? (enemy.chaseTarget?.x ?? s.player.x) < enemy.x : enemy.waypoint === 3);
+      actor.setTint(chasing ? 0xffb1bd : 0xffffff);
       this.units.fillStyle(0x162c36); this.units.fillRoundedRect(x - 28, y - 85, 56, 7, 3);
       this.units.fillStyle(enemy.burnTime > 0 ? 0xffac70 : 0xe79bce); this.units.fillRoundedRect(x - 28, y - 85, 56 * Math.max(0, enemy.health / WAVE_ONE.health), 7, 3);
     }
@@ -292,6 +282,7 @@ export class DefenseScene extends Phaser.Scene {
     this.inspectRange = false;
     this.simulation = new DefenseSimulation(); this.mode = 'move'; this.target = null;
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
+    this.player.setAngle(0);
     this.player.setPosition(center(this.playerTile.x), center(this.playerTile.y) + 30); this.room.updateWall(this.playerTile.y);
     this.draggedRobot = null; this.dragStart = null; this.moveAt = 0;
     this.notice = '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
@@ -299,7 +290,7 @@ export class DefenseScene extends Phaser.Scene {
   }
   private publish(): void {
     const s = this.simulation;
-    const message = s.status === 'cleared' ? '1웨이브 방어 성공! 내 로봇의 순차 코드가 기지를 지켰어요.' : s.status === 'defeat' ? '기지 체력이 0이 됐어요. 로봇을 더 소환하거나 합성해서 다시 도전해 보세요.' : this.notice;
+    const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물의 공격으로 캐릭터 체력이 0이 됐어요. 게임 오버!' : this.notice;
     const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message };
     this.options.onState?.(state);
   }
