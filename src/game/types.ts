@@ -1,3 +1,4 @@
+import type { CodingBlockId, RobotCode } from './coding-missions.ts';
 export type TilePosition = { x: number; y: number };
 export type RobotKind = 'fire' | 'ice' | 'electric';
 export type ElementEnergy = Record<RobotKind, number>;
@@ -7,20 +8,23 @@ export type GameStatus = 'ready' | 'running' | 'paused' | 'cleared' | 'defeat';
 export type RobotState = TilePosition & {
   id: number; kind: RobotKind; grade: number; range: number; damage: number;
   activeBlock: CodeBlock; attacks: number; targetId: number | null;
+  serial: number; code: RobotCode; missionStatus: 'waiting' | 'error' | 'completed'; missionMessage: string;
 };
 export type DefenseState = {
   status: GameStatus; wave: number; health: number; credits: number; kills: number;
   enemies: number; spawned: number; total: number; escaped: number; elapsed: number;
   robots: RobotState[]; robotCount: number; elementEnergy: ElementEnergy; selectedId: number | null; player: TilePosition;
   mode: GameMode; grid: boolean; message: string; countdown: number;
+  monsterSummonCountdown: number | null;
   defeatAnimationComplete: boolean;
 };
 export type GameController = {
   setInteractionLocked: (locked: boolean) => void;
   setMode: (mode: GameMode) => void;
   summon: (kind: RobotKind) => void;
-  summonMonster: () => void;
   selectRobot: (id: number) => void;
+  updateCode: (id: number, slot: number, block: CodingBlockId | null) => void;
+  runCode: (id: number) => void;
   merge: () => void;
   toggleGrid: () => void;
   startWave: () => void;

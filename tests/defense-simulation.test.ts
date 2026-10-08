@@ -4,8 +4,16 @@ import { DefenseSimulation, ROUTE, isRouteTile, type Enemy } from '../src/game/d
 import { DEPLOY_SLOTS, WAVE_ONE } from '../src/game/wave-one.ts';
 import type { RobotKind } from '../src/game/types.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
+import { CODING_MISSIONS } from '../src/game/coding-missions.ts';
 
-const summon = (game: DefenseSimulation, kind: RobotKind = 'fire') => { game.elementEnergy[kind] += 3; return game.summon(kind); };
+const summon = (game: DefenseSimulation, kind: RobotKind = 'fire') => {
+  game.elementEnergy[kind] += 3;
+  const message = game.summon(kind);
+  const robot = game.robots.at(-1)!;
+  CODING_MISSIONS[kind].slots.forEach((slot, index) => game.updateCode(robot.id, index, slot.block));
+  game.runCode(robot.id);
+  return message;
+};
 
 const advance = (game: DefenseSimulation, seconds: number) => { for (let i = 0; i < seconds * 20 && ['ready', 'running'].includes(game.status); i++) game.step(0.05); };
 const enemy = (id: number, x: number, y = ROUTE[0].y): Enemy => ({ id, x, y, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
@@ -101,13 +109,13 @@ test('pause and finished states reject charged robots without spending energy; b
 test('sequential code selects the nearest living in-range target, then attacks, then waits', () => {
   const game = new DefenseSimulation(() => 0);
   game.player = { x: 14, y: 11 };
-  summon(game); game.startWave();
+  summon(game, 'ice'); game.startWave();
   game.enemies = [enemy(100, 5), enemy(101, 3), enemy(102, 14)];
   game.step(0.05);
   assert.equal(game.robots[0].activeBlock, 'attack'); assert.equal(game.robots[0].targetId, 101);
   const shots = [];
-  for (let i = 0; i < 4; i++) shots.push(...game.step(0.05));
-  assert.equal(shots.length, 1); assert.equal(game.robots[0].activeBlock, 'wait');
+  for (let i = 0; i < 10; i++) shots.push(...game.step(0.05));
+  assert.equal(shots.length, 3); assert.equal(game.robots[0].activeBlock, 'wait');
   assert.equal(game.enemies.find(e => e.id === 100)!.health, 1000);
   assert.ok(game.enemies.find(e => e.id === 101)!.health < 1000);
 });
@@ -116,7 +124,11 @@ test('repeated code respects attack cooldown and reacquires dead targets', () =>
   const game = new DefenseSimulation(() => 0.4);
   game.player = { x: 14, y: 11 }; summon(game, 'ice'); game.startWave(); game.enemies = [enemy(100, 3)];
   const times: number[] = [];
-  for (let i = 0; i < 160; i++) if (game.step(0.05).length) times.push(game.elapsed);
+  for (let i = 0; i < 160; i++) {
+    const before = game.robots[0].attacks;
+    game.step(0.05);
+    if (game.robots[0].attacks > before) times.push(game.elapsed);
+  }
   assert.ok(times.length > 4);
   for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] >= 0.9 - 1e-8);
   game.robots[0].activeBlock = 'attack'; game.robots[0].phaseTimer = 0; game.robots[0].targetId = -1;
@@ -125,7 +137,7 @@ test('repeated code respects attack cooldown and reacquires dead targets', () =>
 
 test('fire applies damage over time, ice slows, and electric chains to one nearby enemy', () => {
   for (const [roll, effect] of [[0, 'burnTime'], [0.4, 'slowTime']] as const) {
-    const game = new DefenseSimulation(() => roll); game.player = { x: 14, y: 11 }; summon(game, effect === 'burnTime' ? 'fire' : 'ice'); game.startWave(); game.enemies = [enemy(100, 3)];
+    const game = new DefenseSimulation(() => roll); game.player = { x: 14, y: 11 }; summon(game, effect === 'burnTime' ? 'fire' : 'ice'); game.startWave(); game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 3.6)];
     advance(game, 0.25); assert.ok(game.enemies[0][effect] > 0);
     if (effect === 'burnTime') { const health = game.enemies[0].health; advance(game, 0.2); assert.ok(game.enemies[0].health < health); }
   }
@@ -143,12 +155,17 @@ test('a burning enemy killed before reaching the base awards energy without dest
   game.step(0.05); assert.equal(game.health, 100); assert.equal(game.escaped, 0); assert.equal(game.kills, 1); assert.equal(game.credits, balance + 15);
 });
 
-test('three charged robots can clear wave 1 with each element', () => {
+test('clearing regular monsters waits for the automatic boss before awarding victory', () => {
   for (const kind of ['fire', 'ice', 'electric'] as const) {
     const game = new DefenseSimulation(); summon(game, kind); summon(game, kind); summon(game, kind); game.startWave();
-    advance(game, 90);
-    assert.equal(game.status, 'cleared'); assert.equal(game.kills, 12); assert.equal(game.health, 100); assert.equal(game.wave, 1);
-    assert.equal(game.credits, 300 + 12 * 15 + 50);
+    advance(game, 59.95);
+    assert.equal(game.status, 'running'); assert.equal(game.kills, 12); assert.equal(game.health, 100); assert.equal(game.wave, 1);
+    assert.equal(game.credits, 300 + 12 * 15);
+    game.step(0.05);
+    assert.equal(game.enemies.length, 1); assert.equal(game.enemies[0].kind, 'summoned');
+    game.enemies[0].health = 0; game.step(0.05);
+    assert.equal(game.status, 'cleared'); assert.equal(game.kills, 13);
+    assert.equal(game.credits, 300 + 13 * 15 + 50);
     const snapshot = JSON.stringify(game);
     advance(game, 30); game.summon('fire'); game.merge(); assert.equal(game.startWave(), false); assert.equal(JSON.stringify(game), snapshot);
   }

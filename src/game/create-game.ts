@@ -27,7 +27,10 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
   });
   const observer = new ResizeObserver(() => {
     if (game.isBooted && options.parent.clientWidth && options.parent.clientHeight) {
-      game.scale.resize(options.parent.clientWidth, options.parent.clientHeight);
+      // RESIZE reads parentSize during refresh; update the bounds first when only
+      // the Vue panel layout changes (there is no browser window resize event).
+      game.scale.getParentBounds();
+      game.scale.refresh();
     }
   });
   observer.observe(options.parent);
@@ -35,8 +38,9 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     setInteractionLocked: locked => scene.setInteractionLocked(locked),
     setMode: mode => scene.setMode(mode),
     summon: kind => scene.summon(kind),
-    summonMonster: () => scene.summonMonster(),
     selectRobot: id => scene.selectRobot(id),
+    updateCode: (id, slot, block) => scene.updateCode(id, slot, block),
+    runCode: id => scene.runCode(id),
     merge: () => scene.merge(),
     toggleGrid: () => scene.toggleGrid(),
     startWave: () => scene.startWave(),

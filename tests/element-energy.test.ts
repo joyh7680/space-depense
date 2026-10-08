@@ -7,7 +7,7 @@ const monster = (id: number, health: number): Enemy => ({
   id, x: 5, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0,
 });
 
-test('earning each element and summoning any kind increases the shared robot count only on success', () => {
+test('three matching elements automatically summon a waiting robot and consume only that element', () => {
   let roll = 0;
   const game = new DefenseSimulation(() => roll);
   game.startWave();
@@ -18,12 +18,12 @@ test('earning each element and summoning any kind increases the shared robot cou
     for (let charge = 1; charge <= ROBOT_CHARGE_COST; charge++) {
       game.enemies = [monster(100 + index * ROBOT_CHARGE_COST + charge, 0)];
       game.step(0.05);
-      assert.equal(game.elementEnergy[kind], charge);
-      assert.equal(game.robotCount, index, 'energy alone does not count as a summoned robot');
+      assert.equal(game.elementEnergy[kind], charge % ROBOT_CHARGE_COST);
+      assert.equal(game.robotCount, index + (charge === ROBOT_CHARGE_COST ? 1 : 0));
     }
-    game.summon(kind);
     assert.equal(game.robotCount, index + 1);
     assert.equal(game.robots.at(-1)!.kind, kind);
+    assert.equal(game.robots.at(-1)!.missionStatus, 'waiting');
     assert.equal(game.elementEnergy[kind], 0);
     game.summon(kind);
     assert.equal(game.robotCount, index + 1, 'failed summons do not increase the count');

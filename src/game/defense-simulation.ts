@@ -1,8 +1,9 @@
 import { isWalkable } from './room/walkable.ts';
+import { CODING_MISSIONS, isCodingBlock, validateRobotCode, type CodingBlockId } from './coding-missions.ts';
 import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
-export type Robot = RobotState & { cooldown: number; phaseTimer: number };
+export type Robot = RobotState & { cooldown: number; phaseTimer: number; burstRemaining: number };
 export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
   kind?: 'summoned';
@@ -26,7 +27,7 @@ export class DefenseSimulation {
   kills = 0;
   escaped = 0;
   spawned = 0;
-  private summonedMonsters = 0;
+  private bossSpawned = false;
   elapsed = 0;
   countdown = 5;
   player: TilePosition = { x: 5, y: 5 };
@@ -36,18 +37,21 @@ export class DefenseSimulation {
   enemies: Enemy[] = [];
   private sequence = 0;
   private spawnTimer = 0;
+  private robotSerial: Record<RobotKind, number> = { fire: 0, ice: 0, electric: 0 };
   private random: () => number;
 
   constructor(random: () => number = Math.random) { this.random = random; }
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
   get robotCount(): number { return this.robots.length; }
-  get totalEnemies(): number { return WAVE_ONE.enemies + this.summonedMonsters; }
+  get totalEnemies(): number { return WAVE_ONE.enemies + 1; }
+  get monsterSummonCountdown(): number | null {
+    return this.bossSpawned ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
+  }
 
-  summonMonster(): string {
-    if (!this.canDeploy) return '지금은 몬스터를 소환할 수 없어요.';
+  private spawnBoss(): void {
+    if (this.bossSpawned || this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001) return;
+    this.bossSpawned = true;
     this.enemies.push({ ...ROUTE[0], id: ++this.sequence, kind: 'summoned', health: SUMMONED_MONSTER.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
-    this.summonedMonsters++;
-    return '추가 괴물 소환! 처치하면 속성 에너지와 낮은 확률로 로봇을 얻어요.';
   }
 
   canMovePlayer(x: number, y: number): boolean {
@@ -82,7 +86,8 @@ export class DefenseSimulation {
   }
   private createRobot(x: number, y: number, kind: RobotKind, select = true): void {
     const config = ROBOTS[kind];
-    const robot: Robot = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, activeBlock: 'find', attacks: 0, targetId: null };
+    const robot: Robot = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, activeBlock: 'find', attacks: 0, targetId: null,
+      serial: ++this.robotSerial[kind], code: CODING_MISSIONS[kind].slots.map(() => null), missionStatus: 'waiting', missionMessage: '블록을 조합하고 코드를 실행해 공격을 활성화하세요.' };
     this.robots.push(robot);
     if (select) this.selectedId = robot.id;
   }
@@ -99,12 +104,40 @@ export class DefenseSimulation {
     return slot ? this.placeRobot(slot.x, slot.y, kind) : '배치 칸이 가득 찼어요. 같은 로봇을 합성해 보세요.';
   }
   selectRobot(id: number): void { if (this.robots.some(d => d.id === id)) this.selectedId = id; }
+  updateCode(id: number, slot: number, block: CodingBlockId | null): void {
+    const robot = this.robots.find(r => r.id === id);
+    if (!this.canDeploy || !robot || robot.missionStatus === 'completed' || !Number.isInteger(slot) || slot < 0 || slot >= robot.code.length) return;
+    if (block !== null && (!isCodingBlock(block) || !CODING_MISSIONS[robot.kind].palette.includes(block))) return;
+    robot.code[slot] = block;
+    robot.missionStatus = 'waiting'; robot.missionMessage = '준비되면 코드 실행을 눌러 주세요.';
+  }
+  runCode(id: number): string {
+    const robot = this.robots.find(r => r.id === id);
+    if (!this.canDeploy || !robot) return '지금은 코드를 실행할 수 없어요.';
+    if (robot.missionStatus === 'completed') return robot.missionMessage;
+    const result = validateRobotCode(robot.kind, robot.code);
+    robot.missionStatus = result.success ? 'completed' : 'error';
+    robot.missionMessage = result.message;
+    robot.activeBlock = 'find'; robot.phaseTimer = 0;
+    return result.message;
+  }
+  private autoSummon(): void {
+    for (const kind of ROBOT_KINDS) {
+      while (this.elementEnergy[kind] >= ROBOT_CHARGE_COST && this.robotCount < 8) {
+        const slot = this.findRobotSlot();
+        if (!slot) break;
+        this.createRobot(slot.x, slot.y, kind, false);
+        this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
+      }
+    }
+  }
   moveRobot(id: number, x: number, y: number): string {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot) return '옮길 로봇을 선택해 주세요.';
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥에 배치해 주세요.';
     if (this.robots.some(r => r.id !== id && r.x === x && r.y === y)) return '다른 로봇이 있는 자리예요.';
     robot.x = x; robot.y = y; robot.targetId = null;
+    robot.burstRemaining = 0;
     robot.activeBlock = 'find'; robot.phaseTimer = 0;
     return '로봇 배치 완료! 다른 로봇도 선택해서 옮길 수 있어요.';
   }
@@ -120,6 +153,7 @@ export class DefenseSimulation {
     robot.damage = Math.round(ROBOTS[robot.kind].damage * 2.4 ** (robot.grade - 1));
     robot.range = ROBOTS[robot.kind].range + (robot.grade - 1) * 0.4;
     robot.attacks += partner.attacks;
+    this.autoSummon();
     // Keep the selected robot's identity, code and cooldown.
     return `${ROBOTS[robot.kind].name} ${robot.grade}성으로 합성! 공격력과 사거리가 늘었어요.`;
   }
@@ -141,6 +175,7 @@ export class DefenseSimulation {
     }
     if (this.status !== 'running') return [];
     this.elapsed += dt; this.spawnTimer -= dt;
+    this.spawnBoss();
     if (this.spawned < WAVE_ONE.enemies && this.spawnTimer <= 0) {
       this.enemies.push({ ...ROUTE[0], id: ++this.sequence, health: WAVE_ONE.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
       this.spawned++; this.spawnTimer += WAVE_ONE.spawnInterval;
@@ -161,7 +196,7 @@ export class DefenseSimulation {
       this.playerCooldown = 0.8;
     }
     this.collectKills();
-    if (this.spawned === WAVE_ONE.enemies && this.enemies.length === 0) {
+    if (this.spawned === WAVE_ONE.enemies && this.enemies.length === 0 && this.bossSpawned) {
       this.status = 'cleared'; this.credits += WAVE_ONE.clearEnergy;
     }
     return shots;
@@ -178,6 +213,7 @@ export class DefenseSimulation {
       }
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
     });
+    this.autoSummon();
   }
   private randomKind(): RobotKind {
     return ROBOT_KINDS[Math.min(ROBOT_KINDS.length - 1, Math.max(0, Math.floor(this.random() * ROBOT_KINDS.length)))];
@@ -207,6 +243,7 @@ export class DefenseSimulation {
   private executeRobots(dt: number): Shot[] {
     const shots: Shot[] = [];
     for (const robot of this.robots) {
+      if (robot.missionStatus !== 'completed') continue;
       robot.cooldown = Math.max(0, robot.cooldown - dt);
       robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
       if (robot.phaseTimer > 0) continue;
@@ -215,17 +252,36 @@ export class DefenseSimulation {
         const targets = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range);
         targets.sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
         robot.targetId = targets[0]?.id ?? null;
-        this.phase(robot, targets.length ? 'attack' : 'wait', targets.length ? 0.16 : 0.25); continue;
+        const required = robot.kind === 'electric' ? 2 : robot.kind === 'fire' ? 3 : 1;
+        const condition = targets.length >= required;
+        if (robot.kind === 'ice') robot.burstRemaining = condition ? 3 : 0;
+        this.phase(robot, condition ? 'attack' : 'wait', condition ? 0.16 : 0.25); continue;
       }
       const target = this.enemies.find(e => e.id === robot.targetId && e.health > 0 && distance(e, robot) <= robot.range);
-      if (!target) { robot.targetId = null; this.phase(robot, 'find', 0.16); continue; }
+      if (!target) { robot.targetId = null; robot.burstRemaining = 0; this.phase(robot, 'find', 0.16); continue; }
+      const nearby = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range);
+      if (nearby.length < (robot.kind === 'electric' ? 2 : robot.kind === 'fire' ? 3 : 1)) {
+        robot.targetId = null; this.phase(robot, 'find', 0.16); continue;
+      }
       if (robot.cooldown > 0) { this.phase(robot, 'wait', robot.cooldown); continue; }
       shots.push({ from: { x: robot.x, y: robot.y }, to: { x: target.x, y: target.y }, kind: robot.kind });
       target.health -= robot.damage;
-      if (robot.kind === 'fire') { target.burnTime = 2; target.burnDamage = robot.damage * 0.2; }
-      if (robot.kind === 'ice') target.slowTime = 1.4;
+      if (robot.kind === 'fire') {
+        for (const enemy of nearby.filter(e => distance(e, target) <= 1.6)) {
+          if (enemy !== target) {
+            enemy.health -= robot.damage;
+            shots.push({ from: { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: 'fire', chain: true });
+          }
+          enemy.burnTime = 2; enemy.burnDamage = robot.damage * 0.2;
+        }
+      }
+      if (robot.kind === 'ice') {
+        target.slowTime = 1.4;
+        robot.burstRemaining--;
+        if (robot.burstRemaining > 0) { this.phase(robot, 'attack', 0.12); continue; }
+      }
       if (robot.kind === 'electric') {
-        const next = this.enemies.find(e => e.id !== target.id && e.health > 0 && distance(e, target) <= 1.4 && distance(e, robot) <= robot.range);
+        const next = nearby.find(e => e.id !== target.id && e.health > 0);
         if (next) { next.health -= robot.damage * 0.5; shots.push({ from: { x: target.x, y: target.y }, to: { x: next.x, y: next.y }, kind: robot.kind, chain: true }); }
       }
       robot.attacks++; robot.cooldown = 0.9; this.phase(robot, 'wait', 0.58);

@@ -5,6 +5,7 @@ import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
 import { ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one';
 import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
+import type { CodingBlockId } from './coding-missions';
 
 const center = (value: number) => value * 100 + 50;
 
@@ -92,6 +93,7 @@ export class DefenseScene extends Phaser.Scene {
     this.scale.on('resize', this.fitRoom, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.fitRoom, this));
     this.fitRoom();
+    this.simulation.startWave();
     this.options.parent.focus({ preventScroll: true });
     this.publish();
   }
@@ -186,9 +188,9 @@ export class DefenseScene extends Phaser.Scene {
 
   private fitRoom(): void {
     const { width, height } = this.scale;
-    const side = width > 760 ? 225 : 78;
+    const side = width > 760 ? 90 : 24;
     this.cameras.main.setViewport(0, 0, width, height);
-    this.cameras.main.setZoom(Math.min((width - side - 24) / 1600, (height - 200) / 1130));
+    this.cameras.main.setZoom(Math.max(0.06, Math.min((width - side - 24) / 1600, (height - (height < 430 ? 100 : 200)) / 1130)));
     this.cameras.main.centerOn(800, 620);
   }
 
@@ -232,7 +234,9 @@ export class DefenseScene extends Phaser.Scene {
     const previousHealth = this.simulation.health;
     const previousEnergy = { ...this.simulation.elementEnergy };
     const previousRobots = new Set(this.simulation.robots.map(robot => robot.id));
+    const previousBosses = new Set(this.simulation.enemies.filter(enemy => enemy.kind === 'summoned').map(enemy => enemy.id));
     const shots = this.simulation.step(delta / 1000);
+    if (this.simulation.enemies.some(enemy => enemy.kind === 'summoned' && !previousBosses.has(enemy.id))) this.notice = '보스급 몬스터 출현! 로봇을 배치해서 막아 주세요.';
     if (previousHealth > 0 && this.simulation.status === 'defeat') this.destroyStation();
     if (!['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
     this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
@@ -244,7 +248,7 @@ export class DefenseScene extends Phaser.Scene {
     }
     for (const robot of this.simulation.robots) {
       if (!previousRobots.has(robot.id)) {
-        this.notice = `행운의 보상! ${ROBOTS[robot.kind].name} 무료 소환!`;
+        this.notice = `${ROBOTS[robot.kind].name} 소환! 로봇 목록에서 코딩을 시작하세요.`;
         const label = this.add.text(center(robot.x), center(robot.y) - 100, this.notice, {
           fontFamily: 'sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#ffe594',
           backgroundColor: '#172333', padding: { x: 10, y: 5 },
@@ -321,7 +325,8 @@ export class DefenseScene extends Phaser.Scene {
         label = this.add.text(x, y + 38, '', { fontFamily: 'sans-serif', fontSize: '22px', color: '#e7f9f5', backgroundColor: '#1b2638', padding: { x: 5, y: 3 } }).setOrigin(0.5).setDepth(17);
         this.unitLabels.set(robot.id, label);
       }
-      label.setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} ${'★'.repeat(robot.grade)}`);
+      art.setAlpha(robot.missionStatus === 'completed' ? 1 : 0.55);
+      label.setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n${robot.missionStatus === 'completed' ? '공격 중' : '공격 대기'}`);
     }
     for (const [id, label] of this.unitLabels) { if (!s.robots.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
     for (const [id, art] of this.robotArt) if (!s.robots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); }
@@ -353,10 +358,11 @@ export class DefenseScene extends Phaser.Scene {
       } else {
         (actor as Phaser.GameObjects.Image).setPosition(x, y - 22 + Math.sin(this.time.now / 160 + enemy.id) * 3).setFlipX(enemy.waypoint === 3);
       }
-      const healthY = y - (enemy.kind === 'summoned' ? 108 : 85);
+      const healthY = y - (enemy.kind === 'summoned' ? SUMMONED_MONSTER.size + 10 : 85);
       const maxHealth = enemy.kind === 'summoned' ? SUMMONED_MONSTER.health : WAVE_ONE.health;
-      this.units.fillStyle(0x162c36); this.units.fillRoundedRect(x - 28, healthY, 56, 7, 3);
-      this.units.fillStyle(enemy.burnTime > 0 ? 0xffac70 : 0xe79bce); this.units.fillRoundedRect(x - 28, healthY, 56 * Math.max(0, enemy.health / maxHealth), 7, 3);
+      const healthWidth = enemy.kind === 'summoned' ? 84 : 56;
+      this.units.fillStyle(0x162c36); this.units.fillRoundedRect(x - healthWidth / 2, healthY, healthWidth, 7, 3);
+      this.units.fillStyle(enemy.burnTime > 0 ? 0xffac70 : enemy.kind === 'summoned' ? 0xff6969 : 0xe79bce); this.units.fillRoundedRect(x - healthWidth / 2, healthY, healthWidth * Math.max(0, enemy.health / maxHealth), 7, 3);
     }
     for (const [id, actor] of this.aliens) if (!s.enemies.some(e => e.id === id)) {
       this.aliens.delete(id);
@@ -381,16 +387,15 @@ export class DefenseScene extends Phaser.Scene {
     this.target = null; this.inspectRange = true; this.notice = this.simulation.summon(kind);
     this.mode = 'relocate'; this.options.parent.focus({ preventScroll: true }); this.publish();
   }
-  summonMonster(): void {
-    this.notice = this.simulation.summonMonster();
-    this.drawUnits();
-    this.publish();
-  }
   selectRobot(id: number): void {
     this.simulation.selectRobot(id); this.inspectRange = true; this.mode = 'relocate'; this.target = null;
     this.notice = '빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.';
     this.options.parent.focus({ preventScroll: true }); this.publish();
   }
+  updateCode(id: number, slot: number, block: CodingBlockId | null): void {
+    this.simulation.updateCode(id, slot, block); this.publish();
+  }
+  runCode(id: number): void { this.notice = this.simulation.runCode(id); this.publish(); }
   merge(): void { this.notice = this.simulation.merge(); this.publish(); }
   togglePause(): void { this.simulation.togglePause(); this.publish(); }
   reset(): void {
@@ -407,6 +412,7 @@ export class DefenseScene extends Phaser.Scene {
     this.aliens.clear(); this.robotArt.clear(); this.unitLabels.clear();
     this.inspectRange = false;
     this.simulation = new DefenseSimulation(); this.mode = 'move'; this.target = null;
+    this.simulation.startWave();
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
     this.player.setAngle(0);
     this.stationDamage.clear().setAlpha(1); this.core.setAlpha(1);
@@ -420,7 +426,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, robots: s.robots.map(({ cooldown, phaseTimer, burstRemaining, ...robot }) => ({ ...robot, code: [...robot.code] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
     this.options.onState?.(state);
   }
 }

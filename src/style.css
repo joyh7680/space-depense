@@ -220,6 +220,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .robot-portrait{display:block;flex-shrink:0;width:72px;height:74px;margin:0;background-image:var(--portrait-url);background-size:610.8px 562.8px;background-repeat:no-repeat;filter:drop-shadow(0 3px 1px #18232b55)}
 .robot-button .robot-portrait{transform:scale(.65);margin:-12px -12px -9px}
 .monster-portrait{display:block;width:48px;height:53px;object-fit:contain;filter:drop-shadow(0 3px 1px #18232b55)}
+.monster-button{pointer-events:none;cursor:default}
 .monster-button b{font-size:12px;white-space:nowrap}
 
 .summon-backdrop{position:absolute;inset:0;z-index:10;display:flex;justify-content:center;align-items:flex-end;padding:16px 16px 126px}
@@ -238,3 +239,98 @@ button:not(:disabled):active{transform:translateY(3px)}
 @media(max-width:420px){.game-screen{--robot-button-width:70px}.bottom-controls{gap:8px}.robot-elements{gap:6px;padding:8px}.robot-elements>span{gap:4px}.element-icon{width:22px;height:22px}.monster-button b{font-size:11px}}
 @media(max-height:550px) and (min-width:650px){.monster-portrait{width:40px;height:42px}.monster-button b{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.robot-hangar{animation:none}}
+
+/* Reserve space for the console so Phaser resizes the battle without covering it. */
+.game-screen{display:flex}
+.battle-area{position:relative;flex:1;min-width:0;height:100%;container-type:size}
+.battle-area .wave-hud{left:auto;right:24px;transform:none;min-width:330px;top:28px}
+.battle-area .profile-hud{min-width:220px;height:70px;padding-left:76px;top:28px;left:22px;transform:none}
+.battle-area .profile-avatar{width:84px;height:84px;border-width:7px}
+.battle-area .profile-hud strong{font-size:20px}
+.battle-area .profile-hud small{font-size:12px}
+.battle-area .profile-hud small span{font-size:16px;margin-left:7px}
+.battle-area .bottom-controls{width:min(394px,calc(100% - 32px));gap:12px;bottom:28px;z-index:1}
+.battle-area .bottom-controls .robot-elements{flex:1;min-width:0}
+@container(max-width:420px){.battle-area .bottom-controls{gap:8px}.bottom-controls .robot-elements{gap:6px;padding:8px}.bottom-controls .robot-elements>span{gap:4px}.bottom-controls .element-icon{width:22px;height:22px}}
+@container(max-width:380px){.battle-area .bottom-controls>.robot-button{width:49px;height:56px}.bottom-controls .robot-button .robot-portrait{transform:scale(.42);margin:-20px -18px -18px}.bottom-controls .robot-button b{font-size:9px}.bottom-controls .monster-portrait{width:28px;height:31px}}
+.battle-hint{position:absolute;bottom:125px;left:16px;right:16px;text-align:center;font-size:11px;color:#c3bdd8;pointer-events:none;text-shadow:0 2px 3px #130820;margin:0;line-height:1.7}
+.summon-backdrop{align-items:center;padding:22px;background:#080b20a6;backdrop-filter:blur(4px)}
+.robot-hangar{width:500px;max-height:calc(100dvh - 44px);overflow-y:auto;padding:23px;border-radius:22px;border:1px solid #687f98;background:#1b283a;color:#eaf4ff;box-shadow:0 20px 80px #0007}
+.hangar-header{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.hangar-header small{font-size:10px;letter-spacing:2px;color:#89a2bb}
+.hangar-header h2{font-size:23px;margin:6px 0 0}
+.hangar-header h2 b{color:#88e5de;font-size:17px;margin-left:8px}
+.hangar-note{font-size:12px;line-height:1.8;color:#a9bbce;margin:16px 0 20px}
+.robot-roster{display:flex;flex-direction:column;gap:16px}
+.roster-group h3{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--robot-accent);margin:0 0 8px}
+.roster-group h3 .element-icon{width:22px;height:22px}
+.roster-group h3 small{margin-left:auto;font-size:11px;color:#abb9cd}
+.unsummoned{margin:0;padding:14px 16px;border-radius:12px;background:#ffffff06;color:#8192a9;font-size:12px;border:1px dashed #4d5c70}
+.roster-robot{width:100%;display:flex;align-items:center;gap:7px;text-align:left;margin:6px 0 0;padding:6px 14px 6px 4px;min-height:72px;border:1px solid #455972;background:#26374b;border-radius:12px}
+.roster-robot:hover,.roster-robot.selected{background:#33465e;border-color:var(--robot-accent)}
+.roster-robot .robot-portrait{transform:scale(.65);margin:-10px -8px}
+.roster-robot b{font-size:13px;display:block}
+.roster-robot small{font-size:11px;color:#e7c990;display:block;margin-top:5px}
+.roster-robot.complete small{color:#8ce4c7}
+.roster-arrow{margin-left:auto;font-size:27px;color:#91a4bd}
+.coding-panel{width:390px;max-width:42vw;flex-shrink:0;height:100%;display:flex;flex-direction:column;position:relative;background:linear-gradient(160deg,#202d43,#121d30);border-left:1px solid #526079;box-shadow:-10px 0 40px #080c2033;z-index:2;color:#eef4ff}
+.coding-header{display:flex;justify-content:space-between;align-items:center;padding:20px 22px 17px;border-bottom:1px solid #ffffff12;gap:12px}
+.coding-header small{color:#92a9c9;letter-spacing:1.8px;font-size:9px}
+.coding-header h2{font-size:20px;letter-spacing:-.7px;margin:7px 0 0}
+.coding-close{flex-shrink:0;width:32px;height:32px;border:1px solid #ffffff19;border-radius:10px;background:#ffffff08;color:#b7c6d9;font-size:24px;line-height:1}
+.coding-close:hover{color:#fff;background:#ffffff15}
+.coding-scroll{flex:1;min-height:0;overflow-y:auto;padding:18px 22px;scrollbar-width:thin;scrollbar-color:#4d6485 transparent}
+.coding-robot{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.coding-robot>.element-icon{width:28px;height:28px}
+.coding-robot h3{font-size:15px;margin:0 0 5px}
+.coding-robot span{font-size:10px;color:#e7c990}
+.coding-robot span.complete{color:#8ce4c7}
+.coding-robot>.robot-portrait{transform:scale(.7);margin:-12px -12px -12px auto}
+.portrait-fire{background-position:-169.8px -435.3px;clip-path:inset(0 0 14px 0)}
+.portrait-ice{background-position:-95.4px -402.9px}
+.portrait-electric{background-position:-453px -428.4px}
+.coding-mission{padding:15px;border:1px solid color-mix(in srgb,var(--robot-accent),transparent 65%);background:color-mix(in srgb,var(--robot-accent) 7%,#182438);border-radius:14px;margin-bottom:23px}
+.coding-mission>small{color:var(--robot-accent);font-size:10px;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
+.coding-mission>small b{font-size:10px;letter-spacing:0;background:#ffffff0a;border-radius:5px;padding:3px 6px}
+.coding-mission p{font-size:14px;line-height:1.8;font-weight:800;margin:9px 0}
+.coding-mission>span{font-size:10px;line-height:1.7;color:#9fb2ce;display:block}
+.coding-section-title{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:12px}
+.coding-section-title h3{font-size:12px;margin:0}
+.coding-section-title>span{font-size:9px;color:#8ba3c1}
+.coding-workspace{margin-bottom:23px}
+.code-start,.code-end{font-size:10px;background:#273e57;border:1px solid #45607e;padding:10px 12px;border-radius:9px;color:#b9d9f6}
+.code-start{border-bottom-left-radius:0}
+.code-end{border-top-left-radius:0;font-size:9px;color:#829fbe;background:#1c2d43}
+.code-body{padding:12px 7px 12px 10px;background:#0d1829;border-left:3px solid #466483}
+.coding-slot-row{display:flex;gap:4px;align-items:center;position:relative;margin-top:8px}
+.coding-slot-row:first-child{margin-top:0}
+.coding-slot{display:flex;align-items:center;gap:7px;flex:1;min-width:0;min-height:44px;padding:9px 8px;text-align:left;border:1px solid #56677d;border-radius:7px;font-size:10px;line-height:1.6;position:relative;color:#fff}
+.coding-slot:not(.empty)::before,.palette-block::before{content:'';position:absolute;top:-1px;left:16px;width:19px;height:4px;background:#0d1829;border:1px solid #ffffff2b;border-top:0;border-radius:0 0 4px 4px}
+.coding-slot:disabled{opacity:1;cursor:default}
+.coding-slot.empty{color:#6f86a6;background:#14233a;border:1px dashed #3d5574}
+.slot-number{font-size:9px;opacity:.6;flex-shrink:0}
+.slot-plus{font-size:18px;margin-left:auto;color:#617c9e}
+.coding-slot.drag-over{outline:2px solid #90efe1;outline-offset:2px;background:#23494e}
+.condition{background:#4c3d83;border-color:#8168c2}
+.loop{background:#83562b;border-color:#c18c49}
+.variable{background:#2d6681;border-color:#5094b5}
+.action{background:#296b61;border-color:#4caa98}
+.remove-block{background:transparent;color:#8fa3bf;width:18px;padding:0;font-size:18px}
+.coding-help{font-size:10px;color:#849bb9;line-height:1.7;margin:-4px 0 12px}
+.palette-block{display:flex;align-items:center;gap:10px;position:relative;width:100%;border-width:1px;border-style:solid;border-radius:7px;padding:10px 12px;font-size:11px;text-align:left;line-height:1.6;margin-top:9px;cursor:grab;box-shadow:0 3px 0 #050d1c50}
+.palette-block>span{font-size:15px;opacity:.55}
+.palette-block:hover{filter:brightness(1.15)}
+.palette-block.chosen{outline:2px solid #e3f1ff;outline-offset:2px}
+.chosen-hint{font-size:10px;color:#90efe1;margin:13px 0 0}
+.coding-footer{border-top:1px solid #ffffff12;padding:13px 22px 16px;background:#142035}
+.coding-feedback{font-size:11px;line-height:1.7;color:#a6bad4;min-height:36px;margin:0 0 10px}
+.coding-feedback.error{color:#ffb8ba}
+.coding-feedback.completed{color:#8ce4c7}
+.run-code{width:100%;padding:13px 10px;border-radius:10px;border:1px solid #a7a2fa;background:linear-gradient(#8b7eeb,#6d5bcd);color:#fff;font-weight:800;font-size:14px;box-shadow:0 3px 0 #3d3377}
+.run-code:hover:not(:disabled){filter:brightness(1.1)}
+.run-code:disabled{opacity:1;background:#244c46;border-color:#417d72;color:#91d9c8;box-shadow:none}
+.coding-footer>small{display:block;text-align:center;font-size:9px;color:#748cae;margin-top:12px}
+@container(max-width:680px){.battle-area .profile-hud{display:none}.battle-area .wave-hud{left:50%;right:auto;transform:translateX(-50%);width:calc(100% - 28px);max-width:340px;min-width:0;top:24px}}
+@media(max-width:760px){.coding-panel{width:300px;max-width:46vw}.coding-header{padding:15px 12px}.coding-header h2{font-size:16px}.coding-header small{font-size:8px;letter-spacing:.7px}.coding-scroll{padding:14px 12px}.coding-footer{padding:12px}.coding-robot{gap:6px}.coding-robot h3{font-size:12px}.coding-robot>.robot-portrait{display:none}.coding-mission{padding:11px}.coding-mission p{font-size:12px}.coding-slot{font-size:9px;padding:8px 5px}.palette-block{font-size:10px;padding:9px 7px}.coding-panel .code-body{padding-left:4px}.battle-hint{font-size:9px}.battle-area .wave-hud{gap:8px;padding:10px}.battle-area .wave-counter{padding-right:8px}.battle-area .battle-progress>div:first-child{flex-wrap:wrap;gap:3px}.battle-area .player-health{font-size:13px}}
+@media(max-width:520px){.game-screen.coding-open{flex-direction:column}.coding-open .battle-area{flex:0 0 42%;height:42%;min-height:200px}.coding-open .coding-panel{width:100%;max-width:none;height:58%;min-height:0;border-left:0;border-top:1px solid #526079}.coding-open .coding-header{padding:10px 15px}.coding-open .coding-scroll{padding:12px 15px}.coding-open .coding-footer{padding:9px 15px}.coding-open .coding-feedback{min-height:0;margin-bottom:7px}.coding-open .coding-footer>small{display:none}.coding-open .run-code{padding:9px}.coding-open .bottom-controls{left:50%;right:auto;bottom:12px;transform:translateX(-50%);width:min(340px,calc(100% - 24px));gap:8px}.coding-open .robot-button{width:49px!important;height:56px}.coding-open .robot-button .robot-portrait{transform:scale(.42);margin:-20px -18px -18px}.coding-open .robot-button b{font-size:9px}.coding-open .monster-portrait{width:28px;height:31px}.coding-open .battle-hint{display:none}.coding-open .wave-hud{top:9px;padding:6px 10px;max-width:300px}.coding-open .wave-counter strong{font-size:20px}.coding-open .coding-mission{margin-bottom:15px}.coding-open .coding-robot{margin-bottom:12px}}
+@media(max-height:600px) and (min-width:521px){.coding-header{padding:12px 16px}.coding-scroll{padding:12px 16px}.coding-footer{padding:10px 16px}.coding-footer>small{display:none}.coding-feedback{min-height:0;font-size:10px}.battle-area .wave-hud{top:12px}.battle-hint{bottom:98px}.coding-mission{margin-bottom:17px}}

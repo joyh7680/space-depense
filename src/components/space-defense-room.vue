@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { DefenseState, GameController, GameMode, RobotKind } from '../game/types';
+import type { CodingBlockId } from '../game/coding-missions';
 
 const emit = defineEmits<{ state: [state: DefenseState]; ready: []; error: [message: string]; inspect: [] }>();
 const host = ref<HTMLElement>();
@@ -30,8 +31,9 @@ defineExpose({
   setInteractionLocked: (locked: boolean) => controller?.setInteractionLocked(locked),
   setMode: (mode: GameMode) => controller?.setMode(mode),
   summon: (kind: RobotKind) => controller?.summon(kind),
-  summonMonster: () => controller?.summonMonster(),
   selectRobot: (id: number) => controller?.selectRobot(id),
+  updateCode: (id: number, slot: number, block: CodingBlockId | null) => controller?.updateCode(id, slot, block),
+  runCode: (id: number) => controller?.runCode(id),
   merge: () => controller?.merge(),
   toggleGrid: () => controller?.toggleGrid(),
   startWave: () => controller?.startWave(),
