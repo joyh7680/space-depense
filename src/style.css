@@ -64,9 +64,6 @@ button:not(:disabled):active{transform:translateY(3px)}
 .help-steps b{font-size:14px}
 .help-steps p{font-size:11px;line-height:1.8;color:#b4bdd4;margin:9px 0 0}
 .modal-note{color:#9aabc7;font-size:12px;margin:18px 0 0;line-height:1.7}
-.menu-options{display:grid;gap:10px}
-.menu-options button{background:#ffffff0c;padding:16px;border-radius:14px;border:1px solid #ffffff18}
-.menu-options button:hover{background:#ffffff19}
 .empty-roster{font-size:40px;color:#b8a0ff;padding:10px}
 .empty-roster p{font-size:16px;line-height:1.8;color:#c0cbe0}
 .drone-roster{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}

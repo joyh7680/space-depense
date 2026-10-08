@@ -8,7 +8,7 @@ const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
 const ready = ref(false);
 const error = ref('');
 const portraitUrl = `url("${import.meta.env.BASE_URL}codmos-assets/player/int-front.png")`;
-const modal = ref<'help' | 'drones' | 'code' | 'menu' | null>(null);
+const modal = ref<'help' | 'drones' | 'code' | null>(null);
 let resumeAfterModal = false;
 let returnFocus: HTMLElement | null = null;
 const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies, escaped: 0, elapsed: 0, drones: [], selectedId: null, player: { x: 11, y: 4 }, mode: 'move', grid: false, message: '' });
@@ -77,9 +77,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
       <div class="battle-progress"><div><b>우주정거장 방어</b><span>{{ state.kills }} / {{ state.total }}</span></div><div class="progress-track"><i :style="{ width: `${state.kills / state.total * 100}%` }" /></div></div>
       <div class="base-health" :class="{ danger: state.health <= 30 }"><span>♥</span><b>{{ state.health }}</b></div>
     </div>
-    <nav class="top-actions" aria-label="게임 메뉴">
+    <nav class="top-actions" aria-label="게임 도움말">
       <button class="round-button" aria-label="게임 방법" @click="openModal('help')">?</button>
-      <button class="round-button" aria-label="메뉴" :disabled="!ready" @click="openModal('menu')">☰</button>
     </nav>
 
     <div class="station-label">SPACE DEFENSE <span>STATION A-01</span></div>
@@ -104,15 +103,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
     </div>
 
     <div v-if="modal" class="screen-overlay modal-backdrop" @click.self="closeModal">
-      <section class="game-modal" role="dialog" aria-modal="true" :aria-label="modal === 'help' ? '게임 방법' : modal === 'menu' ? '메뉴' : '내 드론'">
+      <section class="game-modal" role="dialog" aria-modal="true" :aria-label="modal === 'help' ? '게임 방법' : '내 드론'">
         <button class="modal-close" aria-label="닫기" @click="closeModal">×</button>
         <template v-if="modal === 'help'">
           <small>HOW TO PLAY</small><h2>딱 세 가지만!</h2>
           <div class="help-steps"><div><span>▶</span><b>방어 시작</b><p>드론 3개 자동 준비</p></div><div><span>ϟ</span><b>자동 공격!</b><p>모인 에너지로 추가 소환</p></div><div><span>✦</span><b>드론 클릭</b><p>코드 확인 · 같은 드론 합성</p></div></div>
           <p class="modal-note">대원은 바닥 클릭 / 방향키로 이동해요</p><button class="launch-button" @click="closeModal">알겠어요!</button>
-        </template>
-        <template v-else-if="modal === 'menu'">
-          <small>STATION A-01</small><h2>잠깐 쉬어 갈까요?</h2><div class="menu-options"><button @click="closeModal">▶ 게임으로</button><button :aria-pressed="state.grid" @click="room?.toggleGrid()">▦ 그리드 {{ state.grid ? '끄기' : '켜기' }}</button><button @click="openModal('help')">? 게임 방법</button><button @click="reset">↻ 처음부터</button></div>
         </template>
         <template v-else>
           <small>MY DRONES · {{ state.drones.length }}/8</small><h2>{{ modal === 'code' && selected ? DRONES[selected.kind].name + ' 드론' : '나의 드론' }}</h2>
