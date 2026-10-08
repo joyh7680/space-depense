@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import SpaceDefenseRoom from './components/space-defense-room.vue';
 import EnergyIcon from './components/energy-icon.vue';
+import VictoryResult from './components/victory-result.vue';
 import { ROBOTS, ROBOT_CHARGE_COST, WAVE_ONE } from './game/wave-one';
 import type { DefenseState, RobotKind } from './game/types';
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
@@ -21,7 +22,7 @@ watch(() => state.value.status, status => {
   if (summonOpen.value && (status === 'defeat' || status === 'cleared')) closeSummon();
 });
 watch(finished, async visible => {
-  if (visible) {
+  if (visible && state.value.status === 'defeat') {
     await nextTick();
     retryButton.value?.focus({ preventScroll: true });
   }
@@ -115,7 +116,7 @@ function dialogKey(event: KeyboardEvent) {
         </div>
       </section>
     </div>
-    <div v-if="finished" class="screen-overlay result-overlay" :class="{ 'defeat-overlay': state.status === 'defeat' }">
+    <div v-if="finished" class="screen-overlay result-overlay" :class="{ 'defeat-overlay': state.status === 'defeat', 'victory-overlay': state.status === 'cleared' }">
       <section v-if="state.status === 'defeat'" class="defeat-result" role="dialog" aria-modal="true" aria-labelledby="game-over-title" aria-describedby="game-over-description" @keydown.tab.prevent="retryButton?.focus()">
         <div class="result-wave"><i aria-hidden="true" />WAVE 01 <span>전투 종료</span></div>
         <h1 id="game-over-title" class="game-over-title"><img :src="gameOverArt" alt="게임 오버" width="600" height="104" draggable="false" /></h1>
@@ -127,7 +128,7 @@ function dialogKey(event: KeyboardEvent) {
         <button ref="retryButton" class="retry-button" @click="room?.reset()"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg>다시 도전하기</button>
         <p class="retry-tip">로봇을 소환하고 길목에 배치해 보세요!</p>
       </section>
-      <section v-else class="game-modal result-modal" role="dialog" aria-modal="true" aria-label="1웨이브 결과" @keydown.tab.prevent="retryButton?.focus()"><small>WAVE 01</small><div class="result-symbol">★</div><h1>방어 성공!</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/{{ state.total }}</b></span><span>탈출 <b>{{ state.escaped }}마리</b></span></div><p class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><button ref="retryButton" class="launch-button" @click="room?.reset()">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
+      <VictoryResult v-else :wave="state.wave" :kills="state.kills" :total="state.total" :escaped="state.escaped" :reward="WAVE_ONE.clearEnergy" @replay="room?.reset()" />
     </div>
   </main>
 </template>

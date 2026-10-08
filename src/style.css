@@ -71,13 +71,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .code-stack i{font-size:19px;margin-left:auto;font-style:normal;color:#96b0d8}
 .code-stack .executing{border-color:#52c9c4}
 .merge-button{width:100%;background:#3b355a;border:1px solid #8274b2;border-radius:12px;padding:13px;margin-top:17px}
-.result-modal>small:last-child{margin-top:20px;letter-spacing:0;font-size:11px}
-.result-symbol{color:#ffda63;font-size:80px;line-height:1.3;text-shadow:0 5px #c78b30}
-.result-modal h1{font-size:37px;margin:10px 0 20px}
-.result-numbers{display:flex;justify-content:center;gap:35px;color:#a1b2d0;font-size:13px}
-.result-numbers b{display:block;color:#fff;font-size:22px;margin-top:5px}
-.reward{color:#ffda63;font-size:15px}
-.result-modal>p{font-size:14px}
+.victory-overlay{background:radial-gradient(ellipse at 50% 45%,#46315c38,transparent 65%),#0b0b16c9;backdrop-filter:blur(12px);padding:20px}
 
 .defeat-overlay{background:radial-gradient(ellipse at 50% 42%,#3420528c 0,transparent 60%),#090718df;backdrop-filter:blur(9px);padding:24px;overflow-y:auto}
 .defeat-result{position:relative;isolation:isolate;width:540px;max-width:100%;max-height:calc(100dvh - 48px);overflow-y:auto;padding:24px 16px;text-align:center;animation:result-arrive .45s ease-out both}
