@@ -12,6 +12,7 @@ export type DefenseState = {
   enemies: number; spawned: number; total: number; escaped: number; elapsed: number;
   robots: RobotState[]; selectedId: number | null; player: TilePosition;
   mode: GameMode; grid: boolean; message: string; countdown: number;
+  defeatAnimationComplete: boolean;
 };
 export type GameController = {
   setInteractionLocked: (locked: boolean) => void;

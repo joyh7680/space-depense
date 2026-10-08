@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import SpaceDefenseRoom from './components/space-defense-room.vue';
 import { ROBOTS, SUMMON_COST, WAVE_ONE } from './game/wave-one';
 import type { DefenseState, RobotKind } from './game/types';
@@ -10,17 +10,18 @@ const summonOpen = ref(false);
 const summonDialog = ref<HTMLElement>();
 let returnFocus: HTMLElement | null = null;
 const portraitUrl = 'url("' + import.meta.env.BASE_URL + 'codmos-assets/player/int-front.png")';
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies, escaped: 0, elapsed: 0, countdown: 5, robots: [], selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '' });
+const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
+const retryButton = ref<HTMLButtonElement>();
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies, escaped: 0, elapsed: 0, countdown: 5, robots: [], selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
 const canDeploy = computed(() => ready.value && ['ready', 'running'].includes(state.value.status));
 const canSummon = computed(() => canDeploy.value && state.value.credits >= SUMMON_COST && state.value.robots.length < 8);
-const finished = ref(false);
-let resultTimer: ReturnType<typeof setTimeout> | undefined;
-watch(() => state.value.status, status => {
-  clearTimeout(resultTimer);
-  finished.value = status === 'cleared';
-  if (status === 'defeat') resultTimer = setTimeout(() => { finished.value = true; }, 1400);
+const finished = computed(() => state.value.status === 'cleared' || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
+watch(finished, async visible => {
+  if (visible) {
+    await nextTick();
+    retryButton.value?.focus({ preventScroll: true });
+  }
 });
-onBeforeUnmount(() => clearTimeout(resultTimer));
 const selected = computed(() => state.value.robots.find(r => r.id === state.value.selectedId));
 const canMerge = computed(() => canDeploy.value && selected.value && selected.value.grade < 3 && state.value.robots.some(r => r.id !== selected.value!.id && r.kind === selected.value!.kind && r.grade === selected.value!.grade));
 const kindOrder = ['electric', 'ice', 'fire'] as const;
@@ -105,8 +106,19 @@ function dialogKey(event: KeyboardEvent) {
         <span class="modal-combat-note">소환창을 닫으면 전투가 이어져요</span>
       </section>
     </div>
-    <div v-if="finished" class="screen-overlay result-overlay">
-      <section class="game-modal result-modal" aria-label="1웨이브 결과"><small>WAVE 01</small><div class="result-symbol">{{ state.status === 'cleared' ? '★' : '↻' }}</div><h1>{{ state.status === 'cleared' ? '방어 성공!' : '게임 오버' }}</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/12</b></span><span>탈출 <b>{{ state.escaped }}마리</b></span></div><p v-if="state.status === 'cleared'" class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><p v-else>괴물이 우리 기지로 탈출해<br />우주정거장이 파괴됐어요!</p><button class="launch-button" @click="room?.reset()">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
+    <div v-if="finished" class="screen-overlay result-overlay" :class="{ 'defeat-overlay': state.status === 'defeat' }">
+      <section v-if="state.status === 'defeat'" class="defeat-result" role="dialog" aria-modal="true" aria-labelledby="game-over-title" aria-describedby="game-over-description" @keydown.tab.prevent="retryButton?.focus()">
+        <div class="result-wave"><i aria-hidden="true" />WAVE 01 <span>전투 종료</span></div>
+        <h1 id="game-over-title" class="game-over-title"><img :src="gameOverArt" alt="게임 오버" width="600" height="104" draggable="false" /></h1>
+        <p id="game-over-description" class="defeat-description"><strong>우주정거장이 파괴됐어요</strong><span>탈출한 괴물이 우리 기지에 도착했어요.</span></p>
+        <dl class="defeat-stats">
+          <div><dt><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3" /></svg>처치한 괴물</dt><dd>{{ state.kills }}<span>/ {{ state.total }}</span></dd></div>
+          <div><dt><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 4H4v16h6m-1-8h12m-5-5 5 5-5 5" /></svg>탈출한 괴물</dt><dd>{{ state.escaped }}<span>마리</span></dd></div>
+        </dl>
+        <button ref="retryButton" class="retry-button" @click="room?.reset()"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg>다시 도전하기</button>
+        <p class="retry-tip">로봇을 소환하고 길목에 배치해 보세요!</p>
+      </section>
+      <section v-else class="game-modal result-modal" role="dialog" aria-modal="true" aria-label="1웨이브 결과" @keydown.tab.prevent="retryButton?.focus()"><small>WAVE 01</small><div class="result-symbol">★</div><h1>방어 성공!</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/{{ state.total }}</b></span><span>탈출 <b>{{ state.escaped }}마리</b></span></div><p class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><button ref="retryButton" class="launch-button" @click="room?.reset()">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
     </div>
   </main>
 </template>
