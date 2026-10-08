@@ -89,18 +89,19 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <div class="bottom-controls">
       <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? '보스급 몬스터 출현' : `보스급 몬스터 자동 출현까지 ${state.monsterSummonCountdown}초`">
+        <span v-if="state.monsterSummonCountdown !== null" class="robot-button-count monster-summon-timer" aria-hidden="true">{{ state.monsterSummonCountdown }}s</span>
         <img class="monster-portrait" :src="monsterArt" alt="" draggable="false" />
-        <b>{{ state.monsterSummonCountdown === null ? '보스 출현' : `보스 ${state.monsterSummonCountdown}초` }}</b>
+        <b>몬스터 소환</b>
       </div>
       <div class="robot-elements" aria-label="속성 에너지 보유 수량">
         <span v-for="kind in kindOrder" :key="kind" :class="kind" :title="ROBOTS[kind].energyName + ' 에너지'" :aria-label="ROBOTS[kind].energyName + ' 에너지 ' + state.elementEnergy[kind] + '개'">
           <EnergyIcon :kind="kind" /><b>{{ state.elementEnergy[kind] }}</b>
         </span>
       </div>
-      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇, ' + state.robotCount + '대 보유'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
+      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇 소환, ' + state.robotCount + '대 보유'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
         <span class="robot-button-count" role="status" aria-live="polite" aria-atomic="true">{{ state.robotCount }}</span>
         <i class="robot-portrait" :style="robotArt.fire" aria-hidden="true" />
-        <b>로봇</b>
+        <b>로봇 소환</b>
       </button>
     </div>
     <p v-if="ready && canDeploy" class="battle-hint" role="status">{{ state.message || '에너지 3개 → 로봇 자동 소환 → 로봇 버튼에서 코딩' }}</p>

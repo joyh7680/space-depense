@@ -217,6 +217,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .robot-button:hover,.robot-button.open{filter:brightness(1.15);border-color:#fff0b5}
 .robot-button b{font-size:14px;line-height:1.2;color:#fff4d0;text-shadow:0 2px 0 #14232d}
 .robot-button-count{position:absolute;z-index:1;right:-7px;top:-9px;display:grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border:2px solid #fff4cd;border-radius:8px;background:#76be59;color:#172e21;font-size:14px;font-weight:900;box-shadow:0 2px 0 #24382a;font-variant-numeric:tabular-nums}
+.monster-summon-timer{min-width:38px;font-size:12px;white-space:nowrap}
 .robot-portrait{display:block;flex-shrink:0;width:72px;height:74px;margin:0;background-image:var(--portrait-url);background-size:610.8px 562.8px;background-repeat:no-repeat;filter:drop-shadow(0 3px 1px #18232b55)}
 .robot-button .robot-portrait{transform:scale(.65);margin:-12px -12px -9px}
 .monster-portrait{display:block;width:48px;height:53px;object-fit:contain;filter:drop-shadow(0 3px 1px #18232b55)}
