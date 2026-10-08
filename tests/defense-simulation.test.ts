@@ -158,7 +158,7 @@ test('a burning enemy killed before reaching the base awards energy without dest
 test('clearing regular monsters waits for the automatic boss before awarding victory', () => {
   for (const kind of ['fire', 'ice', 'electric'] as const) {
     const game = new DefenseSimulation(); summon(game, kind); summon(game, kind); summon(game, kind); game.startWave();
-    advance(game, 59.95);
+    advance(game, 29.95);
     assert.equal(game.status, 'running'); assert.equal(game.kills, 12); assert.equal(game.health, 100); assert.equal(game.wave, 1);
     assert.equal(game.credits, 300 + 12 * 15);
     game.step(0.05);
