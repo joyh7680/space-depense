@@ -3,8 +3,8 @@ import { DefenseSimulation, ROUTE, isRouteTile } from './defense-simulation';
 import { Room } from './room/room';
 import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
-import { ROBOTS, WAVE_ONE } from './wave-one';
-import type { DefenseState, GameMode, GameOptions, TilePosition } from './types';
+import { ROBOT_KINDS, ROBOTS, WAVE_ONE } from './wave-one';
+import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
 
 const center = (value: number) => value * 100 + 50;
 
@@ -24,6 +24,7 @@ export class DefenseScene extends Phaser.Scene {
   private core!: Phaser.GameObjects.Graphics;
   private stationDamage!: Phaser.GameObjects.Graphics;
   private stationEffects!: Phaser.GameObjects.Container;
+  private energyEffects!: Phaser.GameObjects.Container;
   private defeatTimer?: Phaser.Time.TimerEvent;
   private defeatAnimationComplete = false;
   private unitLabels = new Map<number, Phaser.GameObjects.Text>();
@@ -69,6 +70,7 @@ export class DefenseScene extends Phaser.Scene {
     this.hover = this.add.graphics().setDepth(4);
     this.stationDamage = this.add.graphics().setDepth(23);
     this.stationEffects = this.add.container(0, 0).setDepth(24);
+    this.energyEffects = this.add.container(0, 0).setDepth(21);
     this.createPlayer();
     this.createCore();
     const start = ROUTE[0];
@@ -227,11 +229,17 @@ export class DefenseScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     if (!this.room) return;
     const previousHealth = this.simulation.health;
+    const previousEnergy = { ...this.simulation.elementEnergy };
     const shots = this.interactionLocked ? [] : this.simulation.step(delta / 1000);
     if (previousHealth > 0 && this.simulation.status === 'defeat') this.destroyStation();
     if (!this.interactionLocked && !['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
     this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
     this.drawUnits();
+    let rewardIndex = 0;
+    for (const kind of ROBOT_KINDS) {
+      const amount = this.simulation.elementEnergy[kind] - previousEnergy[kind];
+      if (amount > 0) this.showEnergyReward(kind, amount, rewardIndex++);
+    }
     for (const shot of shots) {
       const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color).setOrigin(0).setLineWidth(shot.chain ? 3 : 6).setDepth(15);
       this.tweens.add({ targets: beam, alpha: 0, duration: 220, onComplete: () => beam.destroy() });
@@ -239,6 +247,24 @@ export class DefenseScene extends Phaser.Scene {
       this.tweens.add({ targets: hit, alpha: 0, scale: 1.8, duration: 240, onComplete: () => hit.destroy() });
     }
     if (time >= this.publishAt) { this.publish(); this.publishAt = time + 120; }
+  }
+
+  private showEnergyReward(kind: RobotKind, amount: number, index: number): void {
+    const config = ROBOTS[kind];
+    const color = `#${config.color.toString(16).padStart(6, '0')}`;
+    const label = this.add.text(this.player.x, this.player.y - 95 - index * 34,
+      `${config.symbol} ${config.name} 에너지 +${amount}`, {
+        fontFamily: 'sans-serif', fontSize: '24px', fontStyle: 'bold', color,
+        backgroundColor: '#172333', padding: { x: 10, y: 5 },
+      }).setOrigin(0.5);
+    this.energyEffects.add(label);
+    this.tweens.add({ targets: label, y: label.y - 55, alpha: 0, duration: 1100,
+      ease: 'Sine.Out', onComplete: () => label.destroy() });
+    const glow = this.add.circle(this.player.x, this.player.y - 35, 35)
+      .setStrokeStyle(4, config.color, 0.9);
+    this.energyEffects.add(glow);
+    this.tweens.add({ targets: glow, scale: 1.8, alpha: 0, duration: 550,
+      onComplete: () => glow.destroy() });
   }
 
   private movePlayer(time: number): void {
@@ -318,9 +344,9 @@ export class DefenseScene extends Phaser.Scene {
     else this.notice = '전투가 진행 중이에요.';
     this.publish();
   }
-  summon(): void {
-    this.target = null; this.inspectRange = true; this.notice = this.simulation.summon();
-    this.mode = 'move'; this.options.parent.focus({ preventScroll: true }); this.publish();
+  summon(kind: RobotKind): void {
+    this.target = null; this.inspectRange = true; this.notice = this.simulation.summon(kind);
+    this.mode = 'relocate'; this.options.parent.focus({ preventScroll: true }); this.publish();
   }
   selectRobot(id: number): void {
     this.simulation.selectRobot(id); this.inspectRange = true; this.mode = 'relocate'; this.target = null;
@@ -331,6 +357,8 @@ export class DefenseScene extends Phaser.Scene {
   togglePause(): void { this.simulation.togglePause(); this.publish(); }
   reset(): void {
     this.defeatTimer?.remove(); this.defeatTimer = undefined;
+    for (const effect of this.energyEffects.getAll()) this.tweens.killTweensOf(effect);
+    this.energyEffects.removeAll(true);
     this.defeatAnimationComplete = false;
     for (const effect of this.stationEffects.getAll()) this.tweens.killTweensOf(effect);
     this.stationEffects.removeAll(true);
@@ -354,7 +382,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), elementEnergy: { ...s.elementEnergy }, robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
     this.options.onState?.(state);
   }
 }

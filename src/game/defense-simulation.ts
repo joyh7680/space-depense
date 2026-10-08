@@ -1,6 +1,6 @@
 import { isWalkable } from './room/walkable.ts';
-import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, SUMMON_COST, WAVE_ONE } from './wave-one.ts';
-import type { CodeBlock, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
+import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, WAVE_ONE } from './wave-one.ts';
+import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
 export type Robot = RobotState & { cooldown: number; phaseTimer: number };
 export type Enemy = TilePosition & {
@@ -21,6 +21,7 @@ export class DefenseSimulation {
   wave = 0;
   health = 100;
   credits = 300;
+  elementEnergy: ElementEnergy = { fire: 0, electric: 0, ice: 0 };
   kills = 0;
   escaped = 0;
   spawned = 0;
@@ -58,28 +59,27 @@ export class DefenseSimulation {
     return null;
   }
 
-  placeRobot(x: number, y: number): string {
+  placeRobot(x: number, y: number, kind: RobotKind): string {
     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 소환할 수 있어요.';
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥을 선택해 주세요.';
     if (this.robots.length >= 8) return '로봇은 최대 8대까지 소환할 수 있어요.';
     if (this.robots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
-    if (this.credits < SUMMON_COST) return '에너지가 부족해요. 외계인을 처치하면 에너지를 얻어요.';
-    const kind = ROBOT_KINDS[Math.min(2, Math.max(0, Math.floor(this.random() * 3)))];
+    if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].name} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 로봇이 충전돼요.`;
     const config = ROBOTS[kind];
     const robot: Robot = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, activeBlock: 'find', attacks: 0, targetId: null };
     this.robots.push(robot);
     this.selectedId = robot.id;
-    this.credits -= SUMMON_COST;
+    this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
     return `${config.name} 로봇 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
   }
-  summon(): string {
+  summon(kind: RobotKind): string {
     if (!this.canDeploy) return '지금은 소환할 수 없어요.';
     const candidates = [...DEPLOY_SLOTS];
     for (let y = 3; y <= 11; y++) for (let x = 1; x <= 14; x++) {
       if (isWalkable(x, y) && !isRouteTile(x, y)) candidates.push({ x, y });
     }
     const slot = candidates.find(p => !this.robots.some(d => d.x === p.x && d.y === p.y) && !(p.x === this.player.x && p.y === this.player.y));
-    return slot ? this.placeRobot(slot.x, slot.y) : '배치 칸이 가득 찼어요. 같은 로봇을 합성해 보세요.';
+    return slot ? this.placeRobot(slot.x, slot.y, kind) : '배치 칸이 가득 찼어요. 같은 로봇을 합성해 보세요.';
   }
   selectRobot(id: number): void { if (this.robots.some(d => d.id === id)) this.selectedId = id; }
   moveRobot(id: number, x: number, y: number): string {
@@ -152,6 +152,9 @@ export class DefenseSimulation {
   private collectKills(): void {
     this.enemies = this.enemies.filter(e => {
       if (e.health > 0) return true;
+      // Roll once per defeated monster, including damage-over-time and chain kills.
+      const kind = ROBOT_KINDS[Math.min(ROBOT_KINDS.length - 1, Math.max(0, Math.floor(this.random() * ROBOT_KINDS.length)))];
+      this.elementEnergy[kind]++;
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
     });
   }
