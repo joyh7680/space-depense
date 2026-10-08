@@ -21,7 +21,7 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     scale: { mode: Phaser.Scale.RESIZE, width: options.parent.clientWidth, height: options.parent.clientHeight },
     scene: [scene],
     plugins: { scene: [{ key: 'SpinePlugin', plugin: runtime.SpinePlugin!, mapping: 'spine' }] },
-    input: { keyboard: { capture: [] } },
+    input: { keyboard: false, touch: { capture: true } },
     render: { antialias: false, roundPixels: true },
     audio: { noAudio: true },
   });
@@ -31,14 +31,10 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     }
   });
   observer.observe(options.parent);
-  const preventScroll = (event: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) event.preventDefault();
-  };
-  options.parent.addEventListener('keydown', preventScroll);
   return {
     setMode: mode => scene.setMode(mode),
     summon: () => scene.summon(),
-    selectDrone: id => scene.selectDrone(id),
+    selectRobot: id => scene.selectRobot(id),
     merge: () => scene.merge(),
     toggleGrid: () => scene.toggleGrid(),
     startWave: () => scene.startWave(),
@@ -46,7 +42,6 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     reset: () => scene.reset(),
     destroy: () => {
       observer.disconnect();
-      options.parent.removeEventListener('keydown', preventScroll);
       game.destroy(true);
     },
   };

@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { DefenseSimulation, ROUTE } from './defense-simulation';
+import { DefenseSimulation, ROUTE, isRouteTile } from './defense-simulation';
 import { Room } from './room/room';
 import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
-import { DEPLOY_SLOTS, DRONES, SUMMON_COST, WAVE_ONE } from './wave-one';
+import { DEPLOY_SLOTS, ROBOTS, WAVE_ONE } from './wave-one';
 import type { DefenseState, GameMode, GameOptions, TilePosition } from './types';
 
 const center = (value: number) => value * 100 + 50;
@@ -14,19 +14,19 @@ export class DefenseScene extends Phaser.Scene {
   showGrid = false;
   private room!: Room;
   private player!: SpineActor;
-  private aliens = new Map<number, SpineActor>();
-  private droneArt = new Map<number, Phaser.GameObjects.Image>();
+  private aliens = new Map<number, Phaser.GameObjects.Image>();
+  private robotArt = new Map<number, SpineActor>();
   private inspectRange = false;
   private units!: Phaser.GameObjects.Graphics;
   private route!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Graphics;
   private ranges!: Phaser.GameObjects.Graphics;
   private unitLabels = new Map<number, Phaser.GameObjects.Text>();
-  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
-  private wasd?: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
   private target: TilePosition | null = null;
-  private playerTile = { x: 11, y: 4 };
-  private notice = '랜덤 소환으로 드론 3개를 준비하고 1웨이브를 시작해 보세요.';
+  private playerTile = { x: 5, y: 4 };
+  private notice = '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
+  private draggedRobot: number | null = null;
+  private dragStart: TilePosition | null = null;
   private publishAt = 0;
   private moveAt = 0;
   private options: GameOptions;
@@ -36,40 +36,50 @@ export class DefenseScene extends Phaser.Scene {
   preload(): void {
     const base = this.options.assetBase ?? `${import.meta.env.BASE_URL}games/space/`;
     this.load.image('room-tiles', `${base}SPACE_MAP_TILESET.png`);
-    this.load.atlas('drone-heads', `${import.meta.env.BASE_URL}codmos-assets/player/int-front.png`, `${import.meta.env.BASE_URL}codmos-assets/player/drone-heads.json`);
-    this.load.spine('alien', `${import.meta.env.BASE_URL}codmos-assets/52081da08bde/52081da08bde93ae825e4e531268cd4dd0f33a0bbb05d7f2bba70e96d9c9aba4.json`, [`${import.meta.env.BASE_URL}codmos-assets/1bae1e1a9bf8/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas`], true);
-    this.load.spine('slime', `${import.meta.env.BASE_URL}codmos-assets/e5f5d6e48832/e5f5d6e488328c87d1425a4f224f6a092f5e53c4fdd4421447947414656c12c0.json`, [`${import.meta.env.BASE_URL}codmos-assets/aa9ad7124c35/aa9ad7124c353e510a8d0365a30f0d2097ed46ea8f4f1ad89b87b320e9e6c68a.atlas`], true);
+    this.load.image('monster-mint', `${import.meta.env.BASE_URL}codmos-assets-monster/759c20f0e742/monster-mint.png`);
     this.load.spine('player', `${import.meta.env.BASE_URL}codmos-assets/player/int-front.json`, [`${import.meta.env.BASE_URL}codmos-assets/player/int-front.atlas`], true);
     this.load.on('loaderror', () => this.options.onError?.('방 리소스를 불러오지 못했습니다. 새로고침해 주세요.'));
   }
 
   create(): void {
-    if (!this.textures.exists('room-tiles') || !this.textures.exists('drone-heads')) return;
+    if (!this.textures.exists('room-tiles') || !this.textures.exists('monster-mint')) return;
     this.cameras.main.setBackgroundColor('#15092e');
     this.createStars();
     this.room = new Room(this);
     this.route = this.add.graphics().setDepth(3);
-    this.route.lineStyle(5, 0xf4bd69, 0.55);
-    this.route.beginPath();
-    this.route.moveTo(center(ROUTE[0].x), center(ROUTE[0].y));
-    for (const point of ROUTE.slice(1)) this.route.lineTo(center(point.x), center(point.y));
-    this.route.strokePath();
+    // Broad connected floor tiles make turns readable without relying on a line.
+    for (let y = 3; y <= 7; y++) for (let x = 1; x <= 13; x++) {
+      if (!isRouteTile(x, y)) continue;
+      this.route.fillStyle(0x5c523f); this.route.fillRect(x * 100, y * 100, 100, 100);
+      this.route.fillStyle((x + y) % 2 ? 0xdac695 : 0xe5d2a4);
+      this.route.fillRect(x * 100 + 4, y * 100 + 4, 92, 92);
+      this.route.lineStyle(2, 0xbba371, 0.7); this.route.strokeRect(x * 100 + 4, y * 100 + 4, 92, 92);
+      this.route.fillStyle(0xa68b58, 0.7); this.route.fillCircle(center(x), center(y), 3);
+    }
     this.units = this.add.graphics().setDepth(12);
     this.ranges = this.add.graphics().setDepth(4);
     this.hover = this.add.graphics().setDepth(4);
     this.createPlayer();
     this.createCore();
-    this.add.text(center(2), center(7) + 65, '외계인 진입 →', { fontFamily: 'sans-serif', fontSize: '25px', color: '#ffd5a0' }).setOrigin(0.5).setDepth(15);
-    this.add.text(center(8), center(3) - 95, '우리 기지', { fontFamily: 'sans-serif', fontSize: '25px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
-    this.cursors = this.input.keyboard?.createCursorKeys();
-    this.wasd = this.input.keyboard?.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' }) as typeof this.wasd;
+    this.add.text(center(2), center(3), 'IN →', { fontFamily: 'sans-serif', fontSize: '22px', color: '#6f5731', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
+    this.add.text(center(12), center(7) + 73, '우리 기지', { fontFamily: 'sans-serif', fontSize: '22px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.onPointer(pointer));
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      const tile = this.tileAt(pointer);
+      if (this.draggedRobot !== null && this.dragStart && (tile.x !== this.dragStart.x || tile.y !== this.dragStart.y)) {
+        this.notice = this.simulation.moveRobot(this.draggedRobot, tile.x, tile.y);
+        if (this.simulation.robots.some(r => r.id === this.draggedRobot && r.x === tile.x && r.y === tile.y)) this.mode = 'move';
+        this.publish();
+      }
+      this.draggedRobot = null; this.dragStart = null;
+    });
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => this.updateHover(pointer));
     this.game.canvas.addEventListener('pointerleave', this.clearHover);
     this.events.once('shutdown', () => this.game.canvas.removeEventListener('pointerleave', this.clearHover));
     this.scale.on('resize', this.fitRoom, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.fitRoom, this));
     this.fitRoom();
+    this.options.parent.focus({ preventScroll: true });
     this.publish();
   }
 
@@ -93,17 +103,19 @@ export class DefenseScene extends Phaser.Scene {
 
   private createCore(): void {
     const core = this.add.graphics().setDepth(10);
-    core.fillStyle(0x76f0e9, 0.14); core.fillCircle(center(8), center(3), 79);
-    core.lineStyle(3, 0x77eae1, 0.55); core.strokeCircle(center(8), center(3), 57);
-    core.fillStyle(0x286579); core.fillRoundedRect(center(8) - 35, center(3) - 34, 70, 68, 14);
-    core.fillStyle(0xa2fcf0); core.fillRoundedRect(center(8) - 23, center(3) - 24, 46, 48, 8);
+    const end = ROUTE[ROUTE.length - 1];
+    core.fillStyle(0x76f0e9, 0.14); core.fillCircle(center(end.x), center(end.y), 79);
+    core.lineStyle(3, 0x77eae1, 0.55); core.strokeCircle(center(end.x), center(end.y), 57);
+    core.fillStyle(0x286579); core.fillRoundedRect(center(end.x) - 35, center(end.y) - 34, 70, 68, 14);
+    core.fillStyle(0xa2fcf0); core.fillRoundedRect(center(end.x) - 23, center(end.y) - 24, 46, 48, 8);
     this.tweens.add({ targets: core, alpha: 0.65, duration: 1500, yoyo: true, repeat: -1 });
   }
 
   private fitRoom(): void {
     const { width, height } = this.scale;
-    this.cameras.main.setZoom(Math.min(width / 1660, (height - 130) / 1270));
-    this.cameras.main.centerOn(800, 690);
+    const side = width > 760 ? 225 : 78;
+    this.cameras.main.setZoom(Math.min((width - side - 24) / 1600, (height - 200) / 1130));
+    this.cameras.main.centerOn(800 - side / (2 * this.cameras.main.zoom), 620);
   }
 
   private tileAt(pointer: Phaser.Input.Pointer): TilePosition {
@@ -115,12 +127,14 @@ export class DefenseScene extends Phaser.Scene {
     this.options.parent.focus({ preventScroll: true });
     if (['paused', 'defeat', 'cleared'].includes(this.simulation.status)) return;
     const tile = this.tileAt(pointer);
-    if (this.mode === 'build') {
-      if (tile.x === this.playerTile.x && tile.y === this.playerTile.y) this.notice = '대원이 있는 자리에는 배치할 수 없습니다.';
-      else this.notice = this.simulation.placeDrone(tile.x, tile.y);
-    } else if (this.simulation.drones.some(d => d.x === tile.x && d.y === tile.y)) {
-      const drone = this.simulation.drones.find(d => d.x === tile.x && d.y === tile.y)!;
-      this.selectDrone(drone.id);
+    if (this.simulation.robots.some(d => d.x === tile.x && d.y === tile.y)) {
+      const robot = this.simulation.robots.find(d => d.x === tile.x && d.y === tile.y)!;
+      this.selectRobot(robot.id);
+      this.draggedRobot = robot.id; this.dragStart = tile;
+    } else if (this.mode === 'relocate' && this.simulation.selectedId !== null) {
+      this.notice = this.simulation.moveRobot(this.simulation.selectedId, tile.x, tile.y);
+      const moved = this.simulation.robots.find(r => r.id === this.simulation.selectedId);
+      if (moved?.x === tile.x && moved.y === tile.y) this.mode = 'move';
     } else if (this.canMove(tile.x, tile.y)) this.target = tile;
     else this.notice = '방 안의 빈 바닥을 선택해 주세요.';
     this.publish();
@@ -130,47 +144,36 @@ export class DefenseScene extends Phaser.Scene {
     this.hover.clear();
     const tile = this.tileAt(pointer);
     if (!isWalkable(tile.x, tile.y)) return;
-    this.hover.lineStyle(3, this.mode === 'build' ? 0xf3bd6f : 0x89e4dd, 0.85);
+    this.hover.lineStyle(3, this.mode === 'relocate' ? (isRouteTile(tile.x, tile.y) ? 0xff7070 : 0xf3bd6f) : 0x89e4dd, 0.85);
     this.hover.strokeRect(tile.x * 100 + 5, tile.y * 100 + 5, 90, 90);
   }
 
   private canMove(x: number, y: number): boolean {
-    return isWalkable(x, y) && !(x === 8 && y === 3) && !DEPLOY_SLOTS.some(t => t.x === x && t.y === y);
+    const end = ROUTE[ROUTE.length - 1];
+    return isWalkable(x, y) && !(x === end.x && y === end.y) && !this.simulation.robots.some(t => t.x === x && t.y === y);
   }
 
   update(time: number, delta: number): void {
     if (!this.room) return;
     const shots = this.simulation.step(delta / 1000);
     if (!['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
+    this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
     this.drawUnits();
     for (const shot of shots) {
-      const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, DRONES[shot.kind].color).setOrigin(0).setLineWidth(shot.chain ? 3 : 6).setDepth(15);
+      const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color).setOrigin(0).setLineWidth(shot.chain ? 3 : 6).setDepth(15);
       this.tweens.add({ targets: beam, alpha: 0, duration: 220, onComplete: () => beam.destroy() });
-      const hit = this.add.circle(center(shot.to.x), center(shot.to.y) - 20, 25, DRONES[shot.kind].color, 0.8).setDepth(16);
+      const hit = this.add.circle(center(shot.to.x), center(shot.to.y) - 20, 25, ROBOTS[shot.kind].color, 0.8).setDepth(16);
       this.tweens.add({ targets: hit, alpha: 0, scale: 1.8, duration: 240, onComplete: () => hit.destroy() });
     }
     if (time >= this.publishAt) { this.publish(); this.publishAt = time + 120; }
   }
 
   private movePlayer(time: number): void {
-    if (time < this.moveAt) return;
-    let dx = 0; let dy = 0;
-    if (document.activeElement === this.options.parent) {
-      if (this.cursors?.left.isDown || this.wasd?.left.isDown) dx = -1;
-      else if (this.cursors?.right.isDown || this.wasd?.right.isDown) dx = 1;
-      else if (this.cursors?.up.isDown || this.wasd?.up.isDown) dy = -1;
-      else if (this.cursors?.down.isDown || this.wasd?.down.isDown) dy = 1;
-    }
-    if (dx || dy) this.target = null;
-    else if (this.target) {
-      const step = this.findNextStep(this.target);
-      if (!step) { this.target = null; return; }
-      dx = step.x - this.playerTile.x; dy = step.y - this.playerTile.y;
-    }
-    if (!dx && !dy) return;
-    const next = { x: this.playerTile.x + dx, y: this.playerTile.y + dy };
-    if (!this.canMove(next.x, next.y)) return;
+    if (time < this.moveAt || !this.target) return;
+    const next = this.findNextStep(this.target);
+    if (!next) { this.target = null; return; }
     this.playerTile = next;
+    this.simulation.player = { ...next };
     this.moveAt = time + 160;
     this.player.play('move', true, true);
     this.tweens.add({ targets: this.player, x: center(next.x), y: center(next.y) + 30, duration: 145, onComplete: () => this.player.play('idle', true) });
@@ -198,92 +201,101 @@ export class DefenseScene extends Phaser.Scene {
     this.ranges.clear();
     const s = this.simulation;
     for (const slot of DEPLOY_SLOTS) {
-      const occupied = s.drones.some(d => d.x === slot.x && d.y === slot.y);
+      const occupied = s.robots.some(d => d.x === slot.x && d.y === slot.y);
       this.ranges.fillStyle(0x90ffe6, occupied ? 0.08 : 0.12);
       this.ranges.fillRoundedRect(slot.x * 100 + 8, slot.y * 100 + 8, 84, 84, 16);
-      this.ranges.lineStyle(this.mode === 'build' ? 4 : 2, 0x8de7d7, occupied ? 0.25 : 0.55);
+      this.ranges.lineStyle(this.mode === 'relocate' ? 4 : 2, 0x8de7d7, occupied ? 0.25 : 0.55);
       this.ranges.strokeRoundedRect(slot.x * 100 + 8, slot.y * 100 + 8, 84, 84, 16);
       if (!occupied) { this.ranges.lineBetween(center(slot.x) - 12, center(slot.y), center(slot.x) + 12, center(slot.y)); this.ranges.lineBetween(center(slot.x), center(slot.y) - 12, center(slot.x), center(slot.y) + 12); }
     }
-    for (const drone of s.drones) {
-      const x = center(drone.x), y = center(drone.y), color = DRONES[drone.kind].color;
-      if (this.inspectRange && drone.id === s.selectedId) {
-        this.ranges.fillStyle(color, 0.06); this.ranges.fillCircle(x, y, drone.range * 100);
-        this.ranges.lineStyle(2, color, 0.4); this.ranges.strokeCircle(x, y, drone.range * 100);
+    for (const robot of s.robots) {
+      const x = center(robot.x), y = center(robot.y), color = ROBOTS[robot.kind].color;
+      if (this.inspectRange && robot.id === s.selectedId) {
+        this.ranges.fillStyle(color, 0.06); this.ranges.fillCircle(x, y, robot.range * 100);
+        this.ranges.lineStyle(2, color, 0.4); this.ranges.strokeCircle(x, y, robot.range * 100);
         this.units.lineStyle(4, color, 1); this.units.strokeEllipse(x, y + 12, 88, 40);
-        const target = s.enemies.find(e => e.id === drone.targetId);
+        const target = s.enemies.find(e => e.id === robot.targetId);
         if (target) { this.units.lineStyle(3, color, 0.85); this.units.strokeCircle(center(target.x), center(target.y) - 25, 45); }
       }
       this.units.fillStyle(0x0a1b28, 0.4); this.units.fillEllipse(x, y + 12, 70, 24);
       this.units.lineStyle(3, color, 0.8); this.units.strokeEllipse(x, y + 8, 66, 23);
       this.units.fillStyle(color, 0.2); this.units.fillTriangle(x - 18, y - 3, x + 18, y - 3, x, y + 20);
-      let art = this.droneArt.get(drone.id);
+      let art = this.robotArt.get(robot.id);
       if (!art) {
-        art = this.add.image(x, y - 25, 'drone-heads', drone.kind).setScale(0.31).setDepth(14);
-        this.droneArt.set(drone.id, art);
+        art = this.add.spine(x, y + 24, 'player', 'idle', true).setScale(0.17).setDepth(14);
+        art.setSkinByName({ fire: 'volta', ice: 'cloud', electric: 'monitorhead' }[robot.kind]);
+        art.skeleton.setSlotsToSetupPose();
+        this.robotArt.set(robot.id, art);
       }
-      art.setPosition(x, y - 25 + Math.sin(this.time.now / 400 + drone.id) * 4);
-      let label = this.unitLabels.get(drone.id);
+      art.setPosition(x, y + 24);
+      let label = this.unitLabels.get(robot.id);
       if (!label) {
         label = this.add.text(x, y + 38, '', { fontFamily: 'sans-serif', fontSize: '22px', color: '#e7f9f5', backgroundColor: '#1b2638', padding: { x: 5, y: 3 } }).setOrigin(0.5).setDepth(17);
-        this.unitLabels.set(drone.id, label);
+        this.unitLabels.set(robot.id, label);
       }
-      label.setPosition(x, y + 38).setText(`${DRONES[drone.kind].name} ${'★'.repeat(drone.grade)}`);
+      label.setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} ${'★'.repeat(robot.grade)}`);
     }
-    for (const [id, label] of this.unitLabels) { if (!s.drones.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
-    for (const [id, art] of this.droneArt) if (!s.drones.some(d => d.id === id)) { art.destroy(); this.droneArt.delete(id); }
+    for (const [id, label] of this.unitLabels) { if (!s.robots.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
+    for (const [id, art] of this.robotArt) if (!s.robots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); }
     for (const enemy of s.enemies) {
       const x = center(enemy.x); const y = center(enemy.y);
       this.units.fillStyle(0x112331, 0.35); this.units.fillEllipse(x, y + 12, 65, 24);
       let actor = this.aliens.get(enemy.id);
       if (!actor) {
-        actor = this.add.spine(x, y + 12, enemy.id % 3 === 0 ? 'slime' : 'alien', 'idle', true).setScale(0.38).setDepth(13);
+        actor = this.add.image(x, y - 22, 'monster-mint').setDisplaySize(78, 78).setDepth(13);
         this.aliens.set(enemy.id, actor);
       }
-      actor.setPosition(x, y + 12);
-      actor.timeScale = s.status === 'paused' ? 0 : enemy.slowTime > 0 ? 0.5 : 1;
+      actor.setPosition(x, y - 22 + Math.sin(this.time.now / 160 + enemy.id) * 3);
+      actor.setFlipX(enemy.waypoint === 3);
       this.units.fillStyle(0x162c36); this.units.fillRoundedRect(x - 28, y - 85, 56, 7, 3);
       this.units.fillStyle(enemy.burnTime > 0 ? 0xffac70 : 0xe79bce); this.units.fillRoundedRect(x - 28, y - 85, 56 * Math.max(0, enemy.health / WAVE_ONE.health), 7, 3);
     }
     for (const [id, actor] of this.aliens) if (!s.enemies.some(e => e.id === id)) {
       this.aliens.delete(id);
-      actor.timeScale = 1;
-      actor.play('die', false);
-      this.time.delayedCall(500, () => actor.destroy());
+      this.tweens.add({ targets: actor, alpha: 0, scale: 0, duration: 200, onComplete: () => actor.destroy() });
     }
   }
 
   setMode(mode: GameMode): void {
     this.mode = mode; this.target = null;
-    this.notice = mode === 'build' ? `빛나는 빈 칸을 클릭해 랜덤 드론을 소환하세요. (${SUMMON_COST} 에너지)` : '드론을 클릭하면 코드와 사거리를 볼 수 있어요.';
+    this.notice = mode === 'relocate' ? '선택한 로봇을 빈 바닥에 배치해 주세요.' : '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
     this.publish();
   }
   toggleGrid(): void { this.showGrid = !this.showGrid; this.room.grid.setVisible(this.showGrid); this.publish(); }
   startWave(): void {
     this.inspectRange = false;
     if (this.simulation.startWave()) { this.mode = 'move'; this.notice = '일반 외계인 12마리가 다가와요! 전투 중에도 소환·합성이 가능해요.'; }
-    else this.notice = '드론을 한 개 이상 소환한 뒤 시작해 주세요.';
+    else this.notice = '전투가 진행 중이에요.';
     this.publish();
   }
-  summon(): void { this.target = null; this.inspectRange = false; this.notice = this.simulation.summon(); this.publish(); }
-  selectDrone(id: number): void { this.simulation.selectDrone(id); this.inspectRange = true; this.notice = '드론 선택'; this.publish(); this.options.onInspect?.(); }
+  summon(): void {
+    this.target = null; this.inspectRange = true; this.notice = this.simulation.summon();
+    this.mode = 'move'; this.options.parent.focus({ preventScroll: true }); this.publish();
+  }
+  selectRobot(id: number): void {
+    this.simulation.selectRobot(id); this.inspectRange = true; this.mode = 'relocate'; this.target = null;
+    this.notice = '빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.';
+    this.options.parent.focus({ preventScroll: true }); this.publish();
+  }
   merge(): void { this.notice = this.simulation.merge(); this.publish(); }
   togglePause(): void { this.simulation.togglePause(); this.publish(); }
   reset(): void {
     for (const actor of this.aliens.values()) actor.destroy();
-    for (const art of this.droneArt.values()) art.destroy();
+    for (const art of this.robotArt.values()) art.destroy();
     for (const label of this.unitLabels.values()) label.destroy();
-    this.aliens.clear(); this.droneArt.clear(); this.unitLabels.clear();
+    this.aliens.clear(); this.robotArt.clear(); this.unitLabels.clear();
     this.inspectRange = false;
     this.simulation = new DefenseSimulation(); this.mode = 'move'; this.target = null;
-    this.tweens.killTweensOf(this.player); this.playerTile = { x: 11, y: 4 };
-    this.player.setPosition(center(11), center(4) + 30); this.room.updateWall(4);
-    this.notice = '새 작전을 준비해요. 드론 3개를 소환해 보세요.'; this.publish();
+    this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
+    this.player.setPosition(center(this.playerTile.x), center(this.playerTile.y) + 30); this.room.updateWall(4);
+    this.draggedRobot = null; this.dragStart = null; this.moveAt = 0;
+    this.notice = '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
+    this.options.parent.focus({ preventScroll: true }); this.publish();
   }
   private publish(): void {
     const s = this.simulation;
-    const message = s.status === 'cleared' ? '1웨이브 방어 성공! 내 드론의 순차 코드가 기지를 지켰어요.' : s.status === 'defeat' ? '기지 체력이 0이 됐어요. 드론을 더 소환하거나 합성해서 다시 도전해 보세요.' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, drones: s.drones.map(({ cooldown, phaseTimer, ...drone }) => ({ ...drone })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message };
+    const message = s.status === 'cleared' ? '1웨이브 방어 성공! 내 로봇의 순차 코드가 기지를 지켰어요.' : s.status === 'defeat' ? '기지 체력이 0이 됐어요. 로봇을 더 소환하거나 합성해서 다시 도전해 보세요.' : this.notice;
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message };
     this.options.onState?.(state);
   }
 }

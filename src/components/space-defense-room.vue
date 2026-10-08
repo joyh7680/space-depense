@@ -29,7 +29,7 @@ onBeforeUnmount(() => { disposed = true; controller?.destroy(); });
 defineExpose({
   setMode: (mode: GameMode) => controller?.setMode(mode),
   summon: () => controller?.summon(),
-  selectDrone: (id: number) => controller?.selectDrone(id),
+  selectRobot: (id: number) => controller?.selectRobot(id),
   merge: () => controller?.merge(),
   toggleGrid: () => controller?.toggleGrid(),
   startWave: () => controller?.startWave(),
@@ -39,11 +39,11 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="host" class="game-canvas" role="application" aria-label="우주 코딩 디펜스. 드론을 클릭하면 선택합니다. 빛나는 칸에 드론을 배치할 수 있습니다." tabindex="0" />
+  <div ref="host" class="game-canvas" role="application" aria-label="우주 코딩 디펜스. PC에서는 바닥 클릭, 태블릿에서는 터치로 이동. 로봇 선택 후 빈 바닥을 누르거나 드래그해서 배치합니다." tabindex="0" />
 </template>
 
 <style scoped>
 .game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
 .game-canvas:focus-visible { outline: 2px solid #8ee6db; outline-offset: -4px; }
-.game-canvas :deep(canvas) { display: block; }
+.game-canvas :deep(canvas) { display: block; touch-action: none; }
 </style>

@@ -1,15 +1,18 @@
 import { isWalkable } from './room/walkable.ts';
-import { DEPLOY_SLOTS, DRONE_KINDS, DRONES, MAX_GRADE, SUMMON_COST, WAVE_ONE } from './wave-one.ts';
-import type { CodeBlock, DroneKind, DroneState, GameStatus, TilePosition } from './types.ts';
+import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, SUMMON_COST, WAVE_ONE } from './wave-one.ts';
+import type { CodeBlock, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
-export type Drone = DroneState & { cooldown: number; phaseTimer: number };
+export type Robot = RobotState & { cooldown: number; phaseTimer: number };
 export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
 };
-export type Shot = { from: TilePosition; to: TilePosition; kind: DroneKind; chain?: boolean };
-export const ROUTE: readonly TilePosition[] = [{ x: 1, y: 7 }, { x: 8, y: 7 }, { x: 8, y: 3 }];
+export type Shot = { from: TilePosition; to: TilePosition; kind: RobotKind; chain?: boolean; player?: boolean };
+export const ROUTE: readonly TilePosition[] = [{ x: 2, y: 3 }, { x: 13, y: 3 }, { x: 13, y: 5 }, { x: 3, y: 5 }, { x: 3, y: 7 }, { x: 12, y: 7 }];
 export function isRouteTile(x: number, y: number): boolean {
-  return (y === 7 && x >= 1 && x <= 8) || (x === 8 && y >= 3 && y <= 7);
+  return ROUTE.slice(1).some((end, i) => {
+    const start = ROUTE[i];
+    return x >= Math.min(start.x, end.x) && x <= Math.max(start.x, end.x) && y >= Math.min(start.y, end.y) && y <= Math.max(start.y, end.y);
+  });
 }
 const distance = (a: TilePosition, b: TilePosition) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -22,8 +25,11 @@ export class DefenseSimulation {
   escaped = 0;
   spawned = 0;
   elapsed = 0;
+  countdown = 5;
+  player: TilePosition = { x: 5, y: 4 };
+  private playerCooldown = 0;
   selectedId: number | null = null;
-  drones: Drone[] = [];
+  robots: Robot[] = [];
   enemies: Enemy[] = [];
   private sequence = 0;
   private spawnTimer = 0;
@@ -32,51 +38,71 @@ export class DefenseSimulation {
   constructor(random: () => number = Math.random) { this.random = random; }
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
 
-  placeDrone(x: number, y: number): string {
+  placeRobot(x: number, y: number): string {
     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 소환할 수 있어요.';
-    if (!DEPLOY_SLOTS.some(slot => slot.x === x && slot.y === y) || !isWalkable(x, y) || isRouteTile(x, y)) return '빛나는 드론 배치 칸을 선택해 주세요.';
-    if (this.drones.some(d => d.x === x && d.y === y)) return '이미 드론이 있는 칸이에요.';
+    if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥을 선택해 주세요.';
+    if (this.robots.length >= 8) return '로봇은 최대 8대까지 소환할 수 있어요.';
+    if (this.robots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
     if (this.credits < SUMMON_COST) return '에너지가 부족해요. 외계인을 처치하면 에너지를 얻어요.';
-    const kind = DRONE_KINDS[Math.min(2, Math.max(0, Math.floor(this.random() * 3)))];
-    const config = DRONES[kind];
-    const drone: Drone = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, activeBlock: 'find', attacks: 0, targetId: null };
-    this.drones.push(drone);
-    this.selectedId = drone.id;
+    const kind = ROBOT_KINDS[Math.min(2, Math.max(0, Math.floor(this.random() * 3)))];
+    const config = ROBOTS[kind];
+    const robot: Robot = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, activeBlock: 'find', attacks: 0, targetId: null };
+    this.robots.push(robot);
+    this.selectedId = robot.id;
     this.credits -= SUMMON_COST;
-    return `${config.name} 드론 소환! 드론을 선택하면 예제 코드와 사거리를 볼 수 있어요.`;
+    return `${config.name} 로봇 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
   }
   summon(): string {
     if (!this.canDeploy) return '지금은 소환할 수 없어요.';
-    const slot = DEPLOY_SLOTS.find(p => !this.drones.some(d => d.x === p.x && d.y === p.y));
-    return slot ? this.placeDrone(slot.x, slot.y) : '배치 칸이 가득 찼어요. 같은 드론을 합성해 보세요.';
+    const candidates = [...DEPLOY_SLOTS];
+    for (let y = 3; y <= 11; y++) for (let x = 1; x <= 14; x++) {
+      if (isWalkable(x, y) && !isRouteTile(x, y)) candidates.push({ x, y });
+    }
+    const slot = candidates.find(p => !this.robots.some(d => d.x === p.x && d.y === p.y) && !(p.x === this.player.x && p.y === this.player.y));
+    return slot ? this.placeRobot(slot.x, slot.y) : '배치 칸이 가득 찼어요. 같은 로봇을 합성해 보세요.';
   }
-  selectDrone(id: number): void { if (this.drones.some(d => d.id === id)) this.selectedId = id; }
+  selectRobot(id: number): void { if (this.robots.some(d => d.id === id)) this.selectedId = id; }
+  moveRobot(id: number, x: number, y: number): string {
+    const robot = this.robots.find(r => r.id === id);
+    if (!this.canDeploy || !robot) return '옮길 로봇을 선택해 주세요.';
+    if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥에 배치해 주세요.';
+    if (this.robots.some(r => r.id !== id && r.x === x && r.y === y)) return '다른 로봇이 있는 자리예요.';
+    robot.x = x; robot.y = y; robot.targetId = null;
+    robot.activeBlock = 'find'; robot.phaseTimer = 0;
+    return '로봇 배치 완료! 다른 로봇도 선택해서 옮길 수 있어요.';
+  }
   merge(): string {
     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 합성할 수 있어요.';
-    const drone = this.drones.find(d => d.id === this.selectedId);
-    if (!drone) return '합성할 드론을 먼저 선택해 주세요.';
-    if (drone.grade >= MAX_GRADE) return '최대 등급인 3성 드론이에요.';
-    const partner = this.drones.find(d => d.id !== drone.id && d.kind === drone.kind && d.grade === drone.grade);
-    if (!partner) return '같은 종류·같은 등급의 드론이 하나 더 필요해요.';
-    this.drones = this.drones.filter(d => d.id !== partner.id);
-    drone.grade++;
-    drone.damage = Math.round(DRONES[drone.kind].damage * 2.4 ** (drone.grade - 1));
-    drone.range = DRONES[drone.kind].range + (drone.grade - 1) * 0.4;
-    drone.attacks += partner.attacks;
-    // Keep the selected drone's identity, code and cooldown.
-    return `${DRONES[drone.kind].name} ${drone.grade}성으로 합성! 공격력과 사거리가 늘었어요.`;
+    const robot = this.robots.find(d => d.id === this.selectedId);
+    if (!robot) return '합성할 로봇을 먼저 선택해 주세요.';
+    if (robot.grade >= MAX_GRADE) return '최대 등급인 3성 로봇이에요.';
+    const partner = this.robots.find(d => d.id !== robot.id && d.kind === robot.kind && d.grade === robot.grade);
+    if (!partner) return '같은 종류·같은 등급의 로봇이 하나 더 필요해요.';
+    this.robots = this.robots.filter(d => d.id !== partner.id);
+    robot.grade++;
+    robot.damage = Math.round(ROBOTS[robot.kind].damage * 2.4 ** (robot.grade - 1));
+    robot.range = ROBOTS[robot.kind].range + (robot.grade - 1) * 0.4;
+    robot.attacks += partner.attacks;
+    // Keep the selected robot's identity, code and cooldown.
+    return `${ROBOTS[robot.kind].name} ${robot.grade}성으로 합성! 공격력과 사거리가 늘었어요.`;
   }
   startWave(): boolean {
-    if (this.status !== 'ready' || this.drones.length === 0) return false;
-    this.wave = 1; this.spawnTimer = 0.6; this.status = 'running'; return true;
+    if (this.status !== 'ready') return false;
+    this.countdown = 0; this.wave = 1; this.spawnTimer = 0; this.status = 'running'; return true;
   }
   togglePause(): void {
     if (this.status === 'running') this.status = 'paused';
     else if (this.status === 'paused') this.status = 'running';
   }
   step(seconds: number): Shot[] {
-    if (this.status !== 'running' || !Number.isFinite(seconds)) return [];
+    if (!Number.isFinite(seconds)) return [];
     const dt = Math.min(Math.max(seconds, 0), 0.05);
+    if (this.status === 'ready') {
+      this.countdown = Math.max(0, this.countdown - dt);
+      if (this.countdown < 0.000001) this.startWave();
+      return [];
+    }
+    if (this.status !== 'running') return [];
     this.elapsed += dt; this.spawnTimer -= dt;
     if (this.spawned < WAVE_ONE.enemies && this.spawnTimer <= 0) {
       this.enemies.push({ ...ROUTE[0], id: ++this.sequence, health: WAVE_ONE.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
@@ -89,7 +115,14 @@ export class DefenseSimulation {
     }
     this.collectKills(); this.moveEnemies(dt);
     if (this.health <= 0) { this.health = 0; this.status = 'defeat'; return []; }
-    const shots = this.executeDrones(dt);
+    const shots = this.executeRobots(dt);
+    this.playerCooldown = Math.max(0, this.playerCooldown - dt);
+    const target = this.enemies.filter(e => e.health > 0 && distance(e, this.player) <= 4).sort((a, b) => distance(a, this.player) - distance(b, this.player))[0];
+    if (target && this.playerCooldown === 0) {
+      target.health -= 14;
+      shots.push({ from: { ...this.player }, to: { x: target.x, y: target.y }, kind: 'electric', player: true });
+      this.playerCooldown = 0.8;
+    }
     this.collectKills();
     if (this.spawned === WAVE_ONE.enemies && this.enemies.length === 0) {
       this.status = 'cleared'; this.credits += WAVE_ONE.clearEnergy;
@@ -117,34 +150,34 @@ export class DefenseSimulation {
       return true;
     });
   }
-  private phase(drone: Drone, block: CodeBlock, timer: number): void {
-    drone.activeBlock = block; drone.phaseTimer = timer;
+  private phase(robot: Robot, block: CodeBlock, timer: number): void {
+    robot.activeBlock = block; robot.phaseTimer = timer;
   }
-  private executeDrones(dt: number): Shot[] {
+  private executeRobots(dt: number): Shot[] {
     const shots: Shot[] = [];
-    for (const drone of this.drones) {
-      drone.cooldown = Math.max(0, drone.cooldown - dt);
-      drone.phaseTimer = Math.max(0, drone.phaseTimer - dt);
-      if (drone.phaseTimer > 0) continue;
-      if (drone.activeBlock === 'wait') { this.phase(drone, 'find', 0.16); continue; }
-      if (drone.activeBlock === 'find') {
-        const targets = this.enemies.filter(e => e.health > 0 && distance(e, drone) <= drone.range);
-        targets.sort((a, b) => distance(a, drone) - distance(b, drone) || a.id - b.id);
-        drone.targetId = targets[0]?.id ?? null;
-        this.phase(drone, targets.length ? 'attack' : 'wait', targets.length ? 0.16 : 0.25); continue;
+    for (const robot of this.robots) {
+      robot.cooldown = Math.max(0, robot.cooldown - dt);
+      robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
+      if (robot.phaseTimer > 0) continue;
+      if (robot.activeBlock === 'wait') { this.phase(robot, 'find', 0.16); continue; }
+      if (robot.activeBlock === 'find') {
+        const targets = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range);
+        targets.sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
+        robot.targetId = targets[0]?.id ?? null;
+        this.phase(robot, targets.length ? 'attack' : 'wait', targets.length ? 0.16 : 0.25); continue;
       }
-      const target = this.enemies.find(e => e.id === drone.targetId && e.health > 0 && distance(e, drone) <= drone.range);
-      if (!target) { drone.targetId = null; this.phase(drone, 'find', 0.16); continue; }
-      if (drone.cooldown > 0) { this.phase(drone, 'wait', drone.cooldown); continue; }
-      shots.push({ from: { x: drone.x, y: drone.y }, to: { x: target.x, y: target.y }, kind: drone.kind });
-      target.health -= drone.damage;
-      if (drone.kind === 'fire') { target.burnTime = 2; target.burnDamage = drone.damage * 0.2; }
-      if (drone.kind === 'ice') target.slowTime = 1.4;
-      if (drone.kind === 'electric') {
-        const next = this.enemies.find(e => e.id !== target.id && e.health > 0 && distance(e, target) <= 1.4 && distance(e, drone) <= drone.range);
-        if (next) { next.health -= drone.damage * 0.5; shots.push({ from: { x: target.x, y: target.y }, to: { x: next.x, y: next.y }, kind: drone.kind, chain: true }); }
+      const target = this.enemies.find(e => e.id === robot.targetId && e.health > 0 && distance(e, robot) <= robot.range);
+      if (!target) { robot.targetId = null; this.phase(robot, 'find', 0.16); continue; }
+      if (robot.cooldown > 0) { this.phase(robot, 'wait', robot.cooldown); continue; }
+      shots.push({ from: { x: robot.x, y: robot.y }, to: { x: target.x, y: target.y }, kind: robot.kind });
+      target.health -= robot.damage;
+      if (robot.kind === 'fire') { target.burnTime = 2; target.burnDamage = robot.damage * 0.2; }
+      if (robot.kind === 'ice') target.slowTime = 1.4;
+      if (robot.kind === 'electric') {
+        const next = this.enemies.find(e => e.id !== target.id && e.health > 0 && distance(e, target) <= 1.4 && distance(e, robot) <= robot.range);
+        if (next) { next.health -= robot.damage * 0.5; shots.push({ from: { x: target.x, y: target.y }, to: { x: next.x, y: next.y }, kind: robot.kind, chain: true }); }
       }
-      drone.attacks++; drone.cooldown = 0.9; this.phase(drone, 'wait', 0.58);
+      robot.attacks++; robot.cooldown = 0.9; this.phase(robot, 'wait', 0.58);
     }
     return shots;
   }

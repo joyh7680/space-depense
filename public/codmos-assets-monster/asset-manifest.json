@@ -1,0 +1,34 @@
+[
+  {
+    "file": "0bebf9cd7a80/monster-pink.png",
+    "sha256": "0bebf9cd7a805bda9de473c428c5e7299b85772ed878bc9e46e1b7a1272ac896",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-pink.png"
+    ]
+  },
+  {
+    "file": "4adb8f1e11b0/monster-green.png",
+    "sha256": "4adb8f1e11b0a3da8c3ef2540eff3ab6e62f69b0a5f85d32ed176d1f8140658a",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-green.png"
+    ]
+  },
+  {
+    "file": "759c20f0e742/monster-mint.png",
+    "sha256": "759c20f0e742e95db5c516148c22f1325b41337ba01b9c82bb084d845822259d",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-mint.png"
+    ]
+  },
+  {
+    "file": "d86fdb796468/monster-orange.png",
+    "sha256": "d86fdb79646834fd3983482548c475565e78c98a24d4f238c2a741a3faf12fa6",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-orange.png"
+    ]
+  }
+]
