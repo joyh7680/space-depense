@@ -46,7 +46,7 @@ export class Room {
         if (tile) tile.tint = x === 7 || x === 8 ? 0x9ef2ef : 0x193840;
       }
     }
-    // Keep the entrance independent so hiding the front wall never hides the door.
+    // The entrance and front facade stay opaque regardless of unit positions.
     const isDoor = (index: number) => {
       const x = index % DEFINE.ROOM_WIDTH, y = Math.floor(index / DEFINE.ROOM_WIDTH);
       return (x === 7 || x === 8) && (y === 2 || y === 3);
@@ -66,7 +66,7 @@ export class Room {
     }
   }
 
-  updateWall(frontmostUnitY: number): void {
-    this.frontWall.setVisible(frontmostUnitY < DEFINE.ROOM_DECO_START_Y);
+  updateWall(_frontmostUnitY: number): void {
+    this.frontWall.setVisible(true).setAlpha(1);
   }
 }
