@@ -1,5 +1,6 @@
 export type TilePosition = { x: number; y: number };
 export type RobotKind = 'fire' | 'ice' | 'electric';
+export type ElementEnergy = Record<RobotKind, number>;
 export type CodeBlock = 'find' | 'attack' | 'wait';
 export type GameMode = 'move' | 'relocate';
 export type GameStatus = 'ready' | 'running' | 'paused' | 'cleared' | 'defeat';
@@ -10,14 +11,14 @@ export type RobotState = TilePosition & {
 export type DefenseState = {
   status: GameStatus; wave: number; health: number; credits: number; kills: number;
   enemies: number; spawned: number; total: number; escaped: number; elapsed: number;
-  robots: RobotState[]; selectedId: number | null; player: TilePosition;
+  robots: RobotState[]; robotCount: number; elementEnergy: ElementEnergy; selectedId: number | null; player: TilePosition;
   mode: GameMode; grid: boolean; message: string; countdown: number;
   defeatAnimationComplete: boolean;
 };
 export type GameController = {
   setInteractionLocked: (locked: boolean) => void;
   setMode: (mode: GameMode) => void;
-  summon: () => void;
+  summon: (kind: RobotKind) => void;
   selectRobot: (id: number) => void;
   merge: () => void;
   toggleGrid: () => void;

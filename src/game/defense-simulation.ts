@@ -38,6 +38,7 @@ export class DefenseSimulation {
 
   constructor(random: () => number = Math.random) { this.random = random; }
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
+  get robotCount(): number { return this.robots.length; }
 
   canMovePlayer(x: number, y: number): boolean {
     return isWalkable(x, y) && !isRouteTile(x, y) && !this.robots.some(r => r.x === x && r.y === y);

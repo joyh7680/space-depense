@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import SpaceDefenseRoom from './components/space-defense-room.vue';
-import { ROBOTS, SUMMON_COST, WAVE_ONE } from './game/wave-one';
-import type { DefenseState } from './game/types';
+import { ROBOTS, ROBOT_CHARGE_COST, WAVE_ONE } from './game/wave-one';
+import type { DefenseState, RobotKind } from './game/types';
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
 const ready = ref(false);
 const error = ref('');
@@ -12,20 +12,25 @@ let returnFocus: HTMLElement | null = null;
 const portraitUrl = 'url("' + import.meta.env.BASE_URL + 'codmos-assets/player/int-front.png")';
 const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
 const retryButton = ref<HTMLButtonElement>();
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies, escaped: 0, elapsed: 0, countdown: 5, robots: [], selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies, escaped: 0, elapsed: 0, countdown: 5, robots: [], robotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
 const canDeploy = computed(() => ready.value && ['ready', 'running'].includes(state.value.status));
-const canSummon = computed(() => canDeploy.value && state.value.credits >= SUMMON_COST && state.value.robots.length < 8);
 const finished = computed(() => state.value.status === 'cleared' || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
+watch(() => state.value.status, status => {
+  if (summonOpen.value && (status === 'defeat' || status === 'cleared')) closeSummon();
+});
 watch(finished, async visible => {
   if (visible) {
     await nextTick();
     retryButton.value?.focus({ preventScroll: true });
   }
 });
-const selected = computed(() => state.value.robots.find(r => r.id === state.value.selectedId));
-const canMerge = computed(() => canDeploy.value && selected.value && selected.value.grade < 3 && state.value.robots.some(r => r.id !== selected.value!.id && r.kind === selected.value!.kind && r.grade === selected.value!.grade));
 const kindOrder = ['electric', 'ice', 'fire'] as const;
-const summonHint = computed(() => state.value.robots.length >= 8 ? '로봇이 가득 찼어요. 같은 로봇을 합성해 보세요.' : state.value.credits < SUMMON_COST ? '에너지가 부족해요. 괴물을 처치해 모아보세요.' : '로봇을 누른 뒤 빈 바닥에 배치하세요.');
+const robotCards = computed(() => (['fire', 'electric', 'ice'] as const).map(kind => {
+  const robots = state.value.robots.filter(robot => robot.kind === kind);
+  const selected = robots.find(robot => robot.id === state.value.selectedId);
+  const charged = state.value.elementEnergy[kind] >= ROBOT_CHARGE_COST;
+  return { kind, charged, available: robots.length > 0 || (charged && state.value.robotCount < 8), selected: !!selected, grade: selected?.grade ?? robots.at(-1)?.grade ?? 1 };
+}));
 const robotArt = {
  fire: { backgroundPosition: '-169.8px -435.3px', clipPath: 'inset(0 0 14px 0)' },
  ice: { backgroundPosition: '-95.4px -402.9px' },
@@ -37,38 +42,34 @@ async function openSummon() {
   room.value?.setInteractionLocked(true);
   summonOpen.value = true;
   await nextTick();
-  summonDialog.value?.querySelector<HTMLButtonElement>('.modal-close')?.focus();
+  summonDialog.value?.focus({ preventScroll: true });
 }
 function closeSummon() {
   summonOpen.value = false;
   room.value?.setInteractionLocked(false);
   returnFocus?.focus();
 }
-async function summonRobot() {
-  if (!canSummon.value) return;
-  room.value?.summon();
-  await nextTick();
-  const action = summonDialog.value?.querySelector<HTMLButtonElement>('.modal-summon');
-  (action?.disabled ? summonDialog.value?.querySelector<HTMLButtonElement>('.modal-close') : action)?.focus();
-}
-function deployRobot(id: number) {
-  if (!canDeploy.value || !state.value.robots.some(robot => robot.id === id)) return;
+function deployKind(kind: RobotKind) {
+  if (!canDeploy.value) return;
+  if (state.value.elementEnergy[kind] >= ROBOT_CHARGE_COST && state.value.robotCount < 8) {
+    room.value?.summon(kind);
+    closeSummon();
+    return;
+  }
+  const robots = state.value.robots.filter(robot => robot.kind === kind);
+  if (!robots.length) return;
+  const current = robots.findIndex(robot => robot.id === state.value.selectedId);
   closeSummon();
-  room.value?.selectRobot(id);
-}
-async function mergeRobots() {
-  if (!canMerge.value) return;
-  room.value?.merge();
-  await nextTick();
-  const action = summonDialog.value?.querySelector<HTMLButtonElement>('.hangar-merge');
-  (action?.disabled ? summonDialog.value?.querySelector<HTMLButtonElement>('.modal-close') : action)?.focus();
+  room.value?.selectRobot(robots[(current + 1) % robots.length].id);
 }
 function dialogKey(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); closeSummon(); }
   if (event.key !== 'Tab') return;
   const buttons = Array.from(summonDialog.value?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
   const first = buttons[0], last = buttons.at(-1);
-  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  if (!first) { event.preventDefault(); summonDialog.value?.focus(); }
+  else if (document.activeElement === summonDialog.value) { event.preventDefault(); (event.shiftKey ? last : first)?.focus(); }
+  else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 }
 </script>
@@ -86,40 +87,37 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <div v-if="ready && state.status === 'ready' && !summonOpen" class="countdown-hud" role="status"><small>괴물 출현까지</small><strong>{{ state.countdown }}</strong><span>바닥을 눌러 움직여 보세요</span></div>
     <div class="bottom-controls">
-      <div class="robot-elements" aria-label="속성별 로봇 보유 수량">
-        <span v-for="kind in kindOrder" :key="kind" :class="kind" :aria-label="ROBOTS[kind].name + ' ' + state.robots.filter(robot => robot.kind === kind).length">
-          <i aria-hidden="true">{{ ROBOTS[kind].symbol }}</i><small>{{ ROBOTS[kind].name }}</small><b>{{ state.robots.filter(robot => robot.kind === kind).length }}</b>
+      <div class="robot-elements" aria-label="속성 에너지 보유 수량">
+        <span v-for="kind in kindOrder" :key="kind" :class="kind" :title="ROBOTS[kind].name + ' 에너지'" :aria-label="ROBOTS[kind].name + ' 에너지 ' + state.elementEnergy[kind] + '개'">
+          <svg class="element-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <path v-if="kind === 'electric'" class="element-shape" fill="#ffd65c" d="m11.5 1.5-7 9h4l-1 8 8-10h-4z" />
+            <template v-else-if="kind === 'ice'">
+              <path class="element-shape" fill="#62d9df" d="M10 1.5C8 5 4 8.8 4 12.3a6 6 0 0 0 12 0C16 8.8 12 5 10 1.5Z" />
+              <path fill="none" stroke="#b8f4f3" stroke-width="1.5" stroke-linecap="round" d="M6.8 11.8c-.3 1.5.4 2.7 1.5 3.1" />
+            </template>
+            <template v-else>
+              <path class="element-shape" fill="#f8758e" d="M11 1.5c.7 4-3.5 4.5-3.2 8-1.3-.5-1.8-1.4-1.8-2.5-2 2.2-3.1 4-2.4 6.8a6.7 6.7 0 0 0 12.8 0C17.5 9.6 14.7 6.3 11 1.5Z" />
+              <path fill="#ffb3b5" d="M10.4 9.6c.2 2-2.4 2.8-2.4 4.5a2.1 2.1 0 0 0 4.2 0c0-1.5-.8-2.8-1.8-4.5Z" />
+            </template>
+          </svg><b>{{ state.elementEnergy[kind] }}</b>
         </span>
       </div>
-      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇, ' + state.robots.length + '대 보유'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
-        <span class="robot-button-count">{{ state.robots.length }}</span>
+      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇, ' + state.robotCount + '대 보유'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
+        <span class="robot-button-count" role="status" aria-live="polite" aria-atomic="true">{{ state.robotCount }}</span>
         <i class="robot-portrait" :style="robotArt.fire" aria-hidden="true" />
         <b>로봇</b>
       </button>
     </div>
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
     <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
-      <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="true" aria-labelledby="summon-title" aria-describedby="summon-hint" @keydown="dialogKey">
-        <header class="hangar-header">
-          <h2 id="summon-title">내 로봇 <span>{{ state.robots.length }} / 8</span></h2>
-          <span class="hangar-energy" aria-label="보유 에너지">ϟ {{ state.credits }}</span>
-          <button class="modal-close" aria-label="로봇 목록 닫기" @click="closeSummon">×</button>
-        </header>
-        <div class="robot-roster" aria-label="보유 로봇 목록">
-          <button class="robot-summon-card modal-summon" :disabled="!canSummon" :aria-label="'랜덤 로봇 소환, 에너지 ' + SUMMON_COST" @click="summonRobot">
-            <span class="summon-spark" aria-hidden="true">✦</span><strong aria-hidden="true">＋</strong><b>소환</b><small>ϟ {{ SUMMON_COST }}</small>
+      <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="true" aria-label="로봇 충전 및 배치" tabindex="-1" @keydown="dialogKey">
+        <div class="robot-roster">
+          <button v-for="card in robotCards" :key="card.kind" :class="['robot-card', card.kind, { selected: card.selected, charged: card.charged }]" :disabled="!canDeploy || !card.available" :aria-label="ROBOTS[card.kind].name + ' 로봇, 에너지 ' + state.elementEnergy[card.kind] + '/' + ROBOT_CHARGE_COST + (card.available ? ', 배치하기' : ', 충전 중')" :title="ROBOTS[card.kind].name + ' 에너지 ' + ROBOT_CHARGE_COST + '개로 충전'" @click="deployKind(card.kind)">
+            <span class="robot-grade" :aria-label="card.grade + '성'">{{ '★'.repeat(card.grade) }}</span>
+            <i class="robot-portrait" :style="robotArt[card.kind]" aria-hidden="true" />
+            <b>{{ ROBOTS[card.kind].name }}</b>
           </button>
-          <button v-for="robot in state.robots" :key="robot.id" :class="['robot-card', robot.kind, { selected: selected?.id === robot.id }]" :disabled="!canDeploy" :aria-label="ROBOTS[robot.kind].name + ' ' + robot.grade + '성 로봇 ' + robot.id + ', 배치하기'" @click="deployRobot(robot.id)">
-            <span class="robot-grade" :aria-label="robot.grade + '성'">{{ '★'.repeat(robot.grade) }}</span>
-            <i class="robot-portrait" :style="robotArt[robot.kind]" aria-hidden="true" />
-            <b>{{ ROBOTS[robot.kind].name }}</b>
-          </button>
-          <div v-if="!state.robots.length" class="hangar-empty"><i class="robot-portrait" :style="robotArt.ice" aria-hidden="true" /><div><b>첫 로봇을 만나보세요!</b><span>소환하면 이곳에 모여요.</span></div></div>
         </div>
-        <footer class="hangar-footer">
-          <p id="summon-hint" role="status">{{ summonHint }}</p>
-          <button v-if="selected" class="hangar-merge" :disabled="!canMerge" @click="mergeRobots" :aria-label="ROBOTS[selected.kind].name + ' ' + selected.grade + '성 로봇 합성'" title="같은 속성·같은 등급 로봇 2대 합성">◇ 합성</button>
-        </footer>
       </section>
     </div>
     <div v-if="finished" class="screen-overlay result-overlay" :class="{ 'defeat-overlay': state.status === 'defeat' }">

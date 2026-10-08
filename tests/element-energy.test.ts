@@ -1,10 +1,39 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE, type Enemy } from '../src/game/defense-simulation.ts';
-import { WAVE_ONE } from '../src/game/wave-one.ts';
+import { ROBOT_CHARGE_COST, ROBOT_KINDS, WAVE_ONE } from '../src/game/wave-one.ts';
 
 const monster = (id: number, health: number): Enemy => ({
   id, x: 5, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0,
+});
+
+test('earning each element and summoning any kind increases the shared robot count only on success', () => {
+  let roll = 0;
+  const game = new DefenseSimulation(() => roll);
+  game.startWave();
+  assert.equal(game.robotCount, 0);
+
+  for (const [index, kind] of ROBOT_KINDS.entries()) {
+    roll = (index + 0.5) / ROBOT_KINDS.length;
+    for (let charge = 1; charge <= ROBOT_CHARGE_COST; charge++) {
+      game.enemies = [monster(100 + index * ROBOT_CHARGE_COST + charge, 0)];
+      game.step(0.05);
+      assert.equal(game.elementEnergy[kind], charge);
+      assert.equal(game.robotCount, index, 'energy alone does not count as a summoned robot');
+    }
+    game.summon(kind);
+    assert.equal(game.robotCount, index + 1);
+    assert.equal(game.robots.at(-1)!.kind, kind);
+    assert.equal(game.elementEnergy[kind], 0);
+    game.summon(kind);
+    assert.equal(game.robotCount, index + 1, 'failed summons do not increase the count');
+  }
+
+  const first = game.robots[0];
+  game.selectRobot(first.id);
+  game.moveRobot(first.id, 4, 7);
+  assert.equal(game.robotCount, 3, 'selecting and moving robots does not increase the count');
+  assert.equal(new DefenseSimulation().robotCount, 0, 'a new game resets the count');
 });
 
 test('player kills award exactly one random element from three equally sized ranges', () => {

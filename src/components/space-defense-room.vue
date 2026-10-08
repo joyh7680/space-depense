@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import type { DefenseState, GameController, GameMode } from '../game/types';
+import type { DefenseState, GameController, GameMode, RobotKind } from '../game/types';
 
 const emit = defineEmits<{ state: [state: DefenseState]; ready: []; error: [message: string]; inspect: [] }>();
 const host = ref<HTMLElement>();
@@ -29,7 +29,7 @@ onBeforeUnmount(() => { disposed = true; controller?.destroy(); });
 defineExpose({
   setInteractionLocked: (locked: boolean) => controller?.setInteractionLocked(locked),
   setMode: (mode: GameMode) => controller?.setMode(mode),
-  summon: () => controller?.summon(),
+  summon: (kind: RobotKind) => controller?.summon(kind),
   selectRobot: (id: number) => controller?.selectRobot(id),
   merge: () => controller?.merge(),
   toggleGrid: () => controller?.toggleGrid(),
