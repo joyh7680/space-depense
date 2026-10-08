@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import SpaceDefenseRoom from './components/space-defense-room.vue';
 import { ROBOTS, SUMMON_COST, WAVE_ONE } from './game/wave-one';
-import type { DefenseState, RobotKind } from './game/types';
+import type { DefenseState } from './game/types';
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
 const ready = ref(false);
 const error = ref('');
@@ -25,7 +25,7 @@ watch(finished, async visible => {
 const selected = computed(() => state.value.robots.find(r => r.id === state.value.selectedId));
 const canMerge = computed(() => canDeploy.value && selected.value && selected.value.grade < 3 && state.value.robots.some(r => r.id !== selected.value!.id && r.kind === selected.value!.kind && r.grade === selected.value!.grade));
 const kindOrder = ['electric', 'ice', 'fire'] as const;
-const robotGroups = computed(() => (['fire', 'ice', 'electric'] as const).map(kind => ({ kind, count: state.value.robots.filter(r => r.kind === kind).length })));
+const summonHint = computed(() => state.value.robots.length >= 8 ? '로봇이 가득 찼어요. 같은 로봇을 합성해 보세요.' : state.value.credits < SUMMON_COST ? '에너지가 부족해요. 괴물을 처치해 모아보세요.' : '로봇을 누른 뒤 빈 바닥에 배치하세요.');
 const robotArt = {
  fire: { backgroundPosition: '-169.8px -435.3px', clipPath: 'inset(0 0 14px 0)' },
  ice: { backgroundPosition: '-95.4px -402.9px' },
@@ -51,13 +51,17 @@ async function summonRobot() {
   const action = summonDialog.value?.querySelector<HTMLButtonElement>('.modal-summon');
   (action?.disabled ? summonDialog.value?.querySelector<HTMLButtonElement>('.modal-close') : action)?.focus();
 }
-function deployKind(kind: RobotKind) {
-  const robots = state.value.robots.filter(r => r.kind === kind);
-  if (!robots.length) return;
-  const current = robots.findIndex(r => r.id === state.value.selectedId);
-  const robot = robots[(current + 1) % robots.length];
+function deployRobot(id: number) {
+  if (!canDeploy.value || !state.value.robots.some(robot => robot.id === id)) return;
   closeSummon();
-  room.value?.selectRobot(robot.id);
+  room.value?.selectRobot(id);
+}
+async function mergeRobots() {
+  if (!canMerge.value) return;
+  room.value?.merge();
+  await nextTick();
+  const action = summonDialog.value?.querySelector<HTMLButtonElement>('.hangar-merge');
+  (action?.disabled ? summonDialog.value?.querySelector<HTMLButtonElement>('.modal-close') : action)?.focus();
 }
 function dialogKey(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); closeSummon(); }
@@ -82,28 +86,40 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <div v-if="ready && state.status === 'ready' && !summonOpen" class="countdown-hud" role="status"><small>괴물 출현까지</small><strong>{{ state.countdown }}</strong><span>바닥을 눌러 움직여 보세요</span></div>
     <div class="bottom-controls">
-      <div class="action-area">
-        <div class="robot-elements" aria-label="속성별 로봇 보유 수량"><span v-for="kind in kindOrder" :key="kind" :class="kind" :aria-label="ROBOTS[kind].name + ' ' + state.robots.filter(r => r.kind === kind).length"><i>{{ ROBOTS[kind].symbol }}</i><small>{{ ROBOTS[kind].name }}</small><b>{{ state.robots.filter(r => r.kind === kind).length }}</b></span></div>
-        <div class="action-dock"><button class="summon-button" :disabled="!canDeploy" aria-haspopup="dialog" :aria-expanded="summonOpen" @click="openSummon"><span class="button-icon">＋</span><span><b>로봇 소환</b><small>보유 {{ state.robots.length }}/8</small></span></button></div>
+      <div class="robot-elements" aria-label="속성별 로봇 보유 수량">
+        <span v-for="kind in kindOrder" :key="kind" :class="kind" :aria-label="ROBOTS[kind].name + ' ' + state.robots.filter(robot => robot.kind === kind).length">
+          <i aria-hidden="true">{{ ROBOTS[kind].symbol }}</i><small>{{ ROBOTS[kind].name }}</small><b>{{ state.robots.filter(robot => robot.kind === kind).length }}</b>
+        </span>
       </div>
+      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇, ' + state.robots.length + '대 보유'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
+        <span class="robot-button-count">{{ state.robots.length }}</span>
+        <i class="robot-portrait" :style="robotArt.fire" aria-hidden="true" />
+        <b>로봇</b>
+      </button>
     </div>
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
-    <div v-if="summonOpen" class="screen-overlay summon-backdrop" @click.self="closeSummon">
-      <section ref="summonDialog" class="game-modal summon-modal" role="dialog" aria-modal="true" aria-labelledby="summon-title" @keydown="dialogKey">
-        <button class="modal-close" aria-label="소환창 닫기" @click="closeSummon">×</button>
-        <small>ROBOT HANGAR · {{ state.robots.length }}/8</small><h2 id="summon-title">로봇 소환</h2>
-        <div class="robot-roster">
-          <button v-for="group in robotGroups" :key="group.kind" :class="['robot-token', group.kind, { selected: selected?.kind === group.kind }]" :disabled="!group.count" :aria-label="ROBOTS[group.kind].name + ' ' + group.count + '대, 배치하기'" @click="deployKind(group.kind)">
-            <i class="robot-portrait" :style="robotArt[group.kind]" /><b>{{ ROBOTS[group.kind].name }} <em>{{ group.count }}</em></b><small>{{ group.count ? '배치하기' : '미보유' }}</small>
+    <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
+      <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="true" aria-labelledby="summon-title" aria-describedby="summon-hint" @keydown="dialogKey">
+        <header class="hangar-header">
+          <h2 id="summon-title">내 로봇 <span>{{ state.robots.length }} / 8</span></h2>
+          <span class="hangar-energy" aria-label="보유 에너지">ϟ {{ state.credits }}</span>
+          <button class="modal-close" aria-label="로봇 목록 닫기" @click="closeSummon">×</button>
+        </header>
+        <div class="robot-roster" aria-label="보유 로봇 목록">
+          <button class="robot-summon-card modal-summon" :disabled="!canSummon" :aria-label="'랜덤 로봇 소환, 에너지 ' + SUMMON_COST" @click="summonRobot">
+            <span class="summon-spark" aria-hidden="true">✦</span><strong aria-hidden="true">＋</strong><b>소환</b><small>ϟ {{ SUMMON_COST }}</small>
           </button>
+          <button v-for="robot in state.robots" :key="robot.id" :class="['robot-card', robot.kind, { selected: selected?.id === robot.id }]" :disabled="!canDeploy" :aria-label="ROBOTS[robot.kind].name + ' ' + robot.grade + '성 로봇 ' + robot.id + ', 배치하기'" @click="deployRobot(robot.id)">
+            <span class="robot-grade" :aria-label="robot.grade + '성'">{{ '★'.repeat(robot.grade) }}</span>
+            <i class="robot-portrait" :style="robotArt[robot.kind]" aria-hidden="true" />
+            <b>{{ ROBOTS[robot.kind].name }}</b>
+          </button>
+          <div v-if="!state.robots.length" class="hangar-empty"><i class="robot-portrait" :style="robotArt.ice" aria-hidden="true" /><div><b>첫 로봇을 만나보세요!</b><span>소환하면 이곳에 모여요.</span></div></div>
         </div>
-        <div v-if="selected" class="robot-inline-info">
-          <b>{{ ROBOTS[selected.kind].name }} {{ selected.grade }}성 로봇</b><small>공격 {{ selected.damage }} · 사거리 {{ selected.range.toFixed(1) }}</small>
-          <button :disabled="!canMerge" @click="room?.merge()">◇ 같은 로봇 합성</button>
-        </div>
-        <button class="summon-button modal-summon" :disabled="!canSummon" @click="summonRobot"><span class="button-icon">＋</span><span><b>랜덤 로봇 소환</b><small>ϟ {{ SUMMON_COST }} · 보유 에너지 {{ state.credits }}</small></span></button>
-        <p class="modal-note">{{ state.robots.length >= 8 ? '최대 8대예요. 같은 로봇을 합성해 보세요.' : state.credits < SUMMON_COST ? '에너지가 부족해요. 괴물을 처치해 모아보세요.' : '소환하면 같은 속성 카드의 숫자가 늘어나요.' }}<br />카드를 누르면 방으로 돌아가 배치해요.</p>
-        <span class="modal-combat-note">소환창을 닫으면 전투가 이어져요</span>
+        <footer class="hangar-footer">
+          <p id="summon-hint" role="status">{{ summonHint }}</p>
+          <button v-if="selected" class="hangar-merge" :disabled="!canMerge" @click="mergeRobots" :aria-label="ROBOTS[selected.kind].name + ' ' + selected.grade + '성 로봇 합성'" title="같은 속성·같은 등급 로봇 2대 합성">◇ 합성</button>
+        </footer>
       </section>
     </div>
     <div v-if="finished" class="screen-overlay result-overlay" :class="{ 'defeat-overlay': state.status === 'defeat' }">
