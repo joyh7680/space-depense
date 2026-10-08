@@ -63,7 +63,8 @@ export class DefenseScene extends Phaser.Scene {
     this.createPlayer();
     this.createCore();
     this.add.text(center(2), center(3), 'IN →', { fontFamily: 'sans-serif', fontSize: '22px', color: '#6f5731', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
-    this.add.text(center(12), center(7) + 73, '우리 기지', { fontFamily: 'sans-serif', fontSize: '22px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
+    const end = ROUTE[ROUTE.length - 1];
+    this.add.text(center(end.x), center(end.y) + 73, '우리 기지', { fontFamily: 'sans-serif', fontSize: '22px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.onPointer(pointer));
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       const tile = this.tileAt(pointer);

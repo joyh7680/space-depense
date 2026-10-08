@@ -7,7 +7,7 @@ export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
 };
 export type Shot = { from: TilePosition; to: TilePosition; kind: RobotKind; chain?: boolean; player?: boolean };
-export const ROUTE: readonly TilePosition[] = [{ x: 2, y: 3 }, { x: 13, y: 3 }, { x: 13, y: 5 }, { x: 3, y: 5 }, { x: 3, y: 7 }, { x: 12, y: 7 }];
+export const ROUTE: readonly TilePosition[] = [{ x: 2, y: 3 }, { x: 13, y: 3 }, { x: 13, y: 7 }, { x: 3, y: 7 }];
 export function isRouteTile(x: number, y: number): boolean {
   return ROUTE.slice(1).some((end, i) => {
     const start = ROUTE[i];

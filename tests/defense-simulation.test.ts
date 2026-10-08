@@ -16,7 +16,7 @@ test('room boundaries and flipped wall tiles cannot be walked on; every deploy s
 test('invalid placement, duplicates, insufficient energy and full board preserve energy and random rolls', () => {
   let rolls = 0;
   const game = new DefenseSimulation(() => { rolls++; return 0; });
-  for (const [x, y] of [[0, 6], [2, 3], [13, 4], [3, 5]]) game.placeRobot(x, y);
+  for (const [x, y] of [[0, 6], [2, 3], [13, 4], [3, 7]]) game.placeRobot(x, y);
   assert.equal(game.credits, 300); assert.equal(rolls, 0);
   game.placeRobot(3, 4); game.placeRobot(3, 4);
   assert.equal(game.robots.length, 1); assert.equal(game.credits, 225); assert.equal(rolls, 1);
@@ -109,7 +109,8 @@ test('fire applies damage over time, ice slows, and electric chains to one nearb
 
 test('a burning enemy killed before reaching the base awards energy without breach damage', () => {
   const game = new DefenseSimulation(); game.summon(); game.startWave();
-  game.enemies = [{ ...enemy(100, 11.999, 7), waypoint: 5, health: 0.01, burnTime: 1, burnDamage: 10 }];
+  const end = ROUTE[ROUTE.length - 1];
+  game.enemies = [{ ...enemy(100, end.x + 0.001, end.y), waypoint: ROUTE.length - 1, health: 0.01, burnTime: 1, burnDamage: 10 }];
   const balance = game.credits;
   game.step(0.05); assert.equal(game.health, 100); assert.equal(game.escaped, 0); assert.equal(game.kills, 1); assert.equal(game.credits, balance + 15);
 });
@@ -148,6 +149,17 @@ test('connected route stays on walkable orthogonal tiles and rejects robot place
   const a=ROUTE[i-1], b=ROUTE[i]; assert.ok(a.x===b.x || a.y===b.y);
   for(let y=Math.min(a.y,b.y);y<=Math.max(a.y,b.y);y++) for(let x=Math.min(a.x,b.x);x<=Math.max(a.x,b.x);x++) {assert.ok(isWalkable(x,y));assert.ok(isRouteTile(x,y));}
  }
+});
+
+test('two horizontal lanes connect through the right turn and leave the middle open for robots', () => {
+ const horizontal = ROUTE.slice(1).filter((end, i) => end.y === ROUTE[i].y);
+ assert.equal(horizontal.length, 2);
+ assert.equal(isRouteTile(8, 3), true); assert.equal(isRouteTile(8, 7), true);
+ for (let y = 3; y <= 7; y++) assert.equal(isRouteTile(13, y), true);
+ const game = new DefenseSimulation(() => 0);
+ game.placeRobot(8, 5);
+ assert.equal(game.robots.length, 1);
+ assert.deepEqual([game.robots[0].x, game.robots[0].y], [8, 5]);
 });
 test('robots relocate freely off the road without spending energy and reject occupied or player tiles', () => {
  const game = new DefenseSimulation(() => 0); game.summon(); game.summon();
