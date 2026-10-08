@@ -6,7 +6,7 @@ export type CodeBlock = 'find' | 'attack' | 'wait';
 export type GameMode = 'move' | 'relocate';
 export type GameStatus = 'ready' | 'running' | 'paused' | 'cleared' | 'defeat';
 export type RobotState = TilePosition & {
-  id: number; kind: RobotKind; grade: number; range: number; damage: number;
+  id: number; kind: RobotKind; grade: number; range: number; damage: number; deployed: boolean;
   activeBlock: CodeBlock; attacks: number; targetId: number | null;
   serial: number; code: RobotCode; missionStatus: 'waiting' | 'error' | 'completed'; missionMessage: string;
 };

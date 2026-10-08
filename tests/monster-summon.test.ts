@@ -116,7 +116,7 @@ test('special kills always award one random element, with the rare robot roll in
   }
 });
 
-test('rare rewards summon every robot kind for free on an available floor tile and preserve selection', () => {
+test('rare rewards store every robot kind for free without deploying it and preserve selection', () => {
   for (const [index, kind] of ROBOT_KINDS.entries()) {
     const rolls = [0.5, SUMMONED_MONSTER.robotDropChance - 0.001, (index + 0.5) / 3];
     let count = 0;
@@ -130,8 +130,8 @@ test('rare rewards summon every robot kind for free on an available floor tile a
     assert.equal(game.selectedId, selected);
     assert.deepEqual(game.elementEnergy, { fire: 0, ice: 1, electric: 0 });
     assert.equal(game.credits, 300 + WAVE_ONE.killEnergy + WAVE_ONE.clearEnergy);
-    assert.notDeepEqual({ x: game.robots[1].x, y: game.robots[1].y }, game.player);
-    assert.notEqual(game.robots[1].x, game.robots[0].x);
+    assert.equal(game.robots[1].deployed, false);
+    assert.deepEqual(game.deployedRobots.map(robot => robot.id), [game.robots[0].id]);
     assert.equal(count, 3);
   }
 });

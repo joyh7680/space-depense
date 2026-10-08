@@ -78,8 +78,25 @@ test('automatic summons can create two independent missions in one reward batch 
   game.enemies = Array.from({ length: 7 }, (_, i) => ({ ...enemy(100 + i, 3), health: 0 }));
   game.step(0.05);
   assert.equal(game.robotCount, 2); assert.equal(game.elementEnergy.ice, 1); assert.equal(game.selectedId, null);
+  assert.equal(game.deployedRobots.length, 0);
   assert.deepEqual(game.robots.map(robot => [robot.serial, robot.missionStatus]), [[1, 'waiting'], [2, 'waiting']]);
-  complete(game); assert.equal(game.robots[1].missionStatus, 'waiting');
+  const [first, second] = game.robots;
+  game.selectRobot(first.id);
+  assert.equal(game.deployedRobots.length, 0, 'selecting a robot from the hangar does not deploy it');
+  game.runCode(first.id);
+  assert.equal(first.missionStatus, 'error');
+  assert.equal(game.deployedRobots.length, 0, 'invalid code leaves the robot in storage');
+  complete(game);
+  assert.deepEqual(game.deployedRobots.map(robot => robot.id), [first.id]);
+  assert.equal(second.missionStatus, 'waiting'); assert.equal(second.deployed, false);
+  assert.equal(game.canMovePlayer(first.x, first.y), false);
+  game.enemies = [enemy(200, 3)];
+  assert.equal(advance(game, 11).length, 3, 'the deployed robot starts its existing attack behavior');
+  complete(game, second.id);
+  assert.equal(game.deployedRobots.length, 2);
+  assert.notDeepEqual([first.x, first.y], [second.x, second.y]);
+  assert.equal(game.robotCount, 2, 'deployment does not change the owned robot count');
+  assert.equal(game.elementEnergy.ice, 1, 'deployment does not spend more energy');
 });
 
 test('automatic summons retain energy at capacity and never spend it in a paused or ended game', () => {

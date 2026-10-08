@@ -7,8 +7,10 @@ defineProps<{ kind: RobotKind }>();
   <svg class="element-icon" viewBox="0 0 20 20" aria-hidden="true">
     <path v-if="kind === 'electric'" class="element-shape" fill="#ffd65c" d="m11.5 1.5-7 9h4l-1 8 8-10h-4z" />
     <template v-else-if="kind === 'ice'">
-      <path class="element-shape" fill="#62d9df" d="M10 1.5C8 5 4 8.8 4 12.3a6 6 0 0 0 12 0C16 8.8 12 5 10 1.5Z" />
-      <path fill="none" stroke="#b8f4f3" stroke-width="1.5" stroke-linecap="round" d="M6.8 11.8c-.3 1.5.4 2.7 1.5 3.1" />
+      <g fill="none" stroke="#6dcaff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+        <path v-for="angle in [0, 60, 120, 180, 240, 300]" :key="angle" :transform="`rotate(${angle} 10 10)`" d="M10 1.5V10M7.5 3.5 10 6l2.5-2.5" />
+      </g>
+      <circle cx="10" cy="10" r="1.2" fill="#c5efff" />
     </template>
     <template v-else>
       <path class="element-shape" fill="#f8758e" d="M11 1.5c.7 4-3.5 4.5-3.2 8-1.3-.5-1.8-1.4-1.8-2.5-2 2.2-3.1 4-2.4 6.8a6.7 6.7 0 0 0 12.8 0C17.5 9.6 14.7 6.3 11 1.5Z" />

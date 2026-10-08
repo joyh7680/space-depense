@@ -203,8 +203,8 @@ export class DefenseScene extends Phaser.Scene {
     this.options.parent.focus({ preventScroll: true });
     if (this.interactionLocked || ['paused', 'defeat', 'cleared'].includes(this.simulation.status)) return;
     const tile = this.tileAt(pointer);
-    if (this.simulation.robots.some(d => d.x === tile.x && d.y === tile.y)) {
-      const robot = this.simulation.robots.find(d => d.x === tile.x && d.y === tile.y)!;
+    if (this.simulation.deployedRobots.some(d => d.x === tile.x && d.y === tile.y)) {
+      const robot = this.simulation.deployedRobots.find(d => d.x === tile.x && d.y === tile.y)!;
       this.selectRobot(robot.id);
       this.draggedRobot = robot.id; this.dragStart = tile;
     } else if (this.mode === 'relocate' && this.simulation.selectedId !== null) {
@@ -239,7 +239,7 @@ export class DefenseScene extends Phaser.Scene {
     if (this.simulation.enemies.some(enemy => enemy.kind === 'summoned' && !previousBosses.has(enemy.id))) this.notice = '보스급 몬스터 출현! 로봇을 배치해서 막아 주세요.';
     if (previousHealth > 0 && this.simulation.status === 'defeat') this.destroyStation();
     if (!['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
-    this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
+    this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.deployedRobots.map(r => r.y)));
     this.drawUnits();
     let rewardIndex = 0;
     for (const kind of ROBOT_KINDS) {
@@ -248,13 +248,7 @@ export class DefenseScene extends Phaser.Scene {
     }
     for (const robot of this.simulation.robots) {
       if (!previousRobots.has(robot.id)) {
-        this.notice = `${ROBOTS[robot.kind].name} 소환! 로봇 목록에서 코딩을 시작하세요.`;
-        const label = this.add.text(center(robot.x), center(robot.y) - 100, this.notice, {
-          fontFamily: 'sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#ffe594',
-          backgroundColor: '#172333', padding: { x: 10, y: 5 },
-        }).setOrigin(0.5);
-        this.energyEffects.add(label);
-        this.tweens.add({ targets: label, y: label.y - 70, alpha: 0, duration: 1800, onComplete: () => label.destroy() });
+        this.notice = `${ROBOTS[robot.kind].name} 획득! 로봇 소환 버튼에서 확인하세요.`;
       }
     }
     for (const shot of shots) {
@@ -293,14 +287,15 @@ export class DefenseScene extends Phaser.Scene {
     this.moveAt = time + 160;
     this.player.play('move', true, true);
     this.tweens.add({ targets: this.player, x: center(next.x), y: center(next.y) + 30, duration: 145, onComplete: () => this.player.play('idle', true) });
-    this.room.updateWall(Math.max(next.y, ...this.simulation.robots.map(r => r.y)));
+    this.room.updateWall(Math.max(next.y, ...this.simulation.deployedRobots.map(r => r.y)));
   }
 
   private drawUnits(): void {
     this.units.clear();
     this.ranges.clear();
     const s = this.simulation;
-    for (const robot of s.robots) {
+    const deployedRobots = s.deployedRobots;
+    for (const robot of deployedRobots) {
       const x = center(robot.x), y = center(robot.y), color = ROBOTS[robot.kind].color;
       if (this.inspectRange && robot.id === s.selectedId) {
         this.ranges.fillStyle(color, 0.06); this.ranges.fillCircle(x, y, robot.range * 100);
@@ -325,11 +320,12 @@ export class DefenseScene extends Phaser.Scene {
         label = this.add.text(x, y + 38, '', { fontFamily: 'sans-serif', fontSize: '22px', color: '#e7f9f5', backgroundColor: '#1b2638', padding: { x: 5, y: 3 } }).setOrigin(0.5).setDepth(17);
         this.unitLabels.set(robot.id, label);
       }
-      art.setAlpha(robot.missionStatus === 'completed' ? 1 : 0.55);
-      label.setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n${robot.missionStatus === 'completed' ? '공격 중' : '공격 대기'}`);
+      const attackEnabled = robot.missionStatus === 'completed';
+      art.setAlpha(attackEnabled ? 1 : 0.55);
+      label.setVisible(attackEnabled).setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n공격 중`);
     }
-    for (const [id, label] of this.unitLabels) { if (!s.robots.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
-    for (const [id, art] of this.robotArt) if (!s.robots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); }
+    for (const [id, label] of this.unitLabels) { if (!deployedRobots.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
+    for (const [id, art] of this.robotArt) if (!deployedRobots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); }
     for (const enemy of s.enemies) {
       const x = center(enemy.x); const y = center(enemy.y);
       this.units.fillStyle(0x112331, 0.35); this.units.fillEllipse(x, y + 12, 65, 24);
@@ -388,8 +384,10 @@ export class DefenseScene extends Phaser.Scene {
     this.mode = 'relocate'; this.options.parent.focus({ preventScroll: true }); this.publish();
   }
   selectRobot(id: number): void {
-    this.simulation.selectRobot(id); this.inspectRange = true; this.mode = 'relocate'; this.target = null;
-    this.notice = '빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.';
+    this.simulation.selectRobot(id);
+    const deployed = this.simulation.deployedRobots.some(robot => robot.id === id);
+    this.inspectRange = deployed; this.mode = deployed ? 'relocate' : 'move'; this.target = null;
+    this.notice = deployed ? '빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.' : '코딩 미션을 완료하면 로봇이 방에 배치돼요.';
     this.options.parent.focus({ preventScroll: true }); this.publish();
   }
   updateCode(id: number, slot: number, block: CodingBlockId | null): void {

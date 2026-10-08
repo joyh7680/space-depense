@@ -7,7 +7,7 @@ const monster = (id: number, health: number): Enemy => ({
   id, x: 5, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0,
 });
 
-test('three matching elements automatically summon a waiting robot and consume only that element', () => {
+test('three matching elements store a waiting robot without deploying it and consume only that element', () => {
   let roll = 0;
   const game = new DefenseSimulation(() => roll);
   game.startWave();
@@ -24,6 +24,8 @@ test('three matching elements automatically summon a waiting robot and consume o
     assert.equal(game.robotCount, index + 1);
     assert.equal(game.robots.at(-1)!.kind, kind);
     assert.equal(game.robots.at(-1)!.missionStatus, 'waiting');
+    assert.equal(game.robots.at(-1)!.deployed, false);
+    assert.equal(game.deployedRobots.length, 0);
     assert.equal(game.elementEnergy[kind], 0);
     game.summon(kind);
     assert.equal(game.robotCount, index + 1, 'failed summons do not increase the count');
@@ -32,6 +34,8 @@ test('three matching elements automatically summon a waiting robot and consume o
   const first = game.robots[0];
   game.selectRobot(first.id);
   game.moveRobot(first.id, 4, 7);
+  assert.equal(first.deployed, false, 'moving a stored robot cannot bypass its coding mission');
+  assert.equal(game.canMovePlayer(4, 7), true, 'stored robots do not block room tiles');
   assert.equal(game.robotCount, 3, 'selecting and moving robots does not increase the count');
   assert.equal(new DefenseSimulation().robotCount, 0, 'a new game resets the count');
 });

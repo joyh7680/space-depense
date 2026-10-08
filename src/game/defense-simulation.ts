@@ -43,6 +43,7 @@ export class DefenseSimulation {
   constructor(random: () => number = Math.random) { this.random = random; }
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
   get robotCount(): number { return this.robots.length; }
+  get deployedRobots(): Robot[] { return this.robots.filter(robot => robot.deployed); }
   get totalEnemies(): number { return WAVE_ONE.enemies + 1; }
   get monsterSummonCountdown(): number | null {
     return this.bossSpawned ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
@@ -55,7 +56,7 @@ export class DefenseSimulation {
   }
 
   canMovePlayer(x: number, y: number): boolean {
-    return isWalkable(x, y) && !isRouteTile(x, y) && !this.robots.some(r => r.x === x && r.y === y);
+    return isWalkable(x, y) && !isRouteTile(x, y) && !this.deployedRobots.some(r => r.x === x && r.y === y);
   }
   nextPlayerStep(target: TilePosition): TilePosition | null {
     if (!this.canMovePlayer(target.x, target.y)) return null;
@@ -78,15 +79,16 @@ export class DefenseSimulation {
     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 소환할 수 있어요.';
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥을 선택해 주세요.';
     if (this.robots.length >= 8) return '로봇은 최대 8대까지 소환할 수 있어요.';
-    if (this.robots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
+    if (this.deployedRobots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
     if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 ${ROBOTS[kind].name}이 충전돼요.`;
-    this.createRobot(x, y, kind);
+    this.createRobot(kind, { x, y });
     this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
     return `${ROBOTS[kind].name} 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
   }
-  private createRobot(x: number, y: number, kind: RobotKind, select = true): void {
+  private createRobot(kind: RobotKind, position: TilePosition | null, select = true): void {
     const config = ROBOTS[kind];
-    const robot: Robot = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, activeBlock: 'find', attacks: 0, targetId: null,
+    // Stored robots have no room tile until their coding mission is completed.
+    const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, activeBlock: 'find', attacks: 0, targetId: null,
       serial: ++this.robotSerial[kind], code: CODING_MISSIONS[kind].slots.map(() => null), missionStatus: 'waiting', missionMessage: '블록을 조합하고 코드를 실행해 공격을 활성화하세요.' };
     this.robots.push(robot);
     if (select) this.selectedId = robot.id;
@@ -96,7 +98,7 @@ export class DefenseSimulation {
     for (let y = 3; y <= 11; y++) for (let x = 1; x <= 14; x++) {
       if (isWalkable(x, y) && !isRouteTile(x, y)) candidates.push({ x, y });
     }
-    return candidates.find(p => !this.robots.some(d => d.x === p.x && d.y === p.y) && !(p.x === this.player.x && p.y === this.player.y));
+    return candidates.find(p => !this.deployedRobots.some(d => d.x === p.x && d.y === p.y) && !(p.x === this.player.x && p.y === this.player.y));
   }
   summon(kind: RobotKind): string {
     if (!this.canDeploy) return '지금은 소환할 수 없어요.';
@@ -116,6 +118,14 @@ export class DefenseSimulation {
     if (!this.canDeploy || !robot) return '지금은 코드를 실행할 수 없어요.';
     if (robot.missionStatus === 'completed') return robot.missionMessage;
     const result = validateRobotCode(robot.kind, robot.code);
+    if (result.success && !robot.deployed) {
+      const slot = this.findRobotSlot();
+      if (!slot) {
+        robot.missionMessage = '배치할 빈 바닥이 없어요. 자리를 비운 뒤 코드를 다시 실행해 주세요.';
+        return robot.missionMessage;
+      }
+      robot.x = slot.x; robot.y = slot.y; robot.deployed = true;
+    }
     robot.missionStatus = result.success ? 'completed' : 'error';
     robot.missionMessage = result.message;
     robot.activeBlock = 'find'; robot.phaseTimer = 0;
@@ -124,9 +134,7 @@ export class DefenseSimulation {
   private autoSummon(): void {
     for (const kind of ROBOT_KINDS) {
       while (this.elementEnergy[kind] >= ROBOT_CHARGE_COST && this.robotCount < 8) {
-        const slot = this.findRobotSlot();
-        if (!slot) break;
-        this.createRobot(slot.x, slot.y, kind, false);
+        this.createRobot(kind, null, false);
         this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
       }
     }
@@ -134,8 +142,9 @@ export class DefenseSimulation {
   moveRobot(id: number, x: number, y: number): string {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot) return '옮길 로봇을 선택해 주세요.';
+    if (!robot.deployed) return '로봇 목록에서 코딩 미션을 완료하면 방에 배치돼요.';
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥에 배치해 주세요.';
-    if (this.robots.some(r => r.id !== id && r.x === x && r.y === y)) return '다른 로봇이 있는 자리예요.';
+    if (this.deployedRobots.some(r => r.id !== id && r.x === x && r.y === y)) return '다른 로봇이 있는 자리예요.';
     robot.x = x; robot.y = y; robot.targetId = null;
     robot.burstRemaining = 0;
     robot.activeBlock = 'find'; robot.phaseTimer = 0;
@@ -208,8 +217,7 @@ export class DefenseSimulation {
       const kind = this.randomKind();
       this.elementEnergy[kind]++;
       if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < 8) {
-        const slot = this.findRobotSlot();
-        if (slot) this.createRobot(slot.x, slot.y, this.randomKind(), false);
+        this.createRobot(this.randomKind(), null, false);
       }
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
     });
@@ -242,7 +250,7 @@ export class DefenseSimulation {
   }
   private executeRobots(dt: number): Shot[] {
     const shots: Shot[] = [];
-    for (const robot of this.robots) {
+    for (const robot of this.deployedRobots) {
       if (robot.missionStatus !== 'completed') continue;
       robot.cooldown = Math.max(0, robot.cooldown - dt);
       robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
