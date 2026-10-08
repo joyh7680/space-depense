@@ -1,0 +1,27 @@
+
+1a7a30cb-198b-4740-92fd-ec7304b18f80.png
+size: 100, 68
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+body
+  rotate: false
+  xy: 2, 2
+  size: 79, 61
+  orig: 79, 61
+  offset: 0, 0
+  index: -1
+energy
+  rotate: true
+  xy: 83, 13
+  size: 19, 5
+  orig: 19, 5
+  offset: 0, 0
+  index: -1
+eyes
+  rotate: true
+  xy: 83, 34
+  size: 29, 15
+  orig: 29, 16
+  offset: 0, 1
+  index: -1

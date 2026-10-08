@@ -1,63 +1,131 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import SpaceDefenseRoom from './components/space-defense-room.vue';
-import type { DefenseState, GameMode } from './game/types';
+import { DRONES, SUMMON_COST, WAVE_ONE } from './game/wave-one';
+import type { DefenseState } from './game/types';
 
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
 const ready = ref(false);
 const error = ref('');
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, kills: 0, enemies: 0, turrets: 0, player: { x: 7, y: 6 }, mode: 'move', grid: false, message: '방 리소스를 불러오는 중입니다.' });
-const canBuild = computed(() => ready.value && ['ready', 'cleared'].includes(state.value.status));
-const inWave = computed(() => ['running', 'paused'].includes(state.value.status));
-const statusLabel = computed(() => ({ ready: '방어 준비', running: '방어 진행', paused: '일시 정지', cleared: '방어 성공', defeat: '코어 파괴' })[state.value.status]);
-function setMode(mode: GameMode) { if (ready.value) room.value?.setMode(mode); }
+const portraitUrl = `url("${import.meta.env.BASE_URL}codmos-assets/player/int-front.png")`;
+const modal = ref<'help' | 'drones' | 'code' | 'menu' | null>(null);
+let resumeAfterModal = false;
+let returnFocus: HTMLElement | null = null;
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies, escaped: 0, elapsed: 0, drones: [], selectedId: null, player: { x: 11, y: 4 }, mode: 'move', grid: false, message: '' });
+const canDeploy = computed(() => ready.value && ['ready', 'running', 'paused'].includes(state.value.status));
+const finished = computed(() => ['cleared', 'defeat'].includes(state.value.status));
+const selected = computed(() => state.value.drones.find(d => d.id === state.value.selectedId));
+const canMerge = computed(() => canDeploy.value && selected.value && selected.value.grade < 3 && state.value.drones.some(d => d.id !== selected.value!.id && d.kind === selected.value!.kind && d.grade === selected.value!.grade));
+const hint = computed(() => state.value.mode === 'build' ? '빛나는 빈 칸을 눌러 배치!' : state.value.status === 'ready' ? '방어 시작! 드론 3개가 자동으로 준비돼요' : state.value.status === 'paused' ? '잠시 쉬는 중' : '드론이 자동 공격해요 · 에너지가 모이면 추가 소환!');
+const blocks = [{ id: 'find', name: '가까운 적 찾기', icon: '◎' }, { id: 'attack', name: '공격하기', icon: 'ϟ' }, { id: 'wait', name: '잠깐 기다리기', icon: '◷' }];
+function start() {
+  for (let i = 0; i < 3 && state.value.drones.length < 3 && state.value.credits >= SUMMON_COST; i++) room.value?.summon();
+  room.value?.startWave();
+}
+function openModal(value: typeof modal.value) {
+  if (!modal.value) {
+    returnFocus = document.activeElement as HTMLElement;
+    resumeAfterModal = state.value.status === 'running';
+    if (resumeAfterModal) room.value?.togglePause();
+  }
+  modal.value = value;
+  requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.modal-close')?.focus());
+}
+function closeModal() {
+  modal.value = null;
+  if (resumeAfterModal && state.value.status === 'paused') room.value?.togglePause();
+  resumeAfterModal = false;
+  returnFocus?.focus();
+}
+function reset() { resumeAfterModal = false; modal.value = null; room.value?.reset(); }
+function deploy() {
+  closeModal();
+  if (state.value.status === 'paused') room.value?.togglePause();
+  room.value?.setMode(state.value.mode === 'build' ? 'move' : 'build');
+}
+function merge() {
+  const wasPaused = state.value.status === 'paused';
+  if (wasPaused) room.value?.togglePause();
+  room.value?.merge();
+  if (wasPaused) room.value?.togglePause();
+}
+function onKey(event: KeyboardEvent) {
+  if (!modal.value) return;
+  if (event.key === 'Escape') closeModal();
+  if (event.key === 'Tab') {
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button:not(:disabled)'));
+    const first = buttons[0], last = buttons.at(-1);
+    if (!buttons.includes(document.activeElement as HTMLButtonElement)) { event.preventDefault(); first?.focus(); }
+    else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  }
+}
+onMounted(() => window.addEventListener('keydown', onKey));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 </script>
 
 <template>
-  <div class="shell">
-    <header class="header">
-      <a class="brand" href="./" aria-label="우주 디펜더 홈">
-        <span class="brand-mark">✦</span>
-        <span>SPACE <strong>DEFENDER</strong><small>우주정거장 방어 작전</small></span>
-      </a>
-      <div class="header-right"><span class="prototype">PROTOTYPE 01</span><span class="connection"><i /> 로컬 시뮬레이션</span></div>
-    </header>
+  <main class="game-screen" aria-label="코드모스 우주 디펜스" :style="{ '--portrait-url': portraitUrl }">
+    <SpaceDefenseRoom ref="room" @state="state = $event" @ready="ready = true" @error="error = $event" @inspect="openModal('code')" />
 
-    <main class="workspace">
-      <section class="room-panel" aria-label="게임방">
-        <div class="room-topline"><div><span class="eyebrow">STATION / 01</span><h1>우주 디펜더 게임방</h1></div><span class="room-badge"><i /> {{ statusLabel }}</span></div>
-        <div class="viewport">
-          <SpaceDefenseRoom ref="room" @state="state = $event" @ready="ready = true" @error="error = $event" />
-          <div class="map-label"><span class="tiny-square" /> 방어 모듈 A-01 <small>14 × 9 GRID</small></div>
-          <button class="grid-button" :class="{ active: state.grid }" :disabled="!ready" :aria-pressed="state.grid" @click="room?.toggleGrid()"><span>▦</span> 그리드</button>
-          <div v-if="!ready || error" class="loading-overlay"><span class="loading-star">✦</span><p>{{ error || '우주정거장에 진입하는 중…' }}</p></div>
-          <div v-if="state.status === 'paused'" class="pause-overlay"><span>Ⅱ</span><p>작전 일시 정지</p><button class="primary-button" @click="room?.togglePause()">작전 계속하기</button></div>
-          <div class="map-coordinates">SECTOR 07 <span>X {{ String(state.player.x).padStart(2, '0') }} / Y {{ String(state.player.y).padStart(2, '0') }}</span></div>
+    <div class="profile-hud">
+      <div class="profile-avatar"><i class="codmos-portrait" /></div>
+      <div><small>Lv. 1 <span>ϟ {{ state.credits }}</span></small><strong>우주 지휘관</strong></div>
+    </div>
+    <div class="wave-hud" aria-label="전투 현황">
+      <div class="wave-counter"><small>WAVE</small><strong>01</strong></div>
+      <div class="battle-progress"><div><b>우주정거장 방어</b><span>{{ state.kills }} / {{ state.total }}</span></div><div class="progress-track"><i :style="{ width: `${state.kills / state.total * 100}%` }" /></div></div>
+      <div class="base-health" :class="{ danger: state.health <= 30 }"><span>♥</span><b>{{ state.health }}</b></div>
+    </div>
+    <nav class="top-actions" aria-label="게임 메뉴">
+      <button class="round-button" aria-label="게임 방법" @click="openModal('help')">?</button>
+      <button class="round-button" aria-label="메뉴" :disabled="!ready" @click="openModal('menu')">☰</button>
+    </nav>
+
+    <div class="station-label">SPACE DEFENSE <span>STATION A-01</span></div>
+    <div class="bottom-controls">
+      <button class="collection-button" :disabled="!ready" @click="openModal('drones')"><span>✦</span><b>내 드론</b><small>{{ state.drones.length }}/8</small></button>
+      <div class="action-area">
+        <div class="game-hint" role="status">{{ hint }}</div>
+        <div class="action-dock">
+          <button class="summon-button" :disabled="!canDeploy || state.status === 'paused' || state.credits < SUMMON_COST || state.drones.length >= 8" @click="room?.summon()"><span class="button-icon">＋</span><span><b>드론 소환</b><small>ϟ {{ SUMMON_COST }}</small></span></button>
+          <button v-if="state.status === 'ready'" class="launch-button" :disabled="!ready" @click="start"><span>▶</span><b>방어 시작</b></button>
+          <button v-else-if="finished" class="launch-button" @click="reset"><span>↻</span><b>다시 도전</b></button>
+          <button v-else class="launch-button pause-button" :disabled="!ready" @click="room?.togglePause()"><span>{{ state.status === 'paused' ? '▶' : 'Ⅱ' }}</span><b>{{ state.status === 'paused' ? '계속하기' : '잠깐 쉬기' }}</b></button>
         </div>
-        <div class="room-bottomline"><span class="notice-dot" /><p aria-live="polite">{{ state.message }}</p><span class="local-tag">SINGLE ROOM</span></div>
+      </div>
+      <button class="place-button" :class="{ active: state.mode === 'build' }" :disabled="!canDeploy || state.credits < SUMMON_COST" @click="deploy"><span>⌖</span><b>{{ state.mode === 'build' ? '배치 취소' : '직접 배치' }}</b></button>
+    </div>
+
+    <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
+    <div v-else-if="state.status === 'paused' && !modal" class="paused-label">Ⅱ 일시 정지</div>
+    <div v-if="finished && !modal" class="screen-overlay result-overlay">
+      <section class="game-modal result-modal" aria-label="1웨이브 결과"><small>WAVE 01</small><div class="result-symbol">{{ state.status === 'cleared' ? '★' : '↻' }}</div><h1>{{ state.status === 'cleared' ? '방어 성공!' : '다시 도전!' }}</h1><div class="result-numbers"><span>처치 <b>{{ state.kills }}/12</b></span><span>기지 <b>♥ {{ state.health }}</b></span></div><p v-if="state.status === 'cleared'" class="reward">ϟ +{{ WAVE_ONE.clearEnergy }} 에너지</p><p v-else>드론을 더 소환하면 든든해요!</p><button class="launch-button" @click="reset">↻ 다시 플레이</button><small>현재 1웨이브까지 플레이할 수 있어요</small></section>
+    </div>
+
+    <div v-if="modal" class="screen-overlay modal-backdrop" @click.self="closeModal">
+      <section class="game-modal" role="dialog" aria-modal="true" :aria-label="modal === 'help' ? '게임 방법' : modal === 'menu' ? '메뉴' : '내 드론'">
+        <button class="modal-close" aria-label="닫기" @click="closeModal">×</button>
+        <template v-if="modal === 'help'">
+          <small>HOW TO PLAY</small><h2>딱 세 가지만!</h2>
+          <div class="help-steps"><div><span>▶</span><b>방어 시작</b><p>드론 3개 자동 준비</p></div><div><span>ϟ</span><b>자동 공격!</b><p>모인 에너지로 추가 소환</p></div><div><span>✦</span><b>드론 클릭</b><p>코드 확인 · 같은 드론 합성</p></div></div>
+          <p class="modal-note">대원은 바닥 클릭 / 방향키로 이동해요</p><button class="launch-button" @click="closeModal">알겠어요!</button>
+        </template>
+        <template v-else-if="modal === 'menu'">
+          <small>STATION A-01</small><h2>잠깐 쉬어 갈까요?</h2><div class="menu-options"><button @click="closeModal">▶ 게임으로</button><button :aria-pressed="state.grid" @click="room?.toggleGrid()">▦ 그리드 {{ state.grid ? '끄기' : '켜기' }}</button><button @click="openModal('help')">? 게임 방법</button><button @click="reset">↻ 처음부터</button></div>
+        </template>
+        <template v-else>
+          <small>MY DRONES · {{ state.drones.length }}/8</small><h2>{{ modal === 'code' && selected ? DRONES[selected.kind].name + ' 드론' : '나의 드론' }}</h2>
+          <div v-if="!state.drones.length" class="empty-roster">✦<p>방어 시작을 누르면<br />드론 3개가 준비돼요!</p></div>
+          <div class="drone-roster"><button v-for="drone in state.drones" :key="drone.id" :class="['drone-token', drone.kind, { selected: drone.id === state.selectedId }]" :aria-label="`${DRONES[drone.kind].name} ${drone.grade}성 드론 선택`" @click="room?.selectDrone(drone.id)"><span>{{ DRONES[drone.kind].symbol }}</span><b>{{ DRONES[drone.kind].name }}</b><small>{{ '★'.repeat(drone.grade) }}</small></button></div>
+          <template v-if="selected">
+            <div class="drone-stats"><span>공격 <b>{{ selected.damage }}</b></span><span>사거리 <b>{{ selected.range.toFixed(1) }}</b></span><span>공격 횟수 <b>{{ selected.attacks }}</b></span></div>
+            <div class="code-stack"><small>⚑ 전투가 시작되면 · 반복</small><div v-for="(block, index) in blocks" :key="block.id" :class="{ executing: selected.activeBlock === block.id }"><span>{{ index + 1 }}</span><b>{{ block.name }}</b><i>{{ block.icon }}</i></div></div>
+            <button class="merge-button" :disabled="!canMerge" @click="merge">◇ 같은 드론 합성</button><p class="modal-note">같은 종류 · 같은 별 2개 → 별 +1</p>
+          </template>
+          <button class="launch-button" @click="closeModal">게임으로</button>
+        </template>
       </section>
-
-      <aside class="control-panel">
-        <div class="panel-heading"><span class="eyebrow">MISSION CONTROL</span><h2>방어 준비</h2><p>포탑을 배치하고<br />정거장의 코어를 지키세요.</p></div>
-        <div class="core-status"><div class="stat-label"><span><i /> 코어 내구도</span><strong>{{ state.health }}<small> / 100</small></strong></div><div class="health-track"><span :style="{ width: `${state.health}%` }" /></div></div>
-        <div class="resource-row"><div><span>보유 에너지</span><strong class="energy"><small>ϟ</small> {{ state.credits }}</strong></div><div><span>웨이브</span><strong>{{ String(state.wave).padStart(2, '0') }}<small> WAVE</small></strong></div></div>
-        <div class="separator" />
-        <div class="section-label">방어 장치 <span>{{ state.turrets }} 배치됨</span></div>
-        <button class="turret-card" :class="{ selected: state.mode === 'build' }" :disabled="!canBuild || state.credits < 75" :aria-pressed="state.mode === 'build'" @click="setMode(state.mode === 'build' ? 'move' : 'build')">
-          <span class="turret-art"><svg viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="46" rx="24" ry="11" fill="#112d3a"/><path d="M13 39v9l19 9 19-9v-9" fill="#42727f"/><path d="m13 39 19-10 19 10-19 10z" fill="#71c7c9"/><rect x="22" y="24" width="20" height="18" rx="4" fill="#9af0e3"/><rect x="28" y="10" width="8" height="25" rx="2" fill="#f5be74"/><rect x="27" y="8" width="10" height="5" rx="1" fill="#fff0cb"/></svg></span>
-          <span class="turret-description"><strong>펄스 포탑</strong><small>사거리 4칸 · 자동 공격</small><b>ϟ 75 <span>배치하기 ↗</span></b></span>
-        </button>
-        <p class="placement-tip">황금색 경로 옆 빈 바닥에 배치하세요.</p>
-        <div class="mode-buttons"><button :class="{ active: state.mode === 'move' }" :disabled="!ready" :aria-pressed="state.mode === 'move'" @click="setMode('move')">↖ 이동 모드</button><button :class="{ active: state.mode === 'remove' }" :disabled="!canBuild" :aria-pressed="state.mode === 'remove'" @click="setMode(state.mode === 'remove' ? 'move' : 'remove')">↶ 포탑 회수</button></div>
-        <div class="mission-note"><span>◎</span><p>작전 목표<strong>침입 드론으로부터 코어 방어</strong><small>방어 성공 시 에너지 +50</small></p></div>
-        <div class="action-area">
-          <button v-if="inWave" class="primary-button" :disabled="!ready" @click="room?.togglePause()">{{ state.status === 'paused' ? '▶ 작전 계속하기' : 'Ⅱ 일시 정지' }}</button>
-          <button v-else class="primary-button" :disabled="!canBuild || state.turrets === 0" @click="room?.startWave()">{{ state.wave === 0 ? '▶ 방어 테스트 시작' : '▶ 다음 웨이브 시작' }}</button>
-          <button class="reset-button" :disabled="!ready" @click="room?.reset()">↻ 방 초기화</button>
-        </div>
-      </aside>
-    </main>
-
-    <footer class="footer"><div class="keyboard-help"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> 이동</span><span class="footer-divider" /><span>바닥 클릭 <b>목적지 이동</b></span></div><span class="footer-note">CODMOS ROOM · DEFENSE SANDBOX</span></footer>
-  </div>
+    </div>
+  </main>
 </template>

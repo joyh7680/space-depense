@@ -2,7 +2,16 @@ import Phaser from 'phaser';
 import { DefenseScene } from './defense-scene';
 import type { GameController, GameOptions } from './types';
 
-export function createDefenseGame(options: GameOptions): GameController {
+export async function createDefenseGame(options: GameOptions): Promise<GameController> {
+  const runtime = window as unknown as { Phaser: typeof Phaser; SpinePlugin?: Phaser.Types.Core.PluginObjectItem['plugin'] };
+  runtime.Phaser = Phaser;
+  if (!runtime.SpinePlugin) await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `${import.meta.env.BASE_URL}plugins/SpinePlugin.min.js`;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Spine runtime could not load'));
+    document.head.append(script);
+  });
   const scene = new DefenseScene(options);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -11,6 +20,7 @@ export function createDefenseGame(options: GameOptions): GameController {
     pixelArt: true,
     scale: { mode: Phaser.Scale.RESIZE, width: options.parent.clientWidth, height: options.parent.clientHeight },
     scene: [scene],
+    plugins: { scene: [{ key: 'SpinePlugin', plugin: runtime.SpinePlugin!, mapping: 'spine' }] },
     input: { keyboard: { capture: [] } },
     render: { antialias: false, roundPixels: true },
     audio: { noAudio: true },
@@ -27,6 +37,9 @@ export function createDefenseGame(options: GameOptions): GameController {
   options.parent.addEventListener('keydown', preventScroll);
   return {
     setMode: mode => scene.setMode(mode),
+    summon: () => scene.summon(),
+    selectDrone: id => scene.selectDrone(id),
+    merge: () => scene.merge(),
     toggleGrid: () => scene.toggleGrid(),
     startWave: () => scene.startWave(),
     togglePause: () => scene.togglePause(),
