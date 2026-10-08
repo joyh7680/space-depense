@@ -244,7 +244,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 /* Reserve space for the console so Phaser resizes the battle without covering it. */
 .game-screen{display:flex}
 .battle-area{position:relative;flex:1;min-width:0;height:100%;container-type:size}
-.battle-area .wave-hud{left:auto;right:24px;transform:none;min-width:330px;top:28px}
+.battle-area .wave-hud{left:50%;right:auto;transform:translateX(-50%);min-width:330px;top:28px}
 .battle-area .profile-hud{min-width:220px;height:70px;padding-left:76px;top:28px;left:22px;transform:none}
 .battle-area .profile-avatar{width:84px;height:84px;border-width:7px}
 .battle-area .profile-hud strong{font-size:20px}
