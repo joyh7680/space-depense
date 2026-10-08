@@ -27,8 +27,8 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
   });
   const observer = new ResizeObserver(() => {
     if (game.isBooted && options.parent.clientWidth && options.parent.clientHeight) {
-      // RESIZE reads parentSize during refresh; update the bounds first when only
-      // the Vue panel layout changes (there is no browser window resize event).
+      // RESIZE reads parentSize during refresh; update the bounds first when
+      // the host changes size without a browser window resize event.
       game.scale.getParentBounds();
       game.scale.refresh();
     }

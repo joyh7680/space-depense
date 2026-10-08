@@ -48,6 +48,5 @@ defineExpose({
 
 <style scoped>
 .game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
-.game-canvas:focus-visible { outline: 2px solid #8ee6db; outline-offset: -4px; }
 .game-canvas :deep(canvas) { display: block; touch-action: none; }
 </style>
