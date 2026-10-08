@@ -15,7 +15,6 @@ function fillLayer(layer: Phaser.Tilemaps.TilemapLayer, gids: readonly number[])
 
 export class Room {
   readonly floor: Phaser.Tilemaps.TilemapLayer;
-  readonly wall: Phaser.Tilemaps.TilemapLayer;
   readonly grid: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene) {
@@ -46,9 +45,8 @@ export class Room {
         if (tile) tile.tint = x === 7 || x === 8 ? 0x9ef2ef : 0x193840;
       }
     }
-    this.wall = map.createBlankLayer('room-wall', tiles, 0, DEFINE.ROOM_DECO_START_Y * DEFINE.TILE_SIZE)!;
-    fillLayer(this.wall, DEFINE.ROOM_DECO_GIDS);
-    this.wall.setDepth(100);
+    // The defense room keeps its floor exposed; front-wall decorations would
+    // cover the player and robots on the lower floor tiles.
     this.grid = scene.add.graphics().setDepth(2).setVisible(false);
     this.grid.lineStyle(2, 0x80e5e0, 0.22);
     for (let y = 0; y < DEFINE.ROOM_HEIGHT; y++) {
@@ -56,9 +54,5 @@ export class Room {
         if (isWalkable(x, y)) this.grid.strokeRect(x * 100, y * 100, 100, 100);
       }
     }
-  }
-
-  updateWall(playerY: number): void {
-    this.wall.setAlpha(playerY >= DEFINE.ROOM_DECO_START_Y ? 0.35 : 1);
   }
 }
