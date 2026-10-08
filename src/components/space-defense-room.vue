@@ -30,6 +30,7 @@ defineExpose({
   setInteractionLocked: (locked: boolean) => controller?.setInteractionLocked(locked),
   setMode: (mode: GameMode) => controller?.setMode(mode),
   summon: (kind: RobotKind) => controller?.summon(kind),
+  summonMonster: () => controller?.summonMonster(),
   selectRobot: (id: number) => controller?.selectRobot(id),
   merge: () => controller?.merge(),
   toggleGrid: () => controller?.toggleGrid(),

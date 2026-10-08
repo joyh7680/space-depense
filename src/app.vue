@@ -90,7 +90,7 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <div v-if="ready && state.status === 'ready' && !summonOpen" class="countdown-hud" role="status"><small>괴물 출현까지</small><strong>{{ state.countdown }}</strong><span>바닥을 눌러 움직여 보세요</span></div>
     <div class="bottom-controls">
-      <button class="robot-button monster-button" :disabled="!canDeploy" aria-label="몬스터소환">
+      <button class="robot-button monster-button" :disabled="!canDeploy" aria-label="몬스터소환" @click="room?.summonMonster()">
         <img class="monster-portrait" :src="monsterArt" alt="" draggable="false" />
         <b>몬스터소환</b>
       </button>

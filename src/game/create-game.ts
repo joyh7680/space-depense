@@ -35,6 +35,7 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     setInteractionLocked: locked => scene.setInteractionLocked(locked),
     setMode: mode => scene.setMode(mode),
     summon: kind => scene.summon(kind),
+    summonMonster: () => scene.summonMonster(),
     selectRobot: id => scene.selectRobot(id),
     merge: () => scene.merge(),
     toggleGrid: () => scene.toggleGrid(),

@@ -1,10 +1,11 @@
 import { isWalkable } from './room/walkable.ts';
-import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, WAVE_ONE } from './wave-one.ts';
+import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
 export type Robot = RobotState & { cooldown: number; phaseTimer: number };
 export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
+  kind?: 'summoned';
 };
 export type Shot = { from: TilePosition; to: TilePosition; kind: RobotKind; chain?: boolean; player?: boolean };
 export const ROUTE: readonly TilePosition[] = [{ x: 1, y: 4 }, { x: 12, y: 4 }, { x: 12, y: 6 }, { x: 3, y: 6 }];
@@ -25,6 +26,7 @@ export class DefenseSimulation {
   kills = 0;
   escaped = 0;
   spawned = 0;
+  private summonedMonsters = 0;
   elapsed = 0;
   countdown = 5;
   player: TilePosition = { x: 5, y: 5 };
@@ -39,6 +41,14 @@ export class DefenseSimulation {
   constructor(random: () => number = Math.random) { this.random = random; }
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
   get robotCount(): number { return this.robots.length; }
+  get totalEnemies(): number { return WAVE_ONE.enemies + this.summonedMonsters; }
+
+  summonMonster(): string {
+    if (!this.canDeploy) return '지금은 몬스터를 소환할 수 없어요.';
+    this.enemies.push({ ...ROUTE[0], id: ++this.sequence, kind: 'summoned', health: SUMMONED_MONSTER.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
+    this.summonedMonsters++;
+    return '추가 괴물 소환! 처치하면 속성 에너지와 낮은 확률로 로봇을 얻어요.';
+  }
 
   canMovePlayer(x: number, y: number): boolean {
     return isWalkable(x, y) && !isRouteTile(x, y) && !this.robots.some(r => r.x === x && r.y === y);
@@ -66,20 +76,26 @@ export class DefenseSimulation {
     if (this.robots.length >= 8) return '로봇은 최대 8대까지 소환할 수 있어요.';
     if (this.robots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
     if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 ${ROBOTS[kind].name}이 충전돼요.`;
+    this.createRobot(x, y, kind);
+    this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
+    return `${ROBOTS[kind].name} 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
+  }
+  private createRobot(x: number, y: number, kind: RobotKind, select = true): void {
     const config = ROBOTS[kind];
     const robot: Robot = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, activeBlock: 'find', attacks: 0, targetId: null };
     this.robots.push(robot);
-    this.selectedId = robot.id;
-    this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
-    return `${config.name} 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
+    if (select) this.selectedId = robot.id;
   }
-  summon(kind: RobotKind): string {
-    if (!this.canDeploy) return '지금은 소환할 수 없어요.';
+  private findRobotSlot(): TilePosition | undefined {
     const candidates = [...DEPLOY_SLOTS];
     for (let y = 3; y <= 11; y++) for (let x = 1; x <= 14; x++) {
       if (isWalkable(x, y) && !isRouteTile(x, y)) candidates.push({ x, y });
     }
-    const slot = candidates.find(p => !this.robots.some(d => d.x === p.x && d.y === p.y) && !(p.x === this.player.x && p.y === this.player.y));
+    return candidates.find(p => !this.robots.some(d => d.x === p.x && d.y === p.y) && !(p.x === this.player.x && p.y === this.player.y));
+  }
+  summon(kind: RobotKind): string {
+    if (!this.canDeploy) return '지금은 소환할 수 없어요.';
+    const slot = this.findRobotSlot();
     return slot ? this.placeRobot(slot.x, slot.y, kind) : '배치 칸이 가득 찼어요. 같은 로봇을 합성해 보세요.';
   }
   selectRobot(id: number): void { if (this.robots.some(d => d.id === id)) this.selectedId = id; }
@@ -154,10 +170,17 @@ export class DefenseSimulation {
     this.enemies = this.enemies.filter(e => {
       if (e.health > 0) return true;
       // Roll once per defeated monster, including damage-over-time and chain kills.
-      const kind = ROBOT_KINDS[Math.min(ROBOT_KINDS.length - 1, Math.max(0, Math.floor(this.random() * ROBOT_KINDS.length)))];
+      const kind = this.randomKind();
       this.elementEnergy[kind]++;
+      if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < 8) {
+        const slot = this.findRobotSlot();
+        if (slot) this.createRobot(slot.x, slot.y, this.randomKind(), false);
+      }
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
     });
+  }
+  private randomKind(): RobotKind {
+    return ROBOT_KINDS[Math.min(ROBOT_KINDS.length - 1, Math.max(0, Math.floor(this.random() * ROBOT_KINDS.length)))];
   }
   private moveEnemies(dt: number): void {
     this.enemies = this.enemies.filter(enemy => {

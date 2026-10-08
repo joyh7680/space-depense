@@ -3,7 +3,7 @@ import { DefenseSimulation, ROUTE, isRouteTile } from './defense-simulation';
 import { Room } from './room/room';
 import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
-import { ROBOT_KINDS, ROBOTS, WAVE_ONE } from './wave-one';
+import { ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one';
 import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
 
 const center = (value: number) => value * 100 + 50;
@@ -14,7 +14,7 @@ export class DefenseScene extends Phaser.Scene {
   showGrid = false;
   private room!: Room;
   private player!: SpineActor;
-  private aliens = new Map<number, Phaser.GameObjects.Image>();
+  private aliens = new Map<number, Phaser.GameObjects.Image | SpineActor>();
   private robotArt = new Map<number, SpineActor>();
   private inspectRange = false;
   private units!: Phaser.GameObjects.Graphics;
@@ -44,6 +44,7 @@ export class DefenseScene extends Phaser.Scene {
     const base = this.options.assetBase ?? `${import.meta.env.BASE_URL}games/space/`;
     this.load.image('room-tiles', `${base}SPACE_MAP_TILESET.png`);
     this.load.image('monster-mint', `${import.meta.env.BASE_URL}codmos-assets-monster/759c20f0e742/monster-mint.png`);
+    this.load.spine('monster-summoned', `${import.meta.env.BASE_URL}codmos-assets/acef8de87e1f/acef8de87e1f2fe72202365bc0c517f690041bd8ab24a55f592a2b2a3c1df8b5.json`, [`${import.meta.env.BASE_URL}codmos-assets/1bae1e1a9bf8/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas`], true);
     const smokeBase = `${import.meta.env.BASE_URL}codmos-assets/game-over/5e04ca1208c8/`;
     this.load.atlas('station-smoke', `${smokeBase}9ae27227-06b4-432c-95e7-305f10efc0e5.png`, `${smokeBase}smoke-frames.json`);
     this.load.spine('player', `${import.meta.env.BASE_URL}codmos-assets/player/int-front.json`, [`${import.meta.env.BASE_URL}codmos-assets/player/int-front.atlas`], true);
@@ -230,6 +231,7 @@ export class DefenseScene extends Phaser.Scene {
     if (!this.room) return;
     const previousHealth = this.simulation.health;
     const previousEnergy = { ...this.simulation.elementEnergy };
+    const previousRobots = new Set(this.simulation.robots.map(robot => robot.id));
     const shots = this.simulation.step(delta / 1000);
     if (previousHealth > 0 && this.simulation.status === 'defeat') this.destroyStation();
     if (!['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
@@ -239,6 +241,17 @@ export class DefenseScene extends Phaser.Scene {
     for (const kind of ROBOT_KINDS) {
       const amount = this.simulation.elementEnergy[kind] - previousEnergy[kind];
       if (amount > 0) this.showEnergyReward(kind, amount, rewardIndex++);
+    }
+    for (const robot of this.simulation.robots) {
+      if (!previousRobots.has(robot.id)) {
+        this.notice = `행운의 보상! ${ROBOTS[robot.kind].name} 무료 소환!`;
+        const label = this.add.text(center(robot.x), center(robot.y) - 100, this.notice, {
+          fontFamily: 'sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#ffe594',
+          backgroundColor: '#172333', padding: { x: 10, y: 5 },
+        }).setOrigin(0.5);
+        this.energyEffects.add(label);
+        this.tweens.add({ targets: label, y: label.y - 70, alpha: 0, duration: 1800, onComplete: () => label.destroy() });
+      }
     }
     for (const shot of shots) {
       const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color).setOrigin(0).setLineWidth(shot.chain ? 3 : 6).setDepth(15);
@@ -317,13 +330,33 @@ export class DefenseScene extends Phaser.Scene {
       this.units.fillStyle(0x112331, 0.35); this.units.fillEllipse(x, y + 12, 65, 24);
       let actor = this.aliens.get(enemy.id);
       if (!actor) {
-        actor = this.add.image(x, y - 22, 'monster-mint').setDisplaySize(78, 78).setDepth(13);
+        actor = enemy.kind === 'summoned'
+          ? this.add.spine(x, y + 12, 'monster-summoned', 'idle', true).setDepth(13)
+          : this.add.image(x, y - 22, 'monster-mint').setDisplaySize(78, 78).setDepth(13);
+        if (enemy.kind === 'summoned') {
+          const spine = actor as SpineActor;
+          // Invisible effect attachments otherwise inflate Spine's bounds and shrink the body.
+          for (const slot of ['attacked', 'die01', 'die02', 'explosion', 'eyes_die', 'eyes_stun', 'magic', 'spawn', 'stun01', 'stun02', 'stun03']) {
+            spine.setAttachment(slot, null);
+          }
+          spine.updateSize();
+        }
         this.aliens.set(enemy.id, actor);
       }
-      actor.setPosition(x, y - 22 + Math.sin(this.time.now / 160 + enemy.id) * 3);
-      actor.setFlipX(enemy.waypoint === 3);
-      this.units.fillStyle(0x162c36); this.units.fillRoundedRect(x - 28, y - 85, 56, 7, 3);
-      this.units.fillStyle(enemy.burnTime > 0 ? 0xffac70 : 0xe79bce); this.units.fillRoundedRect(x - 28, y - 85, 56 * Math.max(0, enemy.health / WAVE_ONE.health), 7, 3);
+      if (enemy.kind === 'summoned') {
+        const spine = actor as SpineActor;
+        const scale = SUMMONED_MONSTER.size / Math.max(spine.width, spine.height);
+        const direction = enemy.waypoint === 3 ? -1 : 1;
+        spine.setScale(scale * direction, scale);
+        spine.setPosition(x + (spine.displayOriginX - spine.width / 2) * scale * direction,
+          y + 12 + (spine.displayOriginY - spine.height) * scale);
+      } else {
+        (actor as Phaser.GameObjects.Image).setPosition(x, y - 22 + Math.sin(this.time.now / 160 + enemy.id) * 3).setFlipX(enemy.waypoint === 3);
+      }
+      const healthY = y - (enemy.kind === 'summoned' ? 108 : 85);
+      const maxHealth = enemy.kind === 'summoned' ? SUMMONED_MONSTER.health : WAVE_ONE.health;
+      this.units.fillStyle(0x162c36); this.units.fillRoundedRect(x - 28, healthY, 56, 7, 3);
+      this.units.fillStyle(enemy.burnTime > 0 ? 0xffac70 : 0xe79bce); this.units.fillRoundedRect(x - 28, healthY, 56 * Math.max(0, enemy.health / maxHealth), 7, 3);
     }
     for (const [id, actor] of this.aliens) if (!s.enemies.some(e => e.id === id)) {
       this.aliens.delete(id);
@@ -347,6 +380,11 @@ export class DefenseScene extends Phaser.Scene {
   summon(kind: RobotKind): void {
     this.target = null; this.inspectRange = true; this.notice = this.simulation.summon(kind);
     this.mode = 'relocate'; this.options.parent.focus({ preventScroll: true }); this.publish();
+  }
+  summonMonster(): void {
+    this.notice = this.simulation.summonMonster();
+    this.drawUnits();
+    this.publish();
   }
   selectRobot(id: number): void {
     this.simulation.selectRobot(id); this.inspectRange = true; this.mode = 'relocate'; this.target = null;
@@ -382,7 +420,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
     this.options.onState?.(state);
   }
 }

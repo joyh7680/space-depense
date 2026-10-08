@@ -19,6 +19,7 @@ export type GameController = {
   setInteractionLocked: (locked: boolean) => void;
   setMode: (mode: GameMode) => void;
   summon: (kind: RobotKind) => void;
+  summonMonster: () => void;
   selectRobot: (id: number) => void;
   merge: () => void;
   toggleGrid: () => void;

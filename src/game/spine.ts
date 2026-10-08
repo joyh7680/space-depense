@@ -5,6 +5,12 @@ export type SpineActor = Phaser.GameObjects.GameObject & Phaser.GameObjects.Comp
   setSkinByName: (name: string) => SpineActor;
   skeleton: { setSlotsToSetupPose: () => void };
   timeScale: number;
+  width: number;
+  height: number;
+  displayOriginX: number;
+  displayOriginY: number;
+  setAttachment: (slot: string, attachment: string | null) => SpineActor;
+  updateSize: () => SpineActor;
 };
 
 declare module 'phaser' {
