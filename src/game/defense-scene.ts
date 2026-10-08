@@ -191,6 +191,7 @@ export class DefenseScene extends Phaser.Scene {
     const shots = this.interactionLocked ? [] : this.simulation.step(delta / 1000);
     if (previousHealth > 0 && this.simulation.status === 'defeat') this.destroyStation();
     if (!this.interactionLocked && !['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
+    this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.robots.map(r => r.y)));
     this.drawUnits();
     for (const shot of shots) {
       const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color).setOrigin(0).setLineWidth(shot.chain ? 3 : 6).setDepth(15);
@@ -210,6 +211,7 @@ export class DefenseScene extends Phaser.Scene {
     this.moveAt = time + 160;
     this.player.play('move', true, true);
     this.tweens.add({ targets: this.player, x: center(next.x), y: center(next.y) + 30, duration: 145, onComplete: () => this.player.play('idle', true) });
+    this.room.updateWall(Math.max(next.y, ...this.simulation.robots.map(r => r.y)));
   }
 
   private drawUnits(): void {
@@ -300,6 +302,7 @@ export class DefenseScene extends Phaser.Scene {
     this.stationDamage.clear(); this.core.setAlpha(1);
     this.cameras.main.resetFX();
     this.player.setPosition(center(this.playerTile.x), center(this.playerTile.y) + 30);
+    this.room.updateWall(this.playerTile.y);
     this.draggedRobot = null; this.dragStart = null; this.moveAt = 0;
     this.notice = '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
     this.options.parent.focus({ preventScroll: true }); this.publish();

@@ -16,6 +16,7 @@ function fillLayer(layer: Phaser.Tilemaps.TilemapLayer, gids: readonly number[])
 export class Room {
   readonly floor: Phaser.Tilemaps.TilemapLayer;
   readonly grid: Phaser.GameObjects.Graphics;
+  private readonly frontWall: Phaser.Tilemaps.TilemapLayer;
 
   constructor(scene: Phaser.Scene) {
     const map = scene.make.tilemap({ tileWidth: DEFINE.TILE_SIZE, tileHeight: DEFINE.TILE_SIZE, width: DEFINE.ROOM_WIDTH, height: DEFINE.ROOM_HEIGHT });
@@ -45,8 +46,17 @@ export class Room {
         if (tile) tile.tint = x === 7 || x === 8 ? 0x9ef2ef : 0x193840;
       }
     }
-    // The defense room keeps its floor exposed; front-wall decorations would
-    // cover the player and robots on the lower floor tiles.
+    // Keep the entrance independent so hiding the front wall never hides the door.
+    const isDoor = (index: number) => {
+      const x = index % DEFINE.ROOM_WIDTH, y = Math.floor(index / DEFINE.ROOM_WIDTH);
+      return (x === 7 || x === 8) && (y === 2 || y === 3);
+    };
+    this.frontWall = map.createBlankLayer('room-front-wall', tiles, 0, DEFINE.ROOM_DECO_START_Y * DEFINE.TILE_SIZE)!;
+    fillLayer(this.frontWall, DEFINE.ROOM_DECO_GIDS.map((gid, index) => isDoor(index) ? 0 : gid));
+    this.frontWall.setDepth(100);
+    const entrance = map.createBlankLayer('room-entrance', tiles, 0, DEFINE.ROOM_DECO_START_Y * DEFINE.TILE_SIZE)!;
+    fillLayer(entrance, DEFINE.ROOM_DECO_GIDS.map((gid, index) => isDoor(index) ? gid : 0));
+    entrance.setDepth(2);
     this.grid = scene.add.graphics().setDepth(2).setVisible(false);
     this.grid.lineStyle(2, 0x80e5e0, 0.22);
     for (let y = 0; y < DEFINE.ROOM_HEIGHT; y++) {
@@ -54,5 +64,9 @@ export class Room {
         if (isWalkable(x, y)) this.grid.strokeRect(x * 100, y * 100, 100, 100);
       }
     }
+  }
+
+  updateWall(frontmostUnitY: number): void {
+    this.frontWall.setVisible(frontmostUnitY < DEFINE.ROOM_DECO_START_Y);
   }
 }
