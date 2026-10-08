@@ -23,6 +23,9 @@ export class DefenseScene extends Phaser.Scene {
   private ranges!: Phaser.GameObjects.Graphics;
   private core!: Phaser.GameObjects.Graphics;
   private stationDamage!: Phaser.GameObjects.Graphics;
+  private stationEffects!: Phaser.GameObjects.Container;
+  private defeatTimer?: Phaser.Time.TimerEvent;
+  private defeatAnimationComplete = false;
   private unitLabels = new Map<number, Phaser.GameObjects.Text>();
   private target: TilePosition | null = null;
   private playerTile = { ...this.simulation.player };
@@ -40,6 +43,8 @@ export class DefenseScene extends Phaser.Scene {
     const base = this.options.assetBase ?? `${import.meta.env.BASE_URL}games/space/`;
     this.load.image('room-tiles', `${base}SPACE_MAP_TILESET.png`);
     this.load.image('monster-mint', `${import.meta.env.BASE_URL}codmos-assets-monster/759c20f0e742/monster-mint.png`);
+    const smokeBase = `${import.meta.env.BASE_URL}codmos-assets/game-over/5e04ca1208c8/`;
+    this.load.atlas('station-smoke', `${smokeBase}9ae27227-06b4-432c-95e7-305f10efc0e5.png`, `${smokeBase}smoke-frames.json`);
     this.load.spine('player', `${import.meta.env.BASE_URL}codmos-assets/player/int-front.json`, [`${import.meta.env.BASE_URL}codmos-assets/player/int-front.atlas`], true);
     this.load.on('loaderror', () => this.options.onError?.('방 리소스를 불러오지 못했습니다. 새로고침해 주세요.'));
   }
@@ -63,6 +68,7 @@ export class DefenseScene extends Phaser.Scene {
     this.ranges = this.add.graphics().setDepth(4);
     this.hover = this.add.graphics().setDepth(4);
     this.stationDamage = this.add.graphics().setDepth(23);
+    this.stationEffects = this.add.container(0, 0).setDepth(24);
     this.createPlayer();
     this.createCore();
     const start = ROUTE[0];
@@ -113,17 +119,19 @@ export class DefenseScene extends Phaser.Scene {
     this.core.lineStyle(3, 0x77eae1, 0.55); this.core.strokeCircle(x, y, 57);
     this.core.fillStyle(0x286579); this.core.fillRoundedRect(x - 35, y - 34, 70, 68, 14);
     this.core.fillStyle(0xa2fcf0); this.core.fillRoundedRect(x - 23, y - 24, 46, 48, 8);
-    this.add.text(x, y + 73, '우리 기지', { fontFamily: 'sans-serif', fontSize: '22px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
   }
 
   private destroyStation(): void {
     this.target = null; this.tweens.killTweensOf(this.player); this.player.play('idle', true);
+    this.draggedRobot = null; this.dragStart = null; this.clearHover();
     const end = ROUTE[ROUTE.length - 1];
     const x = center(end.x), y = center(end.y);
     this.core.setAlpha(0.15);
-    this.cameras.main.shake(1000, 0.014);
+    this.cameras.main.shake(1900, 0.014);
     this.cameras.main.flash(350, 255, 120, 60);
     this.stationDamage.fillStyle(0x220d17, 0.45);
+    this.stationDamage.setAlpha(0);
+    this.tweens.add({ targets: this.stationDamage, alpha: 1, duration: 700 });
     this.stationDamage.fillRect(100, 300, 1400, 600);
     this.stationDamage.fillStyle(0x130d18, 0.85); this.stationDamage.fillCircle(x, y, 85);
     for (const [dx, dy] of [[-160, -200], [340, -250], [700, -180], [870, 120], [300, 190], [-180, 130]]) {
@@ -137,10 +145,40 @@ export class DefenseScene extends Phaser.Scene {
     for (let i = 0; i < 18; i++) {
       const angle = i * Math.PI * 2 / 18;
       const fragment = this.add.rectangle(x, y, 18 + i % 3 * 10, 16, i % 2 ? 0xffb862 : 0x879aab).setDepth(24);
+      this.stationEffects.add(fragment);
       this.tweens.add({ targets: fragment, x: x + Math.cos(angle) * (150 + i * 25), y: y + Math.sin(angle) * 180, angle: i * 70, alpha: 0, duration: 1100, onComplete: () => fragment.destroy() });
     }
     const blast = this.add.circle(x, y, 30, 0xffa24b, 0.9).setDepth(24);
+    this.stationEffects.add(blast);
     this.tweens.add({ targets: blast, scale: 7, alpha: 0, duration: 800, onComplete: () => blast.destroy() });
+    // First burst at the breached base, then dust spreads across the room.
+    // Frames preserve the rotations from the supplied Spine atlas.
+    for (let i = 0; i < 30; i++) {
+      const atBase = i < 10;
+      const originX = atBase ? x + (i % 5 - 2) * 26 : 250 + ((i - 10) % 7) * 180;
+      const originY = atBase ? y + (i % 3 - 1) * 24 : 370 + Math.floor((i - 10) / 7) * 170;
+      const size = atBase ? 125 + i % 3 * 45 : 150 + i % 4 * 30;
+      const smoke = this.add.image(originX, originY, 'station-smoke', `smoke0${i % 6 + 1}`)
+        .setAlpha(0).setAngle(i * 47);
+      smoke.setScale(size / smoke.width);
+      this.stationEffects.add(smoke);
+      const scaleX = smoke.scaleX, scaleY = smoke.scaleY;
+      const delay = atBase ? i * 35 : 300 + (i - 10) * 35;
+      this.tweens.add({ targets: smoke, alpha: { from: 0, to: 0.9 }, duration: 180, delay });
+      this.tweens.add({
+        targets: smoke, x: originX + (i % 2 ? 65 : -65), y: originY - 100 - i % 3 * 30,
+        scaleX: scaleX * 2.2, scaleY: scaleY * 2.2, angle: smoke.angle + (i % 2 ? 35 : -35),
+        duration: 1200, delay, ease: 'Sine.Out',
+      });
+      this.tweens.add({ targets: smoke, alpha: 0, duration: 550, delay: delay + 650, onComplete: () => smoke.destroy() });
+    }
+    // Use scene time so the result follows the actual animation, including tab suspension.
+    this.defeatTimer = this.time.delayedCall(2400, () => {
+      this.defeatTimer = undefined;
+      this.defeatAnimationComplete = true;
+      this.publish();
+    });
+    this.publish();
   }
 
   private fitRoom(): void {
@@ -175,6 +213,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private updateHover(pointer: Phaser.Input.Pointer): void {
     this.hover.clear();
+    if (this.interactionLocked || ['paused', 'defeat', 'cleared'].includes(this.simulation.status)) return;
     const tile = this.tileAt(pointer);
     if (!isWalkable(tile.x, tile.y)) return;
     this.hover.lineStyle(3, isRouteTile(tile.x, tile.y) ? 0xff7070 : this.mode === 'relocate' ? 0xf3bd6f : 0x89e4dd, 0.85);
@@ -291,6 +330,11 @@ export class DefenseScene extends Phaser.Scene {
   merge(): void { this.notice = this.simulation.merge(); this.publish(); }
   togglePause(): void { this.simulation.togglePause(); this.publish(); }
   reset(): void {
+    this.defeatTimer?.remove(); this.defeatTimer = undefined;
+    this.defeatAnimationComplete = false;
+    for (const effect of this.stationEffects.getAll()) this.tweens.killTweensOf(effect);
+    this.stationEffects.removeAll(true);
+    this.tweens.killTweensOf(this.stationDamage);
     for (const actor of this.aliens.values()) actor.destroy();
     for (const art of this.robotArt.values()) art.destroy();
     for (const label of this.unitLabels.values()) label.destroy();
@@ -299,7 +343,7 @@ export class DefenseScene extends Phaser.Scene {
     this.simulation = new DefenseSimulation(); this.mode = 'move'; this.target = null;
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
     this.player.setAngle(0);
-    this.stationDamage.clear(); this.core.setAlpha(1);
+    this.stationDamage.clear().setAlpha(1); this.core.setAlpha(1);
     this.cameras.main.resetFX();
     this.player.setPosition(center(this.playerTile.x), center(this.playerTile.y) + 30);
     this.room.updateWall(this.playerTile.y);
@@ -310,7 +354,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: WAVE_ONE.enemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), robots: s.robots.map(({ cooldown, phaseTimer, ...robot }) => ({ ...robot })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
     this.options.onState?.(state);
   }
 }
