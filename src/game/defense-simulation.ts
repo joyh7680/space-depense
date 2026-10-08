@@ -65,13 +65,13 @@ export class DefenseSimulation {
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥을 선택해 주세요.';
     if (this.robots.length >= 8) return '로봇은 최대 8대까지 소환할 수 있어요.';
     if (this.robots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
-    if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].name} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 로봇이 충전돼요.`;
+    if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 ${ROBOTS[kind].name}이 충전돼요.`;
     const config = ROBOTS[kind];
     const robot: Robot = { id: ++this.sequence, x, y, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, activeBlock: 'find', attacks: 0, targetId: null };
     this.robots.push(robot);
     this.selectedId = robot.id;
     this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
-    return `${config.name} 로봇 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
+    return `${config.name} 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
   }
   summon(kind: RobotKind): string {
     if (!this.canDeploy) return '지금은 소환할 수 없어요.';

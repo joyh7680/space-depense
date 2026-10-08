@@ -253,7 +253,7 @@ export class DefenseScene extends Phaser.Scene {
     const config = ROBOTS[kind];
     const color = `#${config.color.toString(16).padStart(6, '0')}`;
     const label = this.add.text(this.player.x, this.player.y - 95 - index * 34,
-      `${config.symbol} ${config.name} 에너지 +${amount}`, {
+      `${config.symbol} ${config.energyName} 에너지 +${amount}`, {
         fontFamily: 'sans-serif', fontSize: '24px', fontStyle: 'bold', color,
         backgroundColor: '#172333', padding: { x: 10, y: 5 },
       }).setOrigin(0.5);
