@@ -11,6 +11,6 @@ export const ROBOTS = {
   electric: { name: '전기', color: 0xc6a4ff, damage: 22, range: 3.2, description: '전기탄 + 주변 적 1마리 연쇄 피해', symbol: 'ϟ' },
 } as const;
 export const DEPLOY_SLOTS: readonly TilePosition[] = [
-  { x: 3, y: 4 }, { x: 7, y: 4 }, { x: 9, y: 4 }, { x: 11, y: 4 },
-  { x: 5, y: 6 }, { x: 7, y: 6 }, { x: 9, y: 6 }, { x: 11, y: 6 },
+  { x: 3, y: 5 }, { x: 7, y: 5 }, { x: 9, y: 5 }, { x: 11, y: 5 },
+  { x: 4, y: 5 }, { x: 6, y: 5 }, { x: 8, y: 5 }, { x: 10, y: 5 },
 ];

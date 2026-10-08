@@ -23,7 +23,7 @@ export class DefenseScene extends Phaser.Scene {
   private ranges!: Phaser.GameObjects.Graphics;
   private unitLabels = new Map<number, Phaser.GameObjects.Text>();
   private target: TilePosition | null = null;
-  private playerTile = { x: 5, y: 4 };
+  private playerTile = { ...this.simulation.player };
   private notice = '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
   private draggedRobot: number | null = null;
   private dragStart: TilePosition | null = null;
@@ -62,7 +62,8 @@ export class DefenseScene extends Phaser.Scene {
     this.hover = this.add.graphics().setDepth(4);
     this.createPlayer();
     this.createCore();
-    this.add.text(center(2), center(3), 'IN →', { fontFamily: 'sans-serif', fontSize: '22px', color: '#6f5731', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
+    const start = ROUTE[0];
+    this.add.text(center(start.x), center(start.y), 'IN →', { fontFamily: 'sans-serif', fontSize: '22px', color: '#6f5731', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
     const end = ROUTE[ROUTE.length - 1];
     this.add.text(center(end.x), center(end.y) + 73, '우리 기지', { fontFamily: 'sans-serif', fontSize: '22px', color: '#b0fff0' }).setOrigin(0.5).setDepth(15);
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.onPointer(pointer));
@@ -291,7 +292,7 @@ export class DefenseScene extends Phaser.Scene {
     this.inspectRange = false;
     this.simulation = new DefenseSimulation(); this.mode = 'move'; this.target = null;
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
-    this.player.setPosition(center(this.playerTile.x), center(this.playerTile.y) + 30); this.room.updateWall(4);
+    this.player.setPosition(center(this.playerTile.x), center(this.playerTile.y) + 30); this.room.updateWall(this.playerTile.y);
     this.draggedRobot = null; this.dragStart = null; this.moveAt = 0;
     this.notice = '바닥 클릭·터치로 이동 · 로봇 선택 후 빈 바닥에 배치';
     this.options.parent.focus({ preventScroll: true }); this.publish();

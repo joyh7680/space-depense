@@ -5,20 +5,23 @@ import { DEPLOY_SLOTS, WAVE_ONE } from '../src/game/wave-one.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 
 const advance = (game: DefenseSimulation, seconds: number) => { for (let i = 0; i < seconds * 20 && ['ready', 'running'].includes(game.status); i++) game.step(0.05); };
-const enemy = (id: number, x: number, y = 3): Enemy => ({ id, x, y, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
+const enemy = (id: number, x: number, y = ROUTE[0].y): Enemy => ({ id, x, y, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
 
 test('room boundaries and flipped wall tiles cannot be walked on; every deploy slot is valid', () => {
   assert.equal(isWalkable(7, 6), true);
   for (const [x, y] of [[-1, 6], [16, 6], [7, 15], [0, 6], [15, 6], [7, 0], [2.5, 6]]) assert.equal(isWalkable(x, y), false);
-  for (const slot of DEPLOY_SLOTS) assert.equal(isWalkable(slot.x, slot.y), true);
+  for (const slot of DEPLOY_SLOTS) {
+    assert.equal(isWalkable(slot.x, slot.y), true);
+    assert.equal(isRouteTile(slot.x, slot.y), false);
+  }
 });
 
 test('invalid placement, duplicates, insufficient energy and full board preserve energy and random rolls', () => {
   let rolls = 0;
   const game = new DefenseSimulation(() => { rolls++; return 0; });
-  for (const [x, y] of [[0, 6], [2, 3], [13, 4], [3, 7]]) game.placeRobot(x, y);
+  for (const [x, y] of [[0, 6], [1, 4], [12, 5], [3, 6]]) game.placeRobot(x, y);
   assert.equal(game.credits, 300); assert.equal(rolls, 0);
-  game.placeRobot(3, 4); game.placeRobot(3, 4);
+  game.placeRobot(3, 5); game.placeRobot(3, 5);
   assert.equal(game.robots.length, 1); assert.equal(game.credits, 225); assert.equal(rolls, 1);
   game.summon(); game.summon(); game.summon(); game.summon();
   assert.equal(game.robots.length, 4); assert.equal(game.credits, 0); assert.equal(rolls, 4);
@@ -154,8 +157,9 @@ test('connected route stays on walkable orthogonal tiles and rejects robot place
 test('two horizontal lanes connect through the right turn and leave the middle open for robots', () => {
  const horizontal = ROUTE.slice(1).filter((end, i) => end.y === ROUTE[i].y);
  assert.equal(horizontal.length, 2);
- assert.equal(isRouteTile(8, 3), true); assert.equal(isRouteTile(8, 7), true);
- for (let y = 3; y <= 7; y++) assert.equal(isRouteTile(13, y), true);
+ assert.equal(isRouteTile(8, 4), true); assert.equal(isRouteTile(8, 6), true);
+ for (let y = 4; y <= 6; y++) assert.equal(isRouteTile(12, y), true);
+ for (const [x, y] of [[8, 3], [8, 7], [13, 5]]) assert.equal(isRouteTile(x, y), false);
  const game = new DefenseSimulation(() => 0);
  game.placeRobot(8, 5);
  assert.equal(game.robots.length, 1);
@@ -164,9 +168,9 @@ test('two horizontal lanes connect through the right turn and leave the middle o
 test('robots relocate freely off the road without spending energy and reject occupied or player tiles', () => {
  const game = new DefenseSimulation(() => 0); game.summon(); game.summon();
  const robot = game.robots[0], balance = game.credits;
- game.moveRobot(robot.id, 4, 6); assert.deepEqual([robot.x,robot.y],[4,6]); assert.equal(game.credits,balance);
- for(const p of [{x:0,y:0},{x:2,y:3},game.player,game.robots[1]]) {game.moveRobot(robot.id,p.x,p.y); assert.deepEqual([robot.x,robot.y],[4,6]);}
- game.startWave(); game.moveRobot(robot.id,6,6); assert.deepEqual([robot.x,robot.y],[6,6]);
+ game.moveRobot(robot.id, 4, 7); assert.deepEqual([robot.x,robot.y],[4,7]); assert.equal(game.credits,balance);
+ for(const p of [{x:0,y:0},{x:1,y:4},game.player,game.robots[1]]) {game.moveRobot(robot.id,p.x,p.y); assert.deepEqual([robot.x,robot.y],[4,7]);}
+ game.startWave(); game.moveRobot(robot.id,6,7); assert.deepEqual([robot.x,robot.y],[6,7]);
 });
 test('the player attacks nearby enemies before any robot is summoned', () => {
  const game = new DefenseSimulation(); game.startWave();
