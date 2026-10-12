@@ -73,6 +73,10 @@ function replay() {
   codingRobotId.value = null;
   room.value?.reset();
 }
+function nextWave() {
+  codingRobotId.value = null;
+  room.value?.startWave();
+}
 function dialogKey(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); closeSummon(); }
   if (event.key !== 'Tab') return;
@@ -93,7 +97,7 @@ function dialogKey(event: KeyboardEvent) {
       <div><small>Lv. 1 <span>ϟ {{ state.credits }}</span></small><strong>우주 지휘관</strong></div>
     </div>
     <div class="wave-hud" aria-label="전투 현황">
-      <div class="wave-counter"><small>WAVE</small><strong>01</strong></div>
+      <div class="wave-counter"><small>WAVE</small><strong>{{ String(Math.max(1, state.wave)).padStart(2, '0') }}</strong></div>
       <div class="battle-progress"><div><b>{{ state.status === 'ready' ? '잠시 후 자동 시작' : '우주정거장 방어' }}</b><span>{{ state.kills }} / {{ state.total }}</span></div><div class="progress-track"><i :style="{ width: state.kills / state.total * 100 + '%' }" /></div></div>
       <div class="player-health" :class="{ danger: state.health <= 30 }" :aria-label="'정거장 내구도 ' + state.health"><span>♥</span><b>{{ state.health }}</b></div>
     </div>
@@ -116,7 +120,7 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <p v-if="ready && canDeploy" class="battle-hint" role="status">{{ state.message || '에너지 3개 → 로봇 자동 소환 → 로봇 버튼에서 코딩' }}</p>
     </div>
-    <RobotCodingPanel v-if="codingRobot" :key="codingRobot.id" :robot="codingRobot" :interactive="canDeploy && !summonOpen" @change="(slot, block) => room?.updateCode(codingRobot!.id, slot, block)" @run="room?.runCode(codingRobot.id)" @close="codingRobotId = null" />
+    <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy && !summonOpen" @change="(slot, block) => room?.updateCode(codingRobot!.id, slot, block)" @run="room?.runCode(codingRobot.id)" @close="codingRobotId = null" />
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
     <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
       <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="true" aria-label="로봇 선택" tabindex="-1" @keydown="dialogKey">
@@ -131,7 +135,7 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <div v-if="finished" class="screen-overlay result-overlay" :class="{ 'defeat-overlay': state.status === 'defeat', 'victory-overlay': state.status === 'cleared' }">
       <section v-if="state.status === 'defeat'" class="defeat-result" role="dialog" aria-modal="true" aria-labelledby="game-over-title" aria-describedby="game-over-description" @keydown.tab.prevent="retryButton?.focus()">
-        <div class="result-wave"><i aria-hidden="true" />WAVE 01 <span>전투 종료</span></div>
+        <div class="result-wave"><i aria-hidden="true" />WAVE {{ String(Math.max(1, state.wave)).padStart(2, '0') }} <span>전투 종료</span></div>
         <h1 id="game-over-title" class="game-over-title"><img :src="gameOverArt" alt="게임 오버" width="600" height="104" draggable="false" /></h1>
         <p id="game-over-description" class="defeat-description"><strong>우주정거장이 파괴됐어요</strong><span>탈출한 괴물이 우리 기지에 도착했어요.</span></p>
         <dl class="defeat-stats">
@@ -141,7 +145,7 @@ function dialogKey(event: KeyboardEvent) {
         <button ref="retryButton" class="retry-button" @click="replay"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg>다시 도전하기</button>
         <p class="retry-tip">로봇의 코딩 미션을 완료해 공격을 활성화해 보세요!</p>
       </section>
-      <VictoryResult v-else :wave="state.wave" :kills="state.kills" :total="state.total" :escaped="state.escaped" :reward="WAVE_ONE.clearEnergy" @replay="replay" />
+      <VictoryResult v-else :wave="state.wave" :kills="state.kills" :total="state.total" :escaped="state.escaped" :reward="WAVE_ONE.clearEnergy" @replay="replay" @next="nextWave" />
     </div>
   </main>
 </template>

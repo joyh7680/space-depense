@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { CODING_BLOCKS, CODING_MISSIONS, isCodingBlock, type CodingBlockId } from '../game/coding-missions';
+import { CODING_BLOCKS, getCodingMission, isCodingBlock, type CodingBlockId } from '../game/coding-missions';
 import { ROBOTS } from '../game/wave-one';
 import type { RobotState } from '../game/types';
 import EnergyIcon from './energy-icon.vue';
 
-const props = defineProps<{ robot: RobotState; interactive: boolean }>();
+const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean }>();
 const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null]; run: []; close: [] }>();
-const mission = computed(() => CODING_MISSIONS[props.robot.kind]);
+const mission = computed(() => getCodingMission(props.robot.kind, props.wave));
 const completed = computed(() => props.robot.missionStatus === 'completed');
 const draggingBlock = ref<CodingBlockId | null>(null);
 const editMessage = ref('');
@@ -51,13 +51,13 @@ function removeBlock(slot: number) {
 
 <template>
   <aside class="coding-panel" :class="robot.kind" aria-labelledby="coding-title">
-    <header class="coding-header"><div><small>ROBOT CODING · WAVE 01</small><h2 id="coding-title">로봇에게 명령하기</h2></div><button class="coding-close" aria-label="코딩 패널 닫기" @click="emit('close')">×</button></header>
+    <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(mission.number).padStart(2, '0') }}</small><h2 id="coding-title">로봇에게 명령하기</h2></div><button class="coding-close" aria-label="코딩 패널 닫기" @click="emit('close')">×</button></header>
     <div class="coding-scroll">
       <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} #{{ robot.serial }}</h3><span :class="{ complete: completed }">{{ completed ? '● 공격 중' : '● 공격 대기 · 코딩 미션' }}</span></div><i class="robot-portrait" :class="'portrait-' + robot.kind" aria-hidden="true" /></div>
-      <section class="coding-mission"><small>MISSION <b>{{ mission.concept }}</b></small><p>{{ mission.description }}</p><span>{{ mission.effect }}</span></section>
+      <section class="coding-mission"><small>MISSION {{ mission.number }} <b>{{ mission.concept }}</b></small><p>{{ mission.description }}</p><span>{{ mission.effect }}</span></section>
       <section class="coding-workspace" aria-label="블록코딩 작업 영역">
         <div class="coding-section-title"><h3>내 코드</h3><span>{{ robot.code.filter(Boolean).length }} / {{ mission.slots.length }} 블록</span></div>
-        <p v-if="!completed" class="coding-help">드래그를 해서 블록코딩을 수정해봐요.</p>
+        <p v-if="!completed" class="coding-help">{{ mission.autoRun ? '공격 블록을 한 번 클릭해 봐요.' : '블록을 클릭하거나 드래그해서 순서대로 넣어 봐요.' }}</p>
         <div class="code-start">▶ 로봇이 작동하는 동안</div>
         <div class="code-body">
           <div v-for="(slot, index) in mission.slots" :key="index" class="coding-slot-row" :style="{ marginLeft: slot.depth * 16 + 'px' }">
@@ -67,15 +67,15 @@ function removeBlock(slot: number) {
             <button v-if="robot.code[index] && !completed" class="remove-block" :disabled="!interactive" :aria-label="`${index + 1}번째 블록 제거`" @click="removeBlock(index)">×</button>
           </div>
         </div>
-        <div class="code-end">↻ 다시 조건 확인하기</div>
+        <div class="code-end">{{ mission.autoRun ? '↻ 계속 공격하기' : '↻ 다시 조건 확인하기' }}</div>
       </section>
       <section v-if="!completed" class="coding-palette" aria-label="사용할 수 있는 명령어 블록">
         <div class="coding-section-title"><h3>명령어 블록</h3><span>클릭해서 넣기</span></div>
-        <p class="coding-help">블록을 누르면 내 코드 영역에 블록이 들어가요.</p>
+        <p class="coding-help">{{ mission.autoRun ? '블록을 누르면 코드에 들어가고 자동으로 실행돼요.' : '블록을 누르면 내 코드 영역에 블록이 들어가요.' }}</p>
         <button v-for="block in mission.palette" :key="block" class="palette-block" :class="CODING_BLOCKS[block].category" :disabled="!interactive" :draggable="interactive" @dragstart="drag($event, block)" @dragend="endDrag" @click="addBlock(block)"><span>⠿</span>{{ CODING_BLOCKS[block].label }}</button>
         <p class="coding-edit-message" role="status" aria-live="polite">{{ editMessage }}</p>
       </section>
     </div>
-    <footer class="coding-footer"><p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ robot.missionMessage }}</p><button class="run-code" :disabled="!interactive || completed" @click="emit('run')">{{ completed ? '✓ 코딩 완료 · 공격 활성화' : '▶ 코드 실행' }}</button><small>코딩하는 동안에도 전투는 계속돼요.</small></footer>
+    <footer class="coding-footer"><p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ robot.missionMessage }}</p><button v-if="!mission.autoRun || completed" class="run-code" :disabled="!interactive || completed" @click="emit('run')">{{ completed ? '✓ 코딩 완료 · 공격 활성화' : '▶ 코드 실행' }}</button><small>코딩하는 동안에도 전투는 계속돼요.</small></footer>
   </aside>
 </template>

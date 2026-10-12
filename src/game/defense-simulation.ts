@@ -1,5 +1,5 @@
 import { isWalkable } from './room/walkable.ts';
-import { CODING_MISSIONS, isCodingBlock, validateRobotCode, type CodingBlockId } from './coding-missions.ts';
+import { getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId } from './coding-missions.ts';
 import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
@@ -87,9 +87,10 @@ export class DefenseSimulation {
   }
   private createRobot(kind: RobotKind, position: TilePosition | null, select = true): void {
     const config = ROBOTS[kind];
+    const mission = getCodingMission(kind, this.wave);
     // Stored robots have no room tile until the player selects them from the hangar.
     const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, activeBlock: 'find', attacks: 0, targetId: null,
-      serial: ++this.robotSerial[kind], code: CODING_MISSIONS[kind].slots.map(() => null), missionStatus: 'waiting', missionMessage: '블록을 조합하고 코드를 실행해 공격을 활성화하세요.' };
+      serial: ++this.robotSerial[kind], code: mission.slots.map(() => null), missionStatus: 'waiting', missionMessage: mission.autoRun ? '공격 블록을 한 번 누르면 바로 공격이 활성화돼요.' : '블록을 조합하고 코드를 실행해 공격을 활성화하세요.' };
     this.robots.push(robot);
     if (select) this.selectedId = robot.id;
   }
@@ -123,15 +124,17 @@ export class DefenseSimulation {
   updateCode(id: number, slot: number, block: CodingBlockId | null): void {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot || robot.missionStatus === 'completed' || !Number.isInteger(slot) || slot < 0 || slot >= robot.code.length) return;
-    if (block !== null && (!isCodingBlock(block) || !CODING_MISSIONS[robot.kind].palette.includes(block))) return;
+    const mission = getCodingMission(robot.kind, this.wave);
+    if (block !== null && (!isCodingBlock(block) || !mission.palette.includes(block))) return;
     robot.code[slot] = block;
     robot.missionStatus = 'waiting'; robot.missionMessage = '준비되면 코드 실행을 눌러 주세요.';
+    if (mission.autoRun && validateRobotCode(robot.kind, this.wave, robot.code).success) this.runCode(id);
   }
   runCode(id: number): string {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot) return '지금은 코드를 실행할 수 없어요.';
     if (robot.missionStatus === 'completed') return robot.missionMessage;
-    const result = validateRobotCode(robot.kind, robot.code);
+    const result = validateRobotCode(robot.kind, this.wave, robot.code);
     if (result.success && !this.deployRobot(robot)) return robot.missionMessage;
     robot.missionStatus = result.success ? 'completed' : 'error';
     robot.missionMessage = result.message;
@@ -174,8 +177,21 @@ export class DefenseSimulation {
     return `${ROBOTS[robot.kind].name} ${robot.grade}성으로 합성! 공격력과 사거리가 늘었어요.`;
   }
   startWave(): boolean {
-    if (this.status !== 'ready') return false;
-    this.countdown = 0; this.wave = 1; this.spawnTimer = 0; this.status = 'running'; return true;
+    const nextWave = this.status === 'cleared';
+    if ((this.status !== 'ready' && !nextWave) || this.wave >= 3) return false;
+    this.wave = nextWave ? this.wave + 1 : 1;
+    if (nextWave) {
+      this.kills = 0; this.escaped = 0; this.spawned = 0; this.elapsed = 0;
+      this.bossSpawned = false; this.playerCooldown = 0; this.selectedId = null;
+      for (const robot of this.robots) {
+        robot.code = getCodingMission(robot.kind, this.wave).slots.map(() => null);
+        robot.missionStatus = 'waiting';
+        robot.missionMessage = `웨이브 ${this.wave}: 블록 ${this.wave}개를 조합하고 코드를 실행해 주세요.`;
+        robot.cooldown = 0; robot.phaseTimer = 0; robot.burstRemaining = 0;
+        robot.activeBlock = 'find'; robot.targetId = null;
+      }
+    }
+    this.countdown = 0; this.spawnTimer = 0; this.status = 'running'; return true;
   }
   togglePause(): void {
     if (this.status === 'running') this.status = 'paused';
@@ -268,15 +284,15 @@ export class DefenseSimulation {
         const targets = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range);
         targets.sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
         robot.targetId = targets[0]?.id ?? null;
-        const required = robot.kind === 'electric' ? 2 : robot.kind === 'fire' ? 3 : 1;
+        const required = robot.code.includes('count-three') ? 3 : 1;
         const condition = targets.length >= required;
-        if (robot.kind === 'ice') robot.burstRemaining = condition ? 3 : 0;
+        if (robot.kind === 'ice') robot.burstRemaining = condition ? 1 : 0;
         this.phase(robot, condition ? 'attack' : 'wait', condition ? 0.16 : 0.25); continue;
       }
       const target = this.enemies.find(e => e.id === robot.targetId && e.health > 0 && distance(e, robot) <= robot.range);
       if (!target) { robot.targetId = null; robot.burstRemaining = 0; this.phase(robot, 'find', 0.16); continue; }
       const nearby = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range);
-      if (nearby.length < (robot.kind === 'electric' ? 2 : robot.kind === 'fire' ? 3 : 1)) {
+      if (nearby.length < (robot.code.includes('count-three') ? 3 : 1)) {
         robot.targetId = null; this.phase(robot, 'find', 0.16); continue;
       }
       if (robot.cooldown > 0) { this.phase(robot, 'wait', robot.cooldown); continue; }

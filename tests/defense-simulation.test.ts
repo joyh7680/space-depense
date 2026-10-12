@@ -4,13 +4,13 @@ import { DefenseSimulation, ROUTE, isRouteTile, type Enemy } from '../src/game/d
 import { DEPLOY_SLOTS, WAVE_ONE } from '../src/game/wave-one.ts';
 import type { RobotKind } from '../src/game/types.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
-import { CODING_MISSIONS } from '../src/game/coding-missions.ts';
+import { getCodingMission } from '../src/game/coding-missions.ts';
 
 const summon = (game: DefenseSimulation, kind: RobotKind = 'fire') => {
   game.elementEnergy[kind] += 3;
   const message = game.summon(kind);
   const robot = game.robots.at(-1)!;
-  CODING_MISSIONS[kind].slots.forEach((slot, index) => game.updateCode(robot.id, index, slot.block));
+  getCodingMission(kind, game.wave).slots.forEach((slot, index) => game.updateCode(robot.id, index, slot.block));
   game.runCode(robot.id);
   return message;
 };
@@ -116,7 +116,7 @@ test('sequential code selects the nearest living in-range target, then attacks, 
   assert.equal(game.robots[0].activeBlock, 'attack'); assert.equal(game.robots[0].targetId, 101);
   const shots = [];
   for (let i = 0; i < 10; i++) shots.push(...game.step(0.05));
-  assert.equal(shots.length, 3); assert.equal(game.robots[0].activeBlock, 'wait');
+  assert.equal(shots.length, 1); assert.equal(game.robots[0].activeBlock, 'wait');
   assert.equal(game.enemies.find(e => e.id === 100)!.health, 1000);
   assert.ok(game.enemies.find(e => e.id === 101)!.health < 1000);
 });
@@ -168,7 +168,7 @@ test('clearing regular monsters waits for the automatic boss before awarding vic
     assert.equal(game.status, 'cleared'); assert.equal(game.kills, 13);
     assert.equal(game.credits, 300 + 13 * 15 + 50);
     const snapshot = JSON.stringify(game);
-    advance(game, 30); game.summon('fire'); game.merge(); assert.equal(game.startWave(), false); assert.equal(JSON.stringify(game), snapshot);
+    advance(game, 30); game.summon('fire'); game.merge(); assert.equal(JSON.stringify(game), snapshot);
   }
 });
 
