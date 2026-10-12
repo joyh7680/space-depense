@@ -220,9 +220,10 @@ export class DefenseSimulation {
   private collectKills(): void {
     this.enemies = this.enemies.filter(e => {
       if (e.health > 0) return true;
-      // Roll once per defeated monster, including damage-over-time and chain kills.
-      const kind = this.randomKind();
-      this.elementEnergy[kind]++;
+      // Each defeated monster grants three independently rolled elements.
+      for (let reward = 0; reward < 3; reward++) {
+        this.elementEnergy[this.randomKind()]++;
+      }
       if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < 8) {
         this.createRobot(this.randomKind(), null, false);
       }

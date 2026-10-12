@@ -11,13 +11,13 @@ const spawnBoss = (game: DefenseSimulation) => {
   advance(game, SUMMONED_MONSTER.summonDelay);
 };
 
-test('one boss automatically appears exactly 30 seconds after game start without input', () => {
+test('one boss automatically appears exactly 100 seconds after game start without input', () => {
   const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
   game.startWave(); game.spawned = WAVE_ONE.enemies;
   assert.equal(game.enemies.length, 0);
   assert.equal(game.totalEnemies, WAVE_ONE.enemies + 1);
-  assert.equal(game.monsterSummonCountdown, 30);
-  advance(game, 29.95);
+  assert.equal(game.monsterSummonCountdown, 100);
+  advance(game, 99.95);
   assert.equal(game.enemies.length, 0);
   assert.equal(game.monsterSummonCountdown, 1);
   assert.equal(game.status, 'running', 'the wave waits for the automatic boss');
@@ -46,12 +46,12 @@ test('the delay starts with the wave and regular monsters continue to spawn', ()
   const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
   advance(game, 5);
   assert.equal(game.status, 'running');
-  assert.equal(game.monsterSummonCountdown, 30);
+  assert.equal(game.monsterSummonCountdown, 100);
   game.step(0.05);
   assert.equal(game.spawned, 1);
   assert.equal(game.enemies[0].kind, undefined);
   game.enemies = []; game.spawned = WAVE_ONE.enemies;
-  advance(game, 29.9);
+  advance(game, 99.9);
   assert.equal(game.enemies.length, 0);
   assert.equal(game.monsterSummonCountdown, 1);
   game.step(0.05);
@@ -63,8 +63,8 @@ test('repeated start requests do not restart the automatic boss countdown', () =
   game.startWave(); game.spawned = WAVE_ONE.enemies;
   advance(game, 20);
   assert.equal(game.startWave(), false);
-  assert.equal(game.monsterSummonCountdown, 10);
-  advance(game, 10);
+  assert.equal(game.monsterSummonCountdown, 80);
+  advance(game, 80);
   assert.equal(game.enemies.length, 1);
   assert.equal(game.monsterSummonCountdown, null);
 });
@@ -76,13 +76,13 @@ test('pause freezes automatic spawning, and resuming completes the remaining del
   const before = JSON.stringify(game);
   advance(game, 90);
   assert.equal(JSON.stringify(game), before);
-  game.togglePause(); advance(game, 14.95);
+  game.togglePause(); advance(game, 84.95);
   assert.equal(game.enemies.length, 0);
   game.step(0.05);
   assert.equal(game.enemies.length, 1);
 });
 
-test('defeat stops automatic spawning and a new game starts a fresh 30 second countdown', () => {
+test('defeat stops automatic spawning and a new game starts a fresh 100 second countdown', () => {
   const game = new DefenseSimulation();
   game.startWave(); game.spawned = WAVE_ONE.enemies;
   const end = ROUTE.at(-1)!;
@@ -94,31 +94,33 @@ test('defeat stops automatic spawning and a new game starts a fresh 30 second co
   assert.equal(JSON.stringify(game), before);
   const reset = new DefenseSimulation();
   reset.startWave(); reset.spawned = WAVE_ONE.enemies;
-  assert.equal(reset.monsterSummonCountdown, 30);
+  assert.equal(reset.monsterSummonCountdown, 100);
   assert.equal(reset.totalEnemies, WAVE_ONE.enemies + 1);
-  advance(reset, 30);
+  advance(reset, 100);
   assert.equal(reset.enemies.length, 1);
 });
 
-test('special kills always award one random element, with the rare robot roll independent', () => {
+test('special kills always award three random elements, with the rare robot roll independent', () => {
   for (const [index, kind] of ROBOT_KINDS.entries()) {
-    const rolls = [(index + 0.5) / 3, SUMMONED_MONSTER.robotDropChance];
+    const roll = (index + 0.5) / 3;
+    const rolls = [roll, roll, roll, SUMMONED_MONSTER.robotDropChance];
     let count = 0;
     const game = new DefenseSimulation(() => rolls[count++]);
     spawnBoss(game); game.enemies[0].health = 0;
     game.step(0.05);
-    assert.equal(game.elementEnergy[kind], 1);
-    assert.equal(Object.values(game.elementEnergy).reduce((sum, amount) => sum + amount, 0), 1);
-    assert.equal(game.robotCount, 0);
+    assert.equal(game.elementEnergy[kind], 0);
+    assert.equal(Object.values(game.elementEnergy).reduce((sum, amount) => sum + amount, 0), 0);
+    assert.equal(game.robotCount, 1);
+    assert.equal(game.robots[0].kind, kind);
     assert.equal(game.kills, 1);
-    assert.equal(count, 2);
-    game.step(0.05); assert.equal(count, 2, 'dead monsters cannot reward twice');
+    assert.equal(count, 4);
+    game.step(0.05); assert.equal(count, 4, 'dead monsters cannot reward twice');
   }
 });
 
 test('rare rewards store every robot kind for free without deploying it and preserve selection', () => {
   for (const [index, kind] of ROBOT_KINDS.entries()) {
-    const rolls = [0.5, SUMMONED_MONSTER.robotDropChance - 0.001, (index + 0.5) / 3];
+    const rolls = [0, 0.5, 0.99, SUMMONED_MONSTER.robotDropChance - 0.001, (index + 0.5) / 3];
     let count = 0;
     const game = new DefenseSimulation(() => rolls[count++]);
     game.elementEnergy.fire = 3; game.summon('fire');
@@ -128,11 +130,11 @@ test('rare rewards store every robot kind for free without deploying it and pres
     assert.equal(game.robotCount, 2);
     assert.equal(game.robots[1].kind, kind);
     assert.equal(game.selectedId, selected);
-    assert.deepEqual(game.elementEnergy, { fire: 0, ice: 1, electric: 0 });
+    assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
     assert.equal(game.credits, 300 + WAVE_ONE.killEnergy + WAVE_ONE.clearEnergy);
     assert.equal(game.robots[1].deployed, false);
     assert.deepEqual(game.deployedRobots.map(robot => robot.id), [game.robots[0].id]);
-    assert.equal(count, 3);
+    assert.equal(count, 5);
   }
 });
 
@@ -143,7 +145,7 @@ test('rare rewards respect the eight robot limit while still awarding element en
   spawnBoss(game); game.enemies[0].health = 0;
   game.step(0.05);
   assert.equal(game.robotCount, 8);
-  assert.equal(game.elementEnergy.fire, 1);
+  assert.equal(game.elementEnergy.fire, 3);
 });
 
 test('special monsters award nothing on escape and prevent clearing until defeated', () => {
@@ -160,7 +162,7 @@ test('special monsters award nothing on escape and prevent clearing until defeat
 });
 
 test('burning special monsters reward once before they can escape; paused rewards wait', () => {
-  const rolls = [0.99, 0.99]; let count = 0;
+  const rolls = [0.99, 0.99, 0.99, 0.99]; let count = 0;
   const game = new DefenseSimulation(() => rolls[count++]);
   spawnBoss(game);
   const end = ROUTE.at(-1)!;
@@ -168,6 +170,7 @@ test('burning special monsters reward once before they can escape; paused reward
   game.togglePause(); game.step(0.05); assert.equal(count, 0);
   game.togglePause(); game.step(0.05);
   assert.equal(game.status, 'cleared'); assert.equal(game.kills, 1);
-  assert.equal(game.health, 100); assert.equal(game.elementEnergy.electric, 1);
-  assert.equal(count, 2);
+  assert.equal(game.health, 100); assert.equal(game.elementEnergy.electric, 0);
+  assert.equal(game.robotCount, 1); assert.equal(game.robots[0].kind, 'electric');
+  assert.equal(count, 4);
 });
