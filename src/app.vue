@@ -14,7 +14,8 @@ const summonDialog = ref<HTMLElement>();
 const codingRobotId = ref<number | null>(null);
 const codingRobot = computed(() => state.value.robots.find(robot => robot.id === codingRobotId.value));
 let returnFocus: HTMLElement | null = null;
-const portraitUrl = 'url("' + import.meta.env.BASE_URL + 'codmos-assets/player/int-front.png")';
+const portraitAssetUrl = new URL(`${import.meta.env.BASE_URL}codmos-assets/player/int-front.png`, document.baseURI).href;
+const portraitUrl = `url("${portraitAssetUrl}")`;
 const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
 const monsterArt = `${import.meta.env.BASE_URL}codmos-assets-monster/759c20f0e742/monster-mint.png`;
 const retryButton = ref<HTMLButtonElement>();
@@ -122,6 +123,7 @@ function dialogKey(event: KeyboardEvent) {
         <div class="robot-roster">
           <button v-for="card in robotCards" :key="card.kind" :class="['robot-card', card.kind, { selected: card.selected }]" :disabled="!canDeploy || !card.count" :aria-label="`${ROBOTS[card.kind].name}, ${card.count}기 보유, ${card.count ? '선택해 코딩하기' : `미소환, 에너지 ${state.elementEnergy[card.kind]}/${ROBOT_CHARGE_COST}`}`" :title="`${ROBOTS[card.kind].name}: ${card.count ? `${card.count}기 보유 · 누를 때마다 다음 로봇 선택` : `에너지 ${state.elementEnergy[card.kind]}/${ROBOT_CHARGE_COST}`}`" @click="selectRobotKind(card.kind)">
             <EnergyIcon class="robot-energy" :kind="card.kind" />
+            <span class="robot-button-count robot-card-count" aria-hidden="true">{{ card.count }}</span>
             <i class="robot-portrait" :style="robotArt[card.kind]" aria-hidden="true" />
           </button>
         </div>
