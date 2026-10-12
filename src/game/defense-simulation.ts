@@ -65,6 +65,17 @@ export class DefenseSimulation {
   canMovePlayer(x: number, y: number): boolean {
     return isWalkable(x, y) && !isRouteTile(x, y) && !this.deployedRobots.some(r => r.x === x && r.y === y);
   }
+  movePlayer(x: number, y: number): boolean {
+    if (this.status !== 'running' || !this.canMovePlayer(x, y)) return false;
+    this.player = { x, y };
+    return true;
+  }
+  canMoveRobot(id: number, x: number, y: number): boolean {
+    return this.deployedRobots.some(robot => robot.id === id)
+      && isWalkable(x, y) && !isRouteTile(x, y)
+      && !(this.player.x === x && this.player.y === y)
+      && !this.deployedRobots.some(robot => robot.id !== id && robot.x === x && robot.y === y);
+  }
   nextPlayerStep(target: TilePosition): TilePosition | null {
     if (!this.canMovePlayer(target.x, target.y)) return null;
     const queue: { tile: TilePosition; first: TilePosition | null }[] = [{ tile: this.player, first: null }];
@@ -90,7 +101,7 @@ export class DefenseSimulation {
     if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 ${ROBOTS[kind].name}이 충전돼요.`;
     this.createRobot(kind, { x, y });
     this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
-    return `${ROBOTS[kind].name} 소환! 선택 후 빈 바닥에 배치할 수 있어요.`;
+    return `${ROBOTS[kind].name} 소환! 로봇을 드래그해서 빈 바닥에 배치할 수 있어요.`;
   }
   private createRobot(kind: RobotKind, position: TilePosition | null, select = true): void {
     const config = ROBOTS[kind];
@@ -192,7 +203,7 @@ export class DefenseSimulation {
     robot.burstRemaining = 0;
     robot.burstProfile = null;
     robot.activeBlock = 'find'; robot.phaseTimer = 0;
-    return '로봇 배치 완료! 다른 로봇도 선택해서 옮길 수 있어요.';
+    return '로봇 배치 완료! 다른 로봇도 드래그해서 옮길 수 있어요.';
   }
   merge(): string {
     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 합성할 수 있어요.';

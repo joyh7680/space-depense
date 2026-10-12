@@ -61,7 +61,6 @@ function selectCodingRobot(id: number) {
   if (!canDeploy.value) return;
   closeSummon();
   room.value?.selectRobot(id);
-  room.value?.setMode('move');
   codingRobotId.value = id;
 }
 function selectRobotKind(kind: RobotKind) {

@@ -43,7 +43,7 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="host" class="game-canvas" role="application" aria-label="우주 코딩 디펜스. PC에서는 바닥 클릭, 태블릿에서는 터치로 이동. 로봇 선택 후 빈 바닥을 누르거나 드래그해서 배치합니다." tabindex="0" />
+  <div ref="host" class="game-canvas" role="application" aria-label="우주 코딩 디펜스. 캐릭터나 소환된 로봇을 마우스 또는 터치로 직접 드래그해서 길 밖의 빈 바닥에 배치합니다." tabindex="0" />
 </template>
 
 <style scoped>

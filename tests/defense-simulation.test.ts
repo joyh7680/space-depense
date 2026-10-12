@@ -277,6 +277,26 @@ test('robots relocate freely off the road without spending energy and reject occ
  for(const p of [{x:0,y:0},{x:1,y:4},game.player,game.robots[1]]) {game.moveRobot(robot.id,p.x,p.y); assert.deepEqual([robot.x,robot.y],[4,7]);}
  game.startWave(); game.moveRobot(robot.id,6,7); assert.deepEqual([robot.x,robot.y],[6,7]);
 });
+
+test('player drops place directly on empty floor and rejected drops preserve position and resources', () => {
+ const game = new DefenseSimulation();
+ const origin = { ...game.player };
+ assert.equal(game.movePlayer(4, 7), false, 'countdown blocks placement');
+ assert.deepEqual(game.player, origin);
+ game.startWave();
+ game.elementEnergy.fire = 3; game.placeRobot(4, 7, 'fire');
+ const balance = game.credits, energy = { ...game.elementEnergy };
+ assert.equal(game.movePlayer(13, 7), true);
+ assert.deepEqual(game.player, { x: 13, y: 7 });
+ for (const [x, y] of [[0, 0], [1, 4], [12, 5], [4, 7], [2.5, 7]]) {
+   assert.equal(game.movePlayer(x, y), false);
+   assert.deepEqual(game.player, { x: 13, y: 7 });
+ }
+ game.togglePause();
+ assert.equal(game.movePlayer(5, 5), false);
+ assert.deepEqual(game.player, { x: 13, y: 7 });
+ assert.equal(game.credits, balance); assert.deepEqual(game.elementEnergy, energy);
+});
 test('the player attacks nearby enemies before any robot is summoned', () => {
  const game = new DefenseSimulation(); game.startWave();
  const shots=[]; for(let i=0;i<20;i++) shots.push(...game.step(.05));
