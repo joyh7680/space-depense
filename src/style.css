@@ -266,6 +266,10 @@ button:not(:disabled):active{transform:translateY(3px)}
 .coding-robot span{font-size:10px;color:#e7c990}
 .coding-robot span.complete{color:#8ce4c7}
 .coding-robot>.robot-portrait{transform:scale(.7);margin:-12px -12px -12px auto}
+.coding-progress{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;font-size:10px;color:#849bb9}
+.coding-progress span{border:1px solid #ffffff15;border-radius:6px;padding:5px 7px;background:#ffffff06}
+.coding-progress .learned{color:#8ce4c7;border-color:#8ce4c740}
+.coding-choice{font-size:11px;line-height:1.7;color:#a6bad4;margin:0 0 14px}
 .portrait-fire{background-position:-169.8px -435.3px;clip-path:inset(0 0 14px 0)}
 .portrait-ice{background-position:-95.4px -402.9px}
 .portrait-electric{background-position:-453px -428.4px}

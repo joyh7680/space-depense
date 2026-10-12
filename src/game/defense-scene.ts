@@ -44,8 +44,8 @@ export class DefenseScene extends Phaser.Scene {
   preload(): void {
     const base = this.options.assetBase ?? `${import.meta.env.BASE_URL}games/space/`;
     this.load.image('room-tiles', `${base}SPACE_MAP_TILESET.png`);
-    this.load.image('monster-mint', `${import.meta.env.BASE_URL}codmos-assets-monster/759c20f0e742/monster-mint.png`);
-    this.load.spine('monster-summoned', `${import.meta.env.BASE_URL}codmos-assets/acef8de87e1f/acef8de87e1f2fe72202365bc0c517f690041bd8ab24a55f592a2b2a3c1df8b5.json`, [`${import.meta.env.BASE_URL}codmos-assets/1bae1e1a9bf8/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas`], true);
+    this.load.image('monster-mint', `${import.meta.env.BASE_URL}codmos-assets/monster/759c20f0e742/monster-mint.png`);
+    this.load.spine('monster-summoned', `${import.meta.env.BASE_URL}codmos-assets/acef8de87e1f/acef8de87e1f2fe72202365bc0c517f690041bd8ab24a55f592a2b2a3c1df8b5.json`, [`${import.meta.env.BASE_URL}codmos-assets/monster/1bae1e1a9bf8/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas`], true);
     const smokeBase = `${import.meta.env.BASE_URL}codmos-assets/game-over/5e04ca1208c8/`;
     this.load.atlas('station-smoke', `${smokeBase}9ae27227-06b4-432c-95e7-305f10efc0e5.png`, `${smokeBase}smoke-frames.json`);
     this.load.spine('player', `${import.meta.env.BASE_URL}codmos-assets/player/int-front.json`, [`${import.meta.env.BASE_URL}codmos-assets/player/int-front.atlas`], true);
@@ -320,7 +320,7 @@ export class DefenseScene extends Phaser.Scene {
         label = this.add.text(x, y + 38, '', { fontFamily: 'sans-serif', fontSize: '22px', color: '#e7f9f5', backgroundColor: '#1b2638', padding: { x: 5, y: 3 } }).setOrigin(0.5).setDepth(17);
         this.unitLabels.set(robot.id, label);
       }
-      const attackEnabled = robot.missionStatus === 'completed';
+      const attackEnabled = robot.basicCompleted;
       art.setAlpha(attackEnabled ? 1 : 0.55);
       label.setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n${attackEnabled ? '공격 중' : '공격 대기'}`);
     }
@@ -375,7 +375,7 @@ export class DefenseScene extends Phaser.Scene {
   toggleGrid(): void { this.showGrid = !this.showGrid; this.room.grid.setVisible(this.showGrid); this.publish(); }
   startWave(): void {
     this.inspectRange = false;
-    if (this.simulation.startWave()) { this.mode = 'move'; this.notice = '일반 외계인 12마리가 다가와요! 전투 중에도 소환·합성이 가능해요.'; }
+    if (this.simulation.startWave()) { this.mode = 'move'; this.notice = this.simulation.wave > 1 ? '자동 공격은 유지돼요. 로봇 소환 버튼에서 이번 웨이브에 강화할 종류를 선택하세요.' : '종류별 기본 미션을 완료해 자동 공격을 시작하세요.'; }
     else this.notice = '전투가 진행 중이에요.';
     this.publish();
   }
@@ -389,7 +389,7 @@ export class DefenseScene extends Phaser.Scene {
     this.inspectRange = deployed; this.mode = deployed ? 'relocate' : 'move'; this.target = null;
     const robot = this.simulation.robots.find(robot => robot.id === id);
     this.notice = deployed
-      ? robot?.missionStatus === 'completed' ? '빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.' : '공격 대기 중이에요. 오른쪽 코딩 미션을 완료해 공격을 활성화하세요.'
+      ? robot?.basicCompleted ? '자동 공격 중이에요. 빈 바닥을 누르거나 로봇을 드래그해서 배치하세요.' : '공격 대기 중이에요. 오른쪽 기본 미션을 완료해 같은 종류 전체의 공격을 활성화하세요.'
       : robot?.missionMessage ?? '로봇 소환 버튼에서 로봇을 선택하세요.';
     this.drawUnits();
     this.options.parent.focus({ preventScroll: true }); this.publish();
@@ -428,7 +428,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, robots: s.robots.map(({ cooldown, phaseTimer, burstRemaining, ...robot }) => ({ ...robot, code: [...robot.code] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, enhancementChoices: { ...s.enhancementChoices }, robots: s.robots.map(({ cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], enhancements: [...robot.enhancements] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
     this.options.onState?.(state);
   }
 }

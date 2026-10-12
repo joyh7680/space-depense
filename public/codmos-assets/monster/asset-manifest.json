@@ -1,0 +1,103 @@
+[
+  {
+    "file": "0bebf9cd7a80/monster-pink.png",
+    "sha256": "0bebf9cd7a805bda9de473c428c5e7299b85772ed878bc9e46e1b7a1272ac896",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-pink.png"
+    ]
+  },
+  {
+    "file": "15dd01be077d/15dd01be077dee1cb9c1f9ba130df4777d7403ea0fb4c7b6b7043c7abc3e03b6.json",
+    "sha256": "15dd01be077dee1cb9c1f9ba130df4777d7403ea0fb4c7b6b7043c7abc3e03b6",
+    "assetGroups": [],
+    "originalPaths": [
+      "blobs/15dd01be077dee1cb9c1f9ba130df4777d7403ea0fb4c7b6b7043c7abc3e03b6.json",
+      "origins/cdn.codmos.io/default/public/31172676-f1cd-488e-89a6-6f94e77e1cb5.json"
+    ]
+  },
+  {
+    "file": "1bae1e1a9bf8/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas",
+    "sha256": "1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0",
+    "assetGroups": [],
+    "originalPaths": [
+      "blobs/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas",
+      "origins/cdn.codmos.io/default/public/72580f3c-eee3-40dc-9d17-35ffcdd33c56.atlas"
+    ]
+  },
+  {
+    "file": "266a4159093d/266a4159093daca28891ca624db358aa43b6137f6e3c0b167a1d2504f25c59f2.atlas",
+    "sha256": "266a4159093daca28891ca624db358aa43b6137f6e3c0b167a1d2504f25c59f2",
+    "assetGroups": [],
+    "originalPaths": [
+      "blobs/266a4159093daca28891ca624db358aa43b6137f6e3c0b167a1d2504f25c59f2.atlas",
+      "origins/cdn.codmos.io/default/public/6d1d5685-21c5-47f9-9883-baa9e4df68a8.atlas"
+    ]
+  },
+  {
+    "file": "45b71e6cd32e/45b71e6cd32e7249a55675fbc23d0a34f14aea5d68ba0e58e04fcf2f8c663043.atlas",
+    "sha256": "45b71e6cd32e7249a55675fbc23d0a34f14aea5d68ba0e58e04fcf2f8c663043",
+    "assetGroups": [],
+    "originalPaths": [
+      "blobs/45b71e6cd32e7249a55675fbc23d0a34f14aea5d68ba0e58e04fcf2f8c663043.atlas",
+      "origins/cdn.codmos.io/default/public/3ea03937-60f7-4fd4-b781-ec09f672c699.atlas"
+    ]
+  },
+  {
+    "file": "4adb8f1e11b0/monster-green.png",
+    "sha256": "4adb8f1e11b0a3da8c3ef2540eff3ab6e62f69b0a5f85d32ed176d1f8140658a",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-green.png"
+    ]
+  },
+  {
+    "file": "759c20f0e742/monster-mint.png",
+    "sha256": "759c20f0e742e95db5c516148c22f1325b41337ba01b9c82bb084d845822259d",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-mint.png"
+    ]
+  },
+  {
+    "file": "aa9ad7124c35/aa9ad7124c353e510a8d0365a30f0d2097ed46ea8f4f1ad89b87b320e9e6c68a.atlas",
+    "sha256": "aa9ad7124c353e510a8d0365a30f0d2097ed46ea8f4f1ad89b87b320e9e6c68a",
+    "assetGroups": [],
+    "originalPaths": [
+      "blobs/aa9ad7124c353e510a8d0365a30f0d2097ed46ea8f4f1ad89b87b320e9e6c68a.atlas",
+      "origins/cdn.codmos.io/default/public/fd98f130-ed43-47a8-8183-0bbfcf1c956a.atlas"
+    ]
+  },
+  {
+    "file": "d86fdb796468/monster-orange.png",
+    "sha256": "d86fdb79646834fd3983482548c475565e78c98a24d4f238c2a741a3faf12fa6",
+    "assetGroups": [],
+    "originalPaths": [
+      "cms/hand-recognition/assets/mission5/monster-orange.png"
+    ]
+  },
+  {
+    "file": "1bae1e1a9bf8/172f1112-a4e9-4ba2-a88d-74bea79e4f33.png",
+    "sha256": "ee5d08c979ad9f7b39c3bd8851a80b01c80917c9bd91505385c6a50d6a4b9dd4",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://boominkimlogibros.github.io/codmos-survival/play/assets/172f1112-a4e9-4ba2-a88d-74bea79e4f33.png"
+    ]
+  },
+  {
+    "file": "45b71e6cd32e/21cd105e-fe40-41fa-b76f-79eea999a47c.png",
+    "sha256": "7eed78e0061f5d0f91d09d114a7b33b3a860f01cd51be89160f12e2b19145e23",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://boominkimlogibros.github.io/codmos-survival/play/assets/21cd105e-fe40-41fa-b76f-79eea999a47c.png"
+    ]
+  },
+  {
+    "file": "aa9ad7124c35/f533c098-9a1d-4981-907f-51328eecf2ab.png",
+    "sha256": "32701ad8554b8d1a5d2ae211970a76356d6acba4affb4eed7437cca28f3f231f",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://boominkimlogibros.github.io/codmos-survival/play/assets/f533c098-9a1d-4981-907f-51328eecf2ab.png"
+    ]
+  }
+]

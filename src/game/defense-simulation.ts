@@ -1,12 +1,13 @@
 import { isWalkable } from './room/walkable.ts';
-import { getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId } from './coding-missions.ts';
+import { createRobotProgram, evaluateRobotAttack, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type RobotProgram, type EnhancementChoices, type AttackProfile } from './coding-missions.ts';
 import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
-export type Robot = RobotState & { cooldown: number; phaseTimer: number; burstRemaining: number };
+export type Robot = RobotState & { cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
 export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
   kind?: 'summoned';
+  slowFactor?: number;
 };
 export type Shot = { from: TilePosition; to: TilePosition; kind: RobotKind; chain?: boolean; player?: boolean };
 export const ROUTE: readonly TilePosition[] = [{ x: 1, y: 4 }, { x: 12, y: 4 }, { x: 12, y: 6 }, { x: 3, y: 6 }];
@@ -35,6 +36,8 @@ export class DefenseSimulation {
   private playerCooldown = 0;
   selectedId: number | null = null;
   robots: Robot[] = [];
+  readonly programs: Record<RobotKind, RobotProgram> = { fire: createRobotProgram('fire'), ice: createRobotProgram('ice'), electric: createRobotProgram('electric') };
+  readonly enhancementChoices: EnhancementChoices = { 2: null, 3: null };
   enemies: Enemy[] = [];
   private sequence = 0;
   private spawnTimer = 0;
@@ -91,12 +94,32 @@ export class DefenseSimulation {
   }
   private createRobot(kind: RobotKind, position: TilePosition | null, select = true): void {
     const config = ROBOTS[kind];
-    const mission = getCodingMission(kind, this.wave);
     // Stored robots have no room tile until the player selects them from the hangar.
-    const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, activeBlock: 'find', attacks: 0, targetId: null,
-      serial: ++this.robotSerial[kind], code: mission.slots.map(() => null), missionStatus: 'waiting', missionMessage: mission.autoRun ? '공격 블록을 한 번 누르면 바로 공격이 활성화돼요.' : '블록을 조합하고 코드를 실행해 공격을 활성화하세요.' };
+    const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null,
+      serial: ++this.robotSerial[kind], code: [], missionNumber: 1, basicCompleted: false, enhancements: [], missionStatus: 'waiting', missionMessage: '' };
     this.robots.push(robot);
+    this.syncPrograms();
     if (select) this.selectedId = robot.id;
+  }
+  private currentMission(kind: RobotKind): MissionNumber {
+    if (this.programs[kind][1].status !== 'completed') return 1;
+    if (this.wave === 2 || this.wave === 3) {
+      const chosen = this.enhancementChoices[this.wave];
+      if (chosen === null || chosen === kind) return this.wave;
+    }
+    return 1;
+  }
+  private syncPrograms(): void {
+    for (const robot of this.robots) {
+      const program = this.programs[robot.kind];
+      robot.missionNumber = this.currentMission(robot.kind);
+      const progress = program[robot.missionNumber];
+      robot.code = [...progress.code];
+      robot.missionStatus = progress.status;
+      robot.missionMessage = progress.message;
+      robot.basicCompleted = program[1].status === 'completed';
+      robot.enhancements = ([2, 3] as const).filter(number => program[number].status === 'completed');
+    }
   }
   private findRobotSlot(): TilePosition | undefined {
     const candidates = [...DEPLOY_SLOTS];
@@ -127,22 +150,28 @@ export class DefenseSimulation {
   }
   updateCode(id: number, slot: number, block: CodingBlockId | null): void {
     const robot = this.robots.find(r => r.id === id);
-    if (!this.canDeploy || !robot || robot.missionStatus === 'completed' || !Number.isInteger(slot) || slot < 0 || slot >= robot.code.length) return;
-    const mission = getCodingMission(robot.kind, this.wave);
+    if (!this.canDeploy || !robot || !Number.isInteger(slot)) return;
+    const number = this.currentMission(robot.kind);
+    const progress = this.programs[robot.kind][number];
+    if (progress.status === 'completed' || slot < 0 || slot >= progress.code.length) return;
+    const mission = getCodingMission(robot.kind, number);
     if (block !== null && (!isCodingBlock(block) || !mission.palette.includes(block))) return;
-    robot.code[slot] = block;
-    robot.missionStatus = 'waiting'; robot.missionMessage = '준비되면 코드 실행을 눌러 주세요.';
-    if (mission.autoRun && validateRobotCode(robot.kind, this.wave, robot.code).success) this.runCode(id);
+    progress.code[slot] = block;
+    progress.status = 'waiting'; progress.message = '준비되면 코드 실행을 눌러 주세요.';
+    this.syncPrograms();
   }
   runCode(id: number): string {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot) return '지금은 코드를 실행할 수 없어요.';
-    if (robot.missionStatus === 'completed') return robot.missionMessage;
-    const result = validateRobotCode(robot.kind, this.wave, robot.code);
+    const number = this.currentMission(robot.kind);
+    const progress = this.programs[robot.kind][number];
+    if (progress.status === 'completed') return progress.message;
+    const result = validateRobotCode(robot.kind, number, progress.code);
     if (result.success && !this.deployRobot(robot)) return robot.missionMessage;
-    robot.missionStatus = result.success ? 'completed' : 'error';
-    robot.missionMessage = result.message;
-    robot.activeBlock = 'find'; robot.phaseTimer = 0;
+    progress.status = result.success ? 'completed' : 'error';
+    progress.message = result.message;
+    if (result.success && number !== 1) this.enhancementChoices[number] = robot.kind;
+    this.syncPrograms();
     return result.message;
   }
   private autoSummon(): void {
@@ -161,6 +190,7 @@ export class DefenseSimulation {
     if (this.deployedRobots.some(r => r.id !== id && r.x === x && r.y === y)) return '다른 로봇이 있는 자리예요.';
     robot.x = x; robot.y = y; robot.targetId = null;
     robot.burstRemaining = 0;
+    robot.burstProfile = null;
     robot.activeBlock = 'find'; robot.phaseTimer = 0;
     return '로봇 배치 완료! 다른 로봇도 선택해서 옮길 수 있어요.';
   }
@@ -188,13 +218,12 @@ export class DefenseSimulation {
       this.kills = 0; this.escaped = 0; this.spawned = 0; this.elapsed = 0;
       this.bossSpawned = false; this.bossDefeated = false; this.playerCooldown = 0; this.selectedId = null;
       for (const robot of this.robots) {
-        robot.code = getCodingMission(robot.kind, this.wave).slots.map(() => null);
-        robot.missionStatus = 'waiting';
-        robot.missionMessage = `웨이브 ${this.wave}: 블록 ${this.wave}개를 조합하고 코드를 실행해 주세요.`;
         robot.cooldown = 0; robot.phaseTimer = 0; robot.burstRemaining = 0;
+        robot.burstProfile = null;
         robot.activeBlock = 'find'; robot.targetId = null;
       }
     }
+    this.syncPrograms();
     this.countdown = 0; this.spawnTimer = 0; this.status = 'running'; return true;
   }
   togglePause(): void {
@@ -262,7 +291,7 @@ export class DefenseSimulation {
       if (this.health === 0) return true;
       const target = ROUTE[enemy.waypoint];
       const gap = distance(target, enemy);
-      const movement = dt * WAVE_ONE.speed * (enemy.slowTime > 0 ? 0.6 : 1);
+      const movement = dt * WAVE_ONE.speed * (enemy.slowTime > 0 ? enemy.slowFactor ?? 0.6 : 1);
       if (gap <= movement) {
         enemy.x = target.x; enemy.y = target.y; enemy.waypoint++;
         if (enemy.waypoint === ROUTE.length) {
@@ -282,48 +311,62 @@ export class DefenseSimulation {
   private executeRobots(dt: number): Shot[] {
     const shots: Shot[] = [];
     for (const robot of this.deployedRobots) {
-      if (robot.missionStatus !== 'completed') continue;
+      // Editing or failing an enhancement cannot disable the completed base code.
+      if (this.programs[robot.kind][1].status !== 'completed') continue;
       robot.cooldown = Math.max(0, robot.cooldown - dt);
       robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
       if (robot.phaseTimer > 0) continue;
       if (robot.activeBlock === 'wait') { this.phase(robot, 'find', 0.16); continue; }
+      const nearby = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range)
+        .sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
       if (robot.activeBlock === 'find') {
-        const targets = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range);
-        targets.sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
-        robot.targetId = targets[0]?.id ?? null;
-        const required = robot.code.includes('count-three') ? 3 : 1;
-        const condition = targets.length >= required;
-        if (robot.kind === 'ice') robot.burstRemaining = condition ? 1 : 0;
-        this.phase(robot, condition ? 'attack' : 'wait', condition ? 0.16 : 0.25); continue;
+        robot.targetId = nearby[0]?.id ?? null;
+        this.phase(robot, nearby.length ? 'attack' : 'wait', nearby.length ? 0.16 : 0.25);
+        continue;
       }
-      const target = this.enemies.find(e => e.id === robot.targetId && e.health > 0 && distance(e, robot) <= robot.range);
-      if (!target) { robot.targetId = null; robot.burstRemaining = 0; this.phase(robot, 'find', 0.16); continue; }
-      const nearby = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range);
-      if (nearby.length < (robot.code.includes('count-three') ? 3 : 1)) {
-        robot.targetId = null; this.phase(robot, 'find', 0.16); continue;
+      // A repeated shot can find another target if the first shot killed its target.
+      const target = nearby.find(e => e.id === robot.targetId) ?? (robot.burstRemaining > 0 ? nearby[0] : undefined);
+      if (!target) {
+        robot.targetId = null; robot.burstRemaining = 0; robot.burstProfile = null;
+        this.phase(robot, 'find', 0.16); continue;
       }
       if (robot.cooldown > 0) { this.phase(robot, 'wait', robot.cooldown); continue; }
-      shots.push({ from: { x: robot.x, y: robot.y }, to: { x: target.x, y: target.y }, kind: robot.kind });
-      target.health -= robot.damage;
-      if (robot.kind === 'fire') {
-        for (const enemy of nearby.filter(e => distance(e, target) <= 1.6)) {
-          if (enemy !== target) {
-            enemy.health -= robot.damage;
-            shots.push({ from: { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: 'fire', chain: true });
+      robot.targetId = target.id;
+      if (robot.burstRemaining === 0 || !robot.burstProfile) {
+        robot.burstProfile = evaluateRobotAttack(robot.kind, this.programs[robot.kind], {
+          count: nearby.length, targetHealth: target.health, targetSlowed: target.slowTime > 0,
+        });
+        robot.burstRemaining = robot.burstProfile.shots;
+      }
+      const profile = robot.burstProfile;
+      const damage = robot.damage * profile.damage;
+      const affected = nearby.filter(enemy => enemy === target || profile.area || (profile.splash > 0 && distance(enemy, target) <= profile.splash));
+      for (const enemy of affected) {
+        enemy.health -= damage;
+        shots.push({ from: enemy === target ? { x: robot.x, y: robot.y } : { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: robot.kind, ...(enemy === target ? {} : { chain: true }) });
+        if (profile.burn > 0) {
+          enemy.burnTime = Math.max(enemy.burnTime, 2);
+          enemy.burnDamage = Math.max(enemy.burnDamage, damage * profile.burn);
+        }
+        if (profile.slowDuration > 0) {
+          const currentFactor = enemy.slowTime > 0 ? enemy.slowFactor ?? 0.6 : 1;
+          if (profile.slowFactor < currentFactor) {
+            enemy.slowFactor = profile.slowFactor; enemy.slowTime = profile.slowDuration;
+          } else if (profile.slowFactor === currentFactor) {
+            enemy.slowTime = Math.max(enemy.slowTime, profile.slowDuration);
           }
-          enemy.burnTime = 2; enemy.burnDamage = robot.damage * 0.2;
         }
       }
-      if (robot.kind === 'ice') {
-        target.slowTime = 1.4;
-        robot.burstRemaining--;
-        if (robot.burstRemaining > 0) { this.phase(robot, 'attack', 0.12); continue; }
+      const chained = nearby.filter(enemy => enemy !== target && enemy.health > 0).slice(0, profile.chainTargets);
+      for (const enemy of chained) {
+        enemy.health -= damage * profile.chainDamage;
+        shots.push({ from: { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: robot.kind, chain: true });
       }
-      if (robot.kind === 'electric') {
-        const next = nearby.find(e => e.id !== target.id && e.health > 0);
-        if (next) { next.health -= robot.damage * 0.5; shots.push({ from: { x: target.x, y: target.y }, to: { x: next.x, y: next.y }, kind: robot.kind, chain: true }); }
-      }
-      robot.attacks++; robot.cooldown = 0.9; this.phase(robot, 'wait', 0.58);
+      robot.attacks++;
+      robot.burstRemaining--;
+      if (robot.burstRemaining > 0) { this.phase(robot, 'attack', 0.12); continue; }
+      robot.burstProfile = null; robot.cooldown = 0.9;
+      this.phase(robot, 'wait', 0.58);
     }
     return shots;
   }

@@ -3,17 +3,19 @@ import { computed, ref, watch } from 'vue';
 import { CODING_BLOCKS, getCodingMission, isCodingBlock, type CodingBlockId } from '../game/coding-missions';
 import { ROBOTS } from '../game/wave-one';
 import type { RobotState } from '../game/types';
+import type { EnhancementChoices } from '../game/coding-missions';
 import EnergyIcon from './energy-icon.vue';
 
-const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean }>();
+const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean; enhancementChoices: EnhancementChoices }>();
 const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null]; run: [] }>();
-const mission = computed(() => getCodingMission(props.robot.kind, props.wave));
+const mission = computed(() => getCodingMission(props.robot.kind, props.robot.missionNumber));
 const completed = computed(() => props.robot.missionStatus === 'completed');
+const enhancementOwner = computed(() => props.wave === 2 || props.wave === 3 ? props.enhancementChoices[props.wave] : null);
 const draggingBlock = ref<CodingBlockId | null>(null);
 const editMessage = ref('');
 const overSlot = ref<number | null>(null);
 let dragSource: number | null = null;
-watch(() => props.robot.id, () => { endDrag(); editMessage.value = ''; });
+watch(() => `${props.robot.id}-${props.robot.missionNumber}`, () => { endDrag(); editMessage.value = ''; });
 function addBlock(block: CodingBlockId) {
   if (!props.interactive || completed.value) return;
   const slot = props.robot.code.findIndex(block => block === null);
@@ -51,15 +53,20 @@ function removeBlock(slot: number) {
 
 <template>
   <aside class="coding-panel" :class="robot.kind" aria-labelledby="coding-title">
-    <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(mission.number).padStart(2, '0') }}</small><h2 id="coding-title">로봇에게 명령하기</h2></div></header>
+    <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(Math.max(1, wave)).padStart(2, '0') }}</small><h2 id="coding-title">{{ mission.number === 1 ? '로봇에게 명령하기' : '로봇 공격 강화하기' }}</h2></div></header>
     <div class="coding-scroll">
-      <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} #{{ robot.serial }}</h3><span :class="{ complete: completed }">{{ completed ? '● 공격 중' : '● 공격 대기 · 코딩 미션' }}</span></div><i class="robot-portrait" :class="'portrait-' + robot.kind" aria-hidden="true" /></div>
-      <section class="coding-mission"><small>MISSION {{ mission.number }} <b>{{ mission.concept }}</b></small><p>{{ mission.description }}</p><span>{{ mission.effect }}</span></section>
+      <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} · 종류 공통</h3><span :class="{ complete: robot.basicCompleted }">{{ robot.basicCompleted ? '● 자동 공격 중 · 강화 코딩 중에도 유지' : '● 공격 대기 · 기본 미션' }}</span></div><i class="robot-portrait" :class="'portrait-' + robot.kind" aria-hidden="true" /></div>
+      <div class="coding-progress" aria-label="코딩 완료 상태">
+        <span :class="{ learned: robot.basicCompleted }">{{ robot.basicCompleted ? '✓' : '○' }} 기본 미션</span>
+        <span v-for="number in [2, 3]" :key="number" :class="{ learned: robot.enhancements.includes(number as 2 | 3) }">{{ robot.enhancements.includes(number as 2 | 3) ? '✓' : '○' }} W{{ number }} 강화</span>
+      </div>
+      <p v-if="wave > 1" class="coding-choice" role="status">{{ enhancementOwner ? `이번 웨이브 강화 완료: ${ROBOTS[enhancementOwner].name}` : '보유한 종류 중 하나를 강화해요. 코드 실행에 성공하면 선택이 확정돼요.' }}</p>
+      <section class="coding-mission"><small>{{ mission.number === 1 ? '기본 미션 · 최초 1회' : `WAVE ${mission.number} 강화 미션` }} <b>{{ mission.concept }}</b></small><p>{{ mission.description }}</p><span>{{ mission.effect }}</span></section>
       <section v-if="completed" class="coding-success" role="status" aria-live="polite" aria-atomic="true">
         <div class="coding-success-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="m12 24 8 8 16-16" /></svg></div>
-        <span class="coding-success-badge">공격 활성화</span>
-        <h3>공격하기 성공!</h3>
-        <p>블록을 올바르게 연결했어요.<br />로봇이 명령에 따라 외계인을 공격해요.</p>
+        <span class="coding-success-badge">{{ mission.number === 1 ? '자동 공격 활성화' : '종류 전체 강화 완료' }}</span>
+        <h3>{{ mission.number === 1 ? '기본 미션 성공!' : '강화 미션 성공!' }}</h3>
+        <p>같은 종류의 모든 로봇에 적용됐어요.<br />추가 소환한 로봇도 배치하면 이어서 공격해요.</p>
       </section>
       <section v-else class="coding-workspace" aria-label="블록코딩 작업 영역">
         <div class="coding-section-title"><h3>내 코드</h3><span>{{ robot.code.filter(Boolean).length }} / {{ mission.slots.length }} 블록</span></div>
@@ -87,7 +94,7 @@ function removeBlock(slot: number) {
         <p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ robot.missionMessage }}</p>
         <button v-if="!mission.autoRun" class="run-code" :disabled="!interactive" @click="emit('run')">▶ 코드 실행</button>
       </template>
-      <small>{{ completed ? '로봇은 명령에 따라 계속 공격해요.' : '코딩하는 동안에도 전투는 계속돼요.' }}</small>
+      <small>{{ robot.basicCompleted ? '기본 공격은 계속돼요. 강화 조건이 맞지 않아도 공격해요.' : '종류별 기본 미션을 완료하면 자동 공격을 시작해요.' }}</small>
     </footer>
   </aside>
 </template>
