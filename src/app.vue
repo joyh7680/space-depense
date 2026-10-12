@@ -21,6 +21,7 @@ const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a
 const monsterArt = `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${getRegularMonster(1).file}`;
 const retryButton = ref<HTMLButtonElement>();
 const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, enhancementChoices: { 2: null, 3: null }, robots: [], robotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
+const remainingHearts = computed(() => Math.max(0, Math.min(10, Math.ceil(state.value.health / 10))));
 const canDeploy = computed(() => ready.value && state.value.status === 'running');
 const finished = computed(() => state.value.status === 'cleared' || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
 watch(() => state.value.status, status => {
@@ -104,7 +105,9 @@ function dialogKey(event: KeyboardEvent) {
     <div class="wave-hud" aria-label="전투 현황">
       <div class="wave-counter"><small>WAVE</small><strong>{{ String(Math.max(1, state.wave)).padStart(2, '0') }}</strong></div>
       <div class="battle-progress"><div><b>{{ state.status === 'ready' ? '잠시 후 자동 시작' : '우주정거장 방어' }}</b><span>{{ state.kills }} / {{ state.total }}</span></div><div class="progress-track"><i :style="{ width: state.kills / state.total * 100 + '%' }" /></div></div>
-      <div class="player-health" :class="{ danger: state.health <= 30 }" :aria-label="'정거장 내구도 ' + state.health"><span>♥</span><b>{{ state.health }}</b></div>
+      <div class="player-health" role="img" :aria-label="`정거장 체력: 하트 10개 중 ${remainingHearts}개`">
+        <span v-for="heart in 10" :key="heart" :class="{ empty: heart > remainingHearts }" aria-hidden="true">♥</span>
+      </div>
     </div>
     <div class="bottom-controls">
       <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? '보스급 몬스터 출현' : `보스급 몬스터 자동 출현까지 ${state.monsterSummonCountdown}초`">
