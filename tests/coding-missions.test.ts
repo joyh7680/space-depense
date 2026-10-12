@@ -74,8 +74,9 @@ test('fire stores nearby count condition, waits below three, then damages multip
 });
 
 test('automatic summons can create two independent missions in one reward batch and keep the remainder', () => {
-  const game = new DefenseSimulation(() => 0.4); game.player = { x: 14, y: 11 }; game.startWave();
-  game.enemies = Array.from({ length: 7 }, (_, i) => ({ ...enemy(100 + i, 3), health: 0 }));
+  let rolls = 0;
+  const game = new DefenseSimulation(() => rolls++ < 7 ? 0.4 : 0); game.player = { x: 14, y: 11 }; game.startWave();
+  game.enemies = Array.from({ length: 3 }, (_, i) => ({ ...enemy(100 + i, 3), health: 0 }));
   game.step(0.05);
   assert.equal(game.robotCount, 2); assert.equal(game.elementEnergy.ice, 1); assert.equal(game.selectedId, null);
   assert.equal(game.deployedRobots.length, 0);

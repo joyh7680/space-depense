@@ -55,19 +55,20 @@ test('invalid placement, occupied slots and full board preserve matching energy'
   game.summon('fire'); assert.equal(game.elementEnergy.fire, 6); assert.equal(game.robots.length, 8);
 });
 
-test('each killed monster grants exactly one random element; living or escaped monsters do not', () => {
+test('each killed monster grants three random elements; living or escaped monsters do not', () => {
   let count = 0;
-  const game = new DefenseSimulation(() => [0, 0.4, 0.99][count++]);
+  const game = new DefenseSimulation(() => [0, 0.4, 0.99][count++ % 3]);
   game.startWave(); game.player = { x: 14, y: 11 };
   game.enemies = [0, 1, 2].map(i => ({ ...enemy(100 + i, 3 + i), health: 0 }));
   game.step(.05);
-  assert.equal(game.kills, 3); assert.equal(count, 3);
-  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
-  game.step(.05); assert.equal(count, 3);
+  assert.equal(game.kills, 3); assert.equal(count, 9);
+  assert.deepEqual(game.elementEnergy, { fire: 0, ice: 0, electric: 0 });
+  assert.deepEqual(game.robots.map(robot => robot.kind), ['fire', 'ice', 'electric']);
+  game.step(.05); assert.equal(count, 9);
   const end = ROUTE.at(-1)!;
   game.enemies = [{ ...enemy(200, end.x + .001, end.y), waypoint: ROUTE.length - 1 }];
-  game.step(.05); assert.equal(game.escaped, 1); assert.equal(count, 3);
-  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
+  game.step(.05); assert.equal(game.escaped, 1); assert.equal(count, 9);
+  assert.deepEqual(game.elementEnergy, { fire: 0, ice: 0, electric: 0 });
 });
 
 test('merge requires matching kind and grade, preserves selected identity and cooldown, and caps at grade 3', () => {
@@ -158,7 +159,7 @@ test('a burning enemy killed before reaching the base awards energy without dest
 test('clearing regular monsters waits for the automatic boss before awarding victory', () => {
   for (const kind of ['fire', 'ice', 'electric'] as const) {
     const game = new DefenseSimulation(); summon(game, kind); summon(game, kind); summon(game, kind); game.startWave();
-    advance(game, 29.95);
+    advance(game, 99.95);
     assert.equal(game.status, 'running'); assert.equal(game.kills, 12); assert.equal(game.health, 100); assert.equal(game.wave, 1);
     assert.equal(game.credits, 300 + 12 * 15);
     game.step(0.05);

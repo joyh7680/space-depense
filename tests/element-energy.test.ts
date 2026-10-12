@@ -15,12 +15,9 @@ test('three matching elements store a waiting robot without deploying it and con
 
   for (const [index, kind] of ROBOT_KINDS.entries()) {
     roll = (index + 0.5) / ROBOT_KINDS.length;
-    for (let charge = 1; charge <= ROBOT_CHARGE_COST; charge++) {
-      game.enemies = [monster(100 + index * ROBOT_CHARGE_COST + charge, 0)];
-      game.step(0.05);
-      assert.equal(game.elementEnergy[kind], charge % ROBOT_CHARGE_COST);
-      assert.equal(game.robotCount, index + (charge === ROBOT_CHARGE_COST ? 1 : 0));
-    }
+    game.enemies = [monster(100 + index, 0)];
+    game.step(0.05);
+    assert.equal(game.elementEnergy[kind], 0);
     assert.equal(game.robotCount, index + 1);
     assert.equal(game.robots.at(-1)!.kind, kind);
     assert.equal(game.robots.at(-1)!.missionStatus, 'waiting');
@@ -44,7 +41,7 @@ test('three matching elements store a waiting robot without deploying it and con
   assert.equal(new DefenseSimulation().robotCount, 0, 'a new game resets the count');
 });
 
-test('player kills award exactly one random element from three equally sized ranges', () => {
+test('player kills independently roll three elements from three equally sized ranges', () => {
   for (const [roll, kind] of [[0, 'fire'], [1 / 3 - 0.001, 'fire'], [1 / 3, 'ice'], [2 / 3 - 0.001, 'ice'], [2 / 3, 'electric'], [0.999, 'electric']] as const) {
     let rolls = 0;
     const game = new DefenseSimulation(() => { rolls++; return roll; });
@@ -53,12 +50,13 @@ test('player kills award exactly one random element from three equally sized ran
     const shots = game.step(0.05);
     assert.ok(shots.some(shot => shot.player));
     assert.equal(game.kills, 1);
-    assert.equal(rolls, 1);
-    assert.equal(game.elementEnergy[kind], 1);
-    assert.equal(Object.values(game.elementEnergy).reduce((a, b) => a + b, 0), 1);
+    assert.equal(rolls, 3);
+    assert.equal(game.robotCount, 1);
+    assert.equal(game.robots[0].kind, kind);
+    assert.equal(Object.values(game.elementEnergy).reduce((a, b) => a + b, 0), 0);
     assert.equal(game.credits, 300 + WAVE_ONE.killEnergy);
     game.step(0.05);
-    assert.equal(rolls, 1, 'a removed monster must not grant a second reward');
+    assert.equal(rolls, 3, 'a removed monster must not grant a second reward');
   }
 });
 
@@ -72,20 +70,39 @@ test('nonfatal player attacks do not award element energy or consume a random ro
   assert.deepEqual(game.elementEnergy, { fire: 0, ice: 0, electric: 0 });
 });
 
-test('simultaneous monster deaths roll independently and accumulate each element once', () => {
-  const draws = [0, 0.4, 0.99, 0];
+test('successive kills can grant electric two plus fire one, then ice one plus fire two', () => {
+  const draws = [0.99, 0.99, 0, 0.4, 0, 0];
   let rolls = 0;
   const game = new DefenseSimulation(() => draws[rolls++]);
   game.startWave();
-  game.enemies = draws.map((_, index) => monster(100 + index, 0));
+  game.enemies = [monster(100, 0)];
   game.step(0.05);
-  assert.equal(game.kills, 4); assert.equal(rolls, 4);
-  assert.deepEqual(game.elementEnergy, { fire: 2, ice: 1, electric: 1 });
+  assert.equal(rolls, 3);
+  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 0, electric: 2 });
+  game.enemies = [monster(101, 0)];
   game.step(0.05);
-  assert.equal(rolls, 4);
+  assert.equal(game.kills, 2); assert.equal(rolls, 6);
+  assert.deepEqual(game.elementEnergy, { fire: 0, ice: 1, electric: 2 });
+  assert.equal(game.robotCount, 1);
+  assert.equal(game.robots[0].kind, 'fire', 'the three accumulated fire energies charge a robot');
 });
 
-test('burn deaths award an element before movement; pause freezes rewards', () => {
+test('simultaneous monster deaths each roll three times and preserve energy at the robot limit', () => {
+  const draws = [0, 0.4, 0.99, 0, 0, 0.99, 0.4, 0.4, 0.4, 0.99, 0.99, 0.99];
+  let rolls = 0;
+  const game = new DefenseSimulation(() => draws[rolls++]);
+  game.elementEnergy.fire = 8 * ROBOT_CHARGE_COST;
+  for (let i = 0; i < 8; i++) game.summon('fire');
+  game.startWave();
+  game.enemies = Array.from({ length: 4 }, (_, index) => monster(100 + index, 0));
+  game.step(0.05);
+  assert.equal(game.kills, 4); assert.equal(rolls, 12);
+  assert.deepEqual(game.elementEnergy, { fire: 3, ice: 4, electric: 5 });
+  game.step(0.05);
+  assert.equal(rolls, 12);
+});
+
+test('burn deaths award three elements before movement; pause freezes rewards', () => {
   const game = new DefenseSimulation(() => 0.99);
   game.startWave();
   const end = ROUTE.at(-1)!;
@@ -93,7 +110,8 @@ test('burn deaths award an element before movement; pause freezes rewards', () =
   game.togglePause(); game.step(0.05);
   assert.equal(game.kills, 0); assert.equal(game.elementEnergy.electric, 0);
   game.togglePause(); game.step(0.05);
-  assert.equal(game.kills, 1); assert.equal(game.elementEnergy.electric, 1);
+  assert.equal(game.kills, 1); assert.equal(game.elementEnergy.electric, 0);
+  assert.equal(game.robotCount, 1); assert.equal(game.robots[0].kind, 'electric');
   assert.equal(game.health, 100); assert.equal(game.escaped, 0);
 });
 
