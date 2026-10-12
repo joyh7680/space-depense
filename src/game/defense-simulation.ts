@@ -1,9 +1,9 @@
 import { isWalkable } from './room/walkable.ts';
-import { createRobotProgram, evaluateRobotAttack, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type RobotProgram, type EnhancementChoices, type AttackProfile } from './coding-missions.ts';
+import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type MissionProgress, type RobotProgram, type AttackProfile } from './coding-missions.ts';
 import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
-export type Robot = RobotState & { cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
+export type Robot = RobotState & { program: RobotProgram; cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
 export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
   kind?: 'summoned';
@@ -36,8 +36,6 @@ export class DefenseSimulation {
   private playerCooldown = 0;
   selectedId: number | null = null;
   robots: Robot[] = [];
-  readonly programs: Record<RobotKind, RobotProgram> = { fire: createRobotProgram('fire'), ice: createRobotProgram('ice'), electric: createRobotProgram('electric') };
-  readonly enhancementChoices: EnhancementChoices = { 2: null, 3: null };
   enemies: Enemy[] = [];
   private sequence = 0;
   private spawnTimer = 0;
@@ -107,29 +105,26 @@ export class DefenseSimulation {
     const config = ROBOTS[kind];
     // Stored robots have no room tile until the player selects them from the hangar.
     const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null,
-      serial: ++this.robotSerial[kind], code: [], missionNumber: 1, basicCompleted: false, enhancements: [], missionStatus: 'waiting', missionMessage: '' };
+      serial: ++this.robotSerial[kind], program: createRobotProgram(kind), code: [], missionNumber: getMissionNumber(this.wave), autoAttackActive: false, completedMissions: [], missionStatus: 'waiting', missionMessage: '' };
     this.robots.push(robot);
     this.syncPrograms();
     if (select) this.selectedId = robot.id;
   }
-  private currentMission(kind: RobotKind): MissionNumber {
-    if (this.programs[kind][1].status !== 'completed') return 1;
-    if (this.wave === 2 || this.wave === 3) {
-      const chosen = this.enhancementChoices[this.wave];
-      if (chosen === null || chosen === kind) return this.wave;
-    }
-    return 1;
+  private currentMission(): MissionNumber {
+    return getMissionNumber(this.wave);
+  }
+  private missionProgress(robot: Robot, number: MissionNumber): MissionProgress {
+    return robot.program[number];
   }
   private syncPrograms(): void {
     for (const robot of this.robots) {
-      const program = this.programs[robot.kind];
-      robot.missionNumber = this.currentMission(robot.kind);
-      const progress = program[robot.missionNumber];
+      robot.missionNumber = this.currentMission();
+      const progress = this.missionProgress(robot, robot.missionNumber);
       robot.code = [...progress.code];
       robot.missionStatus = progress.status;
       robot.missionMessage = progress.message;
-      robot.basicCompleted = program[1].status === 'completed';
-      robot.enhancements = ([2, 3] as const).filter(number => program[number].status === 'completed');
+      robot.completedMissions = ([1, 2, 3] as const).filter(number => robot.program[number].status === 'completed');
+      robot.autoAttackActive = robot.completedMissions.length > 0;
     }
   }
   private findRobotSlot(): TilePosition | undefined {
@@ -159,29 +154,39 @@ export class DefenseSimulation {
     if (!this.canDeploy || !robot || !this.deployRobot(robot)) return;
     this.selectedId = id;
   }
-  updateCode(id: number, slot: number, block: CodingBlockId | null): void {
+  updateCode(id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number): MissionNumber | null {
     const robot = this.robots.find(r => r.id === id);
-    if (!this.canDeploy || !robot || !Number.isInteger(slot)) return;
-    const number = this.currentMission(robot.kind);
-    const progress = this.programs[robot.kind][number];
-    if (progress.status === 'completed' || slot < 0 || slot >= progress.code.length) return;
+    if (!this.canDeploy || !robot || !Number.isInteger(slot)) return null;
+    const number = this.currentMission();
+    const progress = this.missionProgress(robot, number);
+    if (progress.status === 'completed' || slot < 0 || slot >= progress.code.length) return null;
     const mission = getCodingMission(robot.kind, number);
-    if (block !== null && (!isCodingBlock(block) || !mission.palette.includes(block))) return;
+    if (block !== null && (!isCodingBlock(block) || !mission.palette.includes(block))) return null;
+    // Move or swap both slots before checking the answer.
+    if (sourceSlot !== undefined) {
+      if (!Number.isInteger(sourceSlot) || sourceSlot < 0 || sourceSlot >= progress.code.length || block === null || progress.code[sourceSlot] !== block) return null;
+      if (sourceSlot === slot) return null;
+      progress.code[sourceSlot] = progress.code[slot];
+    }
     progress.code[slot] = block;
-    progress.status = 'waiting'; progress.message = '준비되면 코드 실행을 눌러 주세요.';
+    progress.status = 'waiting'; progress.message = '블록을 순서대로 연결하면 자동으로 공격해요.';
+    if (progress.code.every(block => block !== null)) {
+      this.runCode(id);
+      return this.missionProgress(robot, number).status === 'completed' ? number : null;
+    }
     this.syncPrograms();
+    return null;
   }
   runCode(id: number): string {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot) return '지금은 코드를 실행할 수 없어요.';
-    const number = this.currentMission(robot.kind);
-    const progress = this.programs[robot.kind][number];
+    const number = this.currentMission();
+    const progress = this.missionProgress(robot, number);
     if (progress.status === 'completed') return progress.message;
     const result = validateRobotCode(robot.kind, number, progress.code);
     if (result.success && !this.deployRobot(robot)) return robot.missionMessage;
     progress.status = result.success ? 'completed' : 'error';
     progress.message = result.message;
-    if (result.success && number !== 1) this.enhancementChoices[number] = robot.kind;
     this.syncPrograms();
     return result.message;
   }
@@ -322,8 +327,8 @@ export class DefenseSimulation {
   private executeRobots(dt: number): Shot[] {
     const shots: Shot[] = [];
     for (const robot of this.deployedRobots) {
-      // Editing or failing an enhancement cannot disable the completed base code.
-      if (this.programs[robot.kind][1].status !== 'completed') continue;
+      // Each newly acquired robot waits for its own current-wave mission.
+      if (!robot.autoAttackActive) continue;
       robot.cooldown = Math.max(0, robot.cooldown - dt);
       robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
       if (robot.phaseTimer > 0) continue;
@@ -344,9 +349,7 @@ export class DefenseSimulation {
       if (robot.cooldown > 0) { this.phase(robot, 'wait', robot.cooldown); continue; }
       robot.targetId = target.id;
       if (robot.burstRemaining === 0 || !robot.burstProfile) {
-        robot.burstProfile = evaluateRobotAttack(robot.kind, this.programs[robot.kind], {
-          count: nearby.length, targetHealth: target.health, targetSlowed: target.slowTime > 0,
-        });
+        robot.burstProfile = getBasicRobotAttack(robot.kind);
         robot.burstRemaining = robot.burstProfile.shots;
       }
       const profile = robot.burstProfile;

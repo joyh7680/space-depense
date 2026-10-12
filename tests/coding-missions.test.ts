@@ -1,24 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, type Enemy } from '../src/game/defense-simulation.ts';
-import { getCodingMission, validateRobotCode } from '../src/game/coding-missions.ts';
+import { getCodingMission, validateRobotCode, type MissionNumber } from '../src/game/coding-missions.ts';
 import type { RobotKind } from '../src/game/types.ts';
 
 const kinds = ['fire', 'ice', 'electric'] as const;
+const waves = [1, 2, 3] as const;
 function summon(game: DefenseSimulation, kind: RobotKind) {
   game.elementEnergy[kind] += 3; game.summon(kind);
   return game.robots.at(-1)!;
 }
-function setup(kind: RobotKind, wave = 1) {
+function setup(kind: RobotKind, wave: MissionNumber = 1) {
   const game = new DefenseSimulation(() => 0.4);
   game.player = { x: 14, y: 11 }; game.startWave();
-  for (let number = 1; number < wave; number++) nextWave(game);
+  while (game.wave < wave) nextWave(game);
   summon(game, kind);
   return game;
 }
 const enemy = (id: number, x: number, health = 1000): Enemy => ({ id, x, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0 });
 const advance = (game: DefenseSimulation, frames = 11) => {
-  // Keep normal spawning enabled, but isolate the supplied targets from new spawns.
+  // Isolate supplied targets while keeping normal spawning enabled.
   const ids = new Set(game.enemies.map(enemy => enemy.id));
   return Array.from({ length: frames }, () => {
     const shots = game.step(0.05);
@@ -30,300 +31,220 @@ function complete(game: DefenseSimulation, id = game.robots[0].id) {
   const robot = game.robots.find(robot => robot.id === id)!;
   const number = robot.missionNumber;
   getCodingMission(robot.kind, number).slots.forEach((slot, index) => game.updateCode(id, index, slot.block));
-  return game.runCode(id);
+  return robot.program[number].message;
 }
 function nextWave(game: DefenseSimulation) {
-  game.enemies = []; game.elapsed = 100;
-  game.step(0.05);
+  game.enemies = []; game.elapsed = 100; game.step(0.05);
   for (const target of game.enemies) target.health = 0;
-  game.step(0.05);
-  assert.equal(game.status, 'cleared');
+  game.step(0.05); assert.equal(game.status, 'cleared');
   const canStart = game.wave < 3;
   assert.equal(game.startWave(), canStart);
-}
-function upgraded(kind: RobotKind, wave: 2 | 3) {
-  const game = setup(kind); complete(game);
-  while (game.wave < wave) nextWave(game);
-  complete(game);
-  return game;
+
 }
 
-test('base missions teach sequence, condition, and two repetitions using the requested blocks', () => {
-  const expected = { fire: ['find', 'missile'], ice: ['in-range', 'cool'], electric: ['repeat-two', 'shock'] };
-  for (const kind of kinds) {
-    assert.deepEqual(getCodingMission(kind, 1).slots.map(slot => slot.block), expected[kind]);
-    for (const number of [1, 2, 3]) {
-      const mission = getCodingMission(kind, number), code = mission.slots.map(slot => slot.block);
-      assert.equal(validateRobotCode(kind, number, code).success, true);
-      assert.equal(validateRobotCode(kind, number, [...code, 'missile']).success, false);
-      assert.equal(validateRobotCode(kind, number, [...code].reverse()).success, false);
+test('every kind learns sequence, repetition and conditions in the same wave with only its attack command changed', () => {
+  const actions = { fire: 'missile', ice: 'cool', electric: 'shock' };
+  const controls = { 1: 'find', 2: 'repeat-two', 3: 'in-range' };
+  const concepts = { 1: '순차 실행', 2: '반복문', 3: '조건문' };
+  const titles = { 1: '기본 미션', 2: '중간 미션', 3: '강화 미션' };
+  const messages = new Set<string>();
+  for (const wave of waves) for (const kind of kinds) {
+    const mission = getCodingMission(kind, wave), code = mission.slots.map(slot => slot.block);
+    assert.deepEqual(code, [controls[wave], actions[kind]]);
+    assert.equal(mission.concept, concepts[wave]); assert.equal(mission.title, titles[wave]);
+    assert.deepEqual(mission.slots.map(slot => slot.depth), [0, wave === 1 ? 0 : 1]);
+    const result = validateRobotCode(kind, wave, code);
+    assert.equal(result.success, true); messages.add(result.message);
+    assert.equal(validateRobotCode(kind, wave, code.toReversed()).success, false);
+    assert.equal(validateRobotCode(kind, wave, [null, code[1]]).success, false);
+    assert.equal(validateRobotCode(kind, wave, [...code, code[1]]).success, false);
+    assert.match(mission.effect, /기본 자동 공격/);
+  }
+  assert.deepEqual([...messages], ['공격 성공! 이 로봇의 기본 자동 공격이 활성화됐어요.']);
+});
+
+test('all three kinds can finish each wave independently without reserving one kind', () => {
+  for (const wave of waves) {
+    const game = setup('fire', wave);
+    const robots = [game.robots.at(-1)!, summon(game, 'ice'), summon(game, 'electric')];
+    for (const robot of robots) {
+      assert.equal(robot.missionNumber, wave); assert.equal(robot.autoAttackActive, false);
+      complete(game, robot.id);
+      assert.equal(robot.missionNumber, wave); assert.equal(robot.missionStatus, 'completed');
+      assert.equal(robot.autoAttackActive, true); assert.deepEqual(robot.completedMissions, [wave]);
     }
-    assert.equal(getCodingMission(kind, 3).slots[3].block, 'else');
   }
 });
 
-test('one base completion enables all robots of that kind, including later summons, but not other kinds', () => {
-  for (const kind of kinds) {
-    const game = setup(kind), first = game.robots[0], second = summon(game, kind);
-    const other = summon(game, kinds.find(other => other !== kind)!);
-    complete(game, first.id);
-    const third = summon(game, kind);
-    for (const robot of [first, second, third]) {
-      assert.equal(robot.basicCompleted, true);
-      assert.equal(robot.missionStatus, 'completed');
-      assert.notEqual(robot.code, game.programs[kind][1].code);
+test('mission completion enables only the selected robot, including robots obtained in later waves', () => {
+  for (const wave of waves) for (const kind of kinds) {
+    const game = setup(kind, wave), first = game.robots.at(-1)!;
+    const second = summon(game, kind), other = summon(game, kinds.find(other => other !== kind)!);
+    complete(game, first.id); const third = summon(game, kind);
+    for (const robot of [second, third, other]) {
+      assert.equal(robot.autoAttackActive, false); assert.equal(robot.missionStatus, 'waiting');
+      assert.deepEqual(robot.code, [null, null]); assert.notEqual(robot.program, first.program);
     }
-    assert.equal(other.basicCompleted, false);
     for (const robot of game.robots) { robot.x = 3; robot.y = 5; }
-    game.enemies = [enemy(100, 3)];
-    advance(game);
-    assert.ok([first, second, third].every(robot => robot.attacks > 0));
-    assert.equal(other.attacks, 0);
-    const snapshot = JSON.stringify(game.programs[kind]);
-    game.updateCode(first.id, 0, null); game.runCode(second.id);
-    assert.equal(JSON.stringify(game.programs[kind]), snapshot, 'completed base program is locked');
+    game.enemies = [enemy(100, 3)]; advance(game);
+    assert.ok(first.attacks > 0);
+    assert.ok([second, third, other].every(robot => robot.attacks === 0));
+    const before = JSON.stringify(first.program);
+    assert.equal(game.updateCode(first.id, 0, null), null); game.runCode(first.id);
+    assert.equal(JSON.stringify(first.program), before);
   }
 });
 
-test('basic drafts and errors are shared by kind; changing kinds preserves each draft', () => {
-  const game = setup('ice'), first = game.robots[0], second = summon(game, 'ice'), fire = summon(game, 'fire');
-  game.updateCode(first.id, 0, 'cool'); game.selectRobot(second.id);
-  assert.deepEqual(second.code, ['cool', null]);
-  game.updateCode(second.id, 1, 'in-range'); game.runCode(second.id);
-  assert.equal(first.missionStatus, 'error'); assert.match(first.missionMessage, /1번째/);
-  game.updateCode(fire.id, 0, 'find'); game.selectRobot(first.id);
-  assert.deepEqual(first.code, ['cool', 'in-range']);
-  game.updateCode(first.id, 0, null);
-  assert.deepEqual(second.code, [null, 'in-range']); assert.deepEqual(fire.code, ['find', null]);
+test('drafts and errors stay with each robot when selecting the same or a different kind', () => {
+  for (const wave of waves) {
+    const game = setup('ice', wave), first = game.robots.at(-1)!, second = summon(game, 'ice'), fire = summon(game, 'fire');
+    const control = getCodingMission('ice', wave).slots[0].block;
+    game.updateCode(first.id, 0, 'cool'); game.selectRobot(second.id);
+    assert.deepEqual(second.code, [null, null]);
+    game.updateCode(first.id, 1, control);
+    assert.equal(first.missionStatus, 'error'); assert.equal(second.missionStatus, 'waiting');
+    game.updateCode(fire.id, 0, control); game.selectRobot(first.id);
+    assert.deepEqual(first.code, ['cool', control]);
+    game.updateCode(first.id, 0, null);
+    assert.deepEqual(second.code, [null, null]); assert.deepEqual(fire.code, [control, null]);
+  }
 });
 
-test('unfinished basics survive wave changes and remain available for kinds first summoned later', () => {
-  const game = setup('fire'), first = game.robots[0];
-  game.updateCode(first.id, 0, 'find');
-  nextWave(game);
-  assert.equal(first.missionNumber, 1); assert.deepEqual(first.code, ['find', null]);
-  complete(game); assert.equal(first.basicCompleted, true); assert.equal(first.missionNumber, 2);
-  const ice = summon(game, 'ice');
-  assert.equal(ice.missionNumber, 1); complete(game, ice.id);
-  assert.equal(ice.missionNumber, 2); assert.equal(ice.basicCompleted, true);
-  nextWave(game);
-  const electric = summon(game, 'electric');
-  assert.equal(electric.missionNumber, 1); complete(game, electric.id);
-  assert.equal(electric.basicCompleted, true); assert.equal(electric.missionNumber, 3);
-});
-
-test('wave transitions retain base code, reinforcement code, effects, deployment and automatic attacks', () => {
-  const game = setup('fire'), fire = game.robots[0];
-  const ice = summon(game, 'ice'); complete(game, fire.id); complete(game, ice.id);
+test('wave transitions retain activated robots and drafts while opening the new mission', () => {
+  const game = setup('fire'), fire = game.robots[0], ice = summon(game, 'ice');
+  complete(game, fire.id); game.updateCode(ice.id, 0, 'find');
+  const base = JSON.stringify(fire.program[1]), draft = JSON.stringify(ice.program[1]);
   const positions = game.robots.map(robot => [robot.id, robot.x, robot.y]);
-  const base = JSON.stringify(game.programs.fire[1]);
-  nextWave(game);
-  assert.equal(game.selectedId, null); assert.equal(game.monsterSummonCountdown, 100);
-  assert.ok(game.robots.every(robot => robot.basicCompleted));
-  game.enemies = [enemy(100, 3)]; assert.ok(advance(game).length > 0);
-  complete(game, fire.id);
-  const reinforcement = JSON.stringify(game.programs.fire[2]);
-  nextWave(game);
-  assert.equal(JSON.stringify(game.programs.fire[1]), base);
-  assert.equal(JSON.stringify(game.programs.fire[2]), reinforcement);
-  assert.deepEqual(fire.enhancements, [2]); assert.deepEqual(game.enhancementChoices, { 2: 'fire', 3: null });
-  assert.deepEqual(game.robots.slice(0, 2).map(robot => [robot.id, robot.x, robot.y]), positions);
-  assert.equal(game.elapsed, 0); assert.equal(game.spawned, 0); assert.equal(game.kills, 0);
-  game.enemies = [enemy(100, 3), enemy(101, 3.5)];
-  advance(game, 5); assert.ok(game.enemies[0].health < 1000 - fire.damage, 'W2 enhanced attack remains active in W3');
-  complete(game, ice.id);
-  assert.deepEqual(game.enhancementChoices, { 2: 'fire', 3: 'ice' });
-  assert.deepEqual(fire.enhancements, [2]); assert.deepEqual(ice.enhancements, [3]);
-});
-
-test('reinforcements require explicit successful execution and lock only one kind per wave', () => {
   for (const wave of [2, 3] as const) {
-    const game = setup('fire'), fire = game.robots[0], ice = summon(game, 'ice');
-    complete(game, fire.id); complete(game, ice.id);
-    while (game.wave < wave) nextWave(game);
-    game.updateCode(fire.id, 0, getCodingMission('fire', wave).slots[0].block);
-    game.runCode(fire.id);
-    assert.equal(game.enhancementChoices[wave], null);
-    assert.equal(fire.missionStatus, 'error');
-    game.selectRobot(ice.id); complete(game, ice.id);
-    assert.equal(game.enhancementChoices[wave], 'ice');
-    assert.equal(fire.missionNumber, 1); assert.equal(ice.missionNumber, wave);
-    const code = JSON.stringify(game.programs.fire[wave]);
-    game.updateCode(fire.id, 0, getCodingMission('fire', wave).slots[0].block); game.runCode(fire.id);
-    assert.equal(JSON.stringify(game.programs.fire[wave]), code, 'another kind cannot claim this reinforcement');
-    const second = summon(game, 'ice');
-    assert.deepEqual(second.enhancements, [wave]); assert.equal(second.basicCompleted, true);
+    nextWave(game); assert.equal(game.wave, wave);
+    assert.equal(fire.missionNumber, wave); assert.equal(ice.missionNumber, wave);
+    assert.equal(fire.autoAttackActive, true); assert.equal(ice.autoAttackActive, false);
+    assert.deepEqual(fire.code, [null, null]); assert.equal(JSON.stringify(fire.program[1]), base);
+    assert.equal(JSON.stringify(ice.program[1]), draft);
+    assert.deepEqual(game.robots.slice(0, 2).map(robot => [robot.id, robot.x, robot.y]), positions);
+    game.enemies = [enemy(100, fire.x)]; assert.ok(advance(game).some(shot => !shot.player && shot.kind === 'fire'));
+    complete(game, fire.id);
   }
+  assert.deepEqual(fire.completedMissions, [1, 2, 3]);
+  complete(game, ice.id); assert.equal(ice.autoAttackActive, true); assert.deepEqual(ice.completedMissions, [3]);
 });
 
-test('editing, incomplete code and failed reinforcement never interrupt basic attacks or cooldowns', () => {
+test('editing or failing later missions preserves activated attacks and cooldowns', () => {
   for (const wave of [2, 3] as const) for (const kind of kinds) {
     const game = setup(kind), robot = game.robots[0]; complete(game);
     while (game.wave < wave) nextWave(game);
     game.updateCode(robot.id, 0, getCodingMission(kind, wave).slots[0].block);
-    game.enemies = [enemy(100, 3)];
-    assert.ok(advance(game).length > 0);
+    game.enemies = [enemy(100, 3)]; assert.ok(advance(game).length > 0);
     const combat = [robot.cooldown, robot.phaseTimer, robot.activeBlock, robot.burstRemaining];
-    game.runCode(robot.id);
-    assert.equal(robot.missionStatus, 'error'); assert.equal(robot.basicCompleted, true);
+    game.runCode(robot.id); assert.equal(robot.missionStatus, 'error'); assert.equal(robot.autoAttackActive, true);
     assert.deepEqual([robot.cooldown, robot.phaseTimer, robot.activeBlock, robot.burstRemaining], combat);
-    assert.ok(advance(game, 30).length > 0);
+    assert.ok(advance(game, 30).length > 0); complete(game); assert.equal(robot.autoAttackActive, true);
+  }
+});
+
+test('the final correct block automatically activates attacks and completed answers cannot trigger success again', () => {
+  for (const kind of kinds) for (const wave of waves) {
+    const game = setup(kind, wave), robot = game.robots.at(-1)!;
     const slots = getCodingMission(kind, wave).slots;
-    slots.forEach((slot, i) => game.updateCode(robot.id, i, slot.block));
-    assert.equal(game.enhancementChoices[wave], null, 'filling slots alone cannot grant reinforcement');
-    game.runCode(robot.id); assert.equal(game.enhancementChoices[wave], kind);
+    for (const [index, slot] of slots.entries()) {
+      assert.equal(game.updateCode(robot.id, index, slot.block), index === slots.length - 1 ? wave : null);
+      assert.equal(robot.autoAttackActive, index === slots.length - 1);
+    }
+    assert.match(robot.missionMessage, /공격 성공!/);
+    game.enemies = [enemy(100, 3)]; assert.ok(advance(game).some(shot => !shot.player && shot.kind === kind));
+    assert.equal(game.updateCode(robot.id, 0, slots[0].block), null);
   }
 });
 
-test('waiting robots and failed basic code cannot attack even with enemies nearby', () => {
+test('failed missions never activate a waiting robot; swapping the blocks completes it', () => {
+  for (const kind of kinds) for (const wave of waves) {
+    const game = setup(kind, wave), robot = game.robots.at(-1)!;
+    const [first, second] = getCodingMission(kind, wave).slots;
+    game.updateCode(robot.id, 0, second.block); game.updateCode(robot.id, 1, first.block);
+    assert.equal(robot.missionStatus, 'error'); assert.match(robot.missionMessage, /1번째/);
+    game.enemies = [enemy(100, 3)]; assert.deepEqual(advance(game), []);
+    assert.equal(game.updateCode(robot.id, 0, first.block, 1), wave);
+    assert.deepEqual(robot.code, [first.block, second.block]); assert.ok(advance(game).length > 0);
+  }
+});
+
+test('dragging to an empty slot moves a block and rejects invalid sources', () => {
+  const game = setup('ice'), robot = game.robots[0];
+  game.updateCode(robot.id, 0, 'cool'); const before = JSON.stringify(robot.program);
+  game.updateCode(robot.id, 1, 'cool', -1); game.updateCode(robot.id, 1, 'find', 0); game.updateCode(robot.id, 1, 'cool', 0.5);
+  assert.equal(JSON.stringify(robot.program), before);
+  assert.equal(game.updateCode(robot.id, 1, 'cool', 0), null); assert.deepEqual(robot.code, [null, 'cool']);
+  assert.equal(robot.autoAttackActive, false); assert.equal(game.updateCode(robot.id, 0, 'find'), 1);
+});
+
+function combatSnapshot(kind: RobotKind, wave: MissionNumber) {
+  const game = setup(kind, wave), robot = game.robots.at(-1)!;
+  const damage = robot.damage, range = robot.range;
+  complete(game, robot.id); assert.equal(robot.damage, damage); assert.equal(robot.range, range);
+  robot.x = 3; robot.y = 5;
+  game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 3.6), enemy(103, 5), enemy(104, 14)];
+  const attacksBefore = robot.attacks;
+  const shots = advance(game);
+  return {
+    damage: robot.damage, range: robot.range, attacks: robot.attacks - attacksBefore,
+    shots: shots.map(({ from, to, kind, chain }) => ({ from, to, kind, chain })),
+    targets: game.enemies.map(({ health, burnDamage, burnTime, slowTime, slowFactor }) => ({ health, burnDamage, burnTime, slowTime, slowFactor })),
+  };
+}
+
+test('wave two and three success never increases damage, number of shots, splash, burning, cooling or chains', () => {
   for (const kind of kinds) {
-    const game = setup(kind); game.enemies = [enemy(100, 3), enemy(101, 3.3)];
-    assert.deepEqual(advance(game), []);
-    game.runCode(game.robots[0].id);
-    assert.match(game.robots[0].missionMessage, /빈칸/);
-    assert.deepEqual(advance(game), []);
+    const baseline = combatSnapshot(kind, 1);
+    for (const wave of [2, 3] as const) {
+      assert.deepEqual(combatSnapshot(kind, wave), baseline);
+    }
   }
 });
 
-test('basic electric loop fires exactly twice and retargets after killing its first target', () => {
-  const game = setup('electric'); complete(game);
-  game.enemies = [enemy(100, 3), enemy(101, 14)];
-  const shots = advance(game);
-  assert.equal(shots.filter(shot => !shot.chain).length, 2);
-  assert.equal(game.enemies[0].health, 1000 - game.robots[0].damage * 2);
-  assert.equal(game.enemies[1].health, 1000);
-  assert.equal(game.robots[0].attacks, 2);
-  const retarget = setup('electric'); complete(retarget);
-  retarget.enemies = [enemy(100, 3, 1), enemy(101, 3.4)];
-  assert.equal(advance(retarget).filter(shot => !shot.chain).length, 2);
-  assert.equal(retarget.robots[0].targetId, 101);
+test('basic electricity fires twice and retargets after killing its first target in every wave', () => {
+  for (const wave of waves) {
+    const game = setup('electric', wave), robot = game.robots.at(-1)!; complete(game, robot.id);
+    game.enemies = [enemy(100, 3), enemy(101, 14)];
+    assert.equal(advance(game).filter(shot => !shot.chain).length, 2);
+    assert.equal(game.enemies[0].health, 1000 - robot.damage * 2); assert.equal(game.enemies[1].health, 1000);
+    const retarget = setup('electric', wave), retargetRobot = retarget.robots.at(-1)!;
+    complete(retarget, retargetRobot.id);
+    retarget.enemies = [enemy(100, 3, 1), enemy(101, 3.4)];
+    assert.equal(advance(retarget).filter(shot => !shot.chain).length, 2);
+    assert.equal(retargetRobot.targetId, 101);
+  }
 });
 
-test('all base and enhanced programs attack a lone boss and continue targeting living in-range enemies', () => {
-  for (const kind of kinds) for (const wave of [1, 2, 3] as const) {
-    const game = wave === 1 ? setup(kind) : upgraded(kind, wave);
-    if (wave === 1) complete(game);
+test('every mission attacks a lone boss and ignores dead or out-of-range targets', () => {
+  for (const kind of kinds) for (const wave of waves) {
+    const game = setup(kind, wave), robot = game.robots.at(-1)!; complete(game, robot.id);
     game.enemies = [{ ...enemy(100, 3), kind: 'summoned' }, enemy(101, 14)];
-    const shots = advance(game);
-    assert.ok(shots.some(shot => shot.kind === kind && !shot.player));
-    assert.ok(game.enemies[0].health < 1000);
-    assert.equal(game.enemies[1].health, 1000);
+    assert.ok(advance(game).some(shot => !shot.player && shot.kind === kind));
+    assert.ok(game.enemies[0].health < 1000); assert.equal(game.enemies[1].health, 1000);
+    const waiting = setup(kind, wave); complete(waiting, waiting.robots.at(-1)!.id);
+    waiting.enemies = [enemy(100, 14), enemy(101, 3, 0)];
+    assert.deepEqual(advance(waiting), []); assert.equal(waiting.enemies[0].health, 1000);
   }
 });
 
-test('wave two missile condition enlarges splash and damage; lone target uses basic fire', () => {
-  const game = upgraded('fire', 2), robot = game.robots[0];
-  game.enemies = [enemy(100, 3), enemy(101, 5)];
-  assert.equal(advance(game, 5).length, 2);
-  assert.equal(game.enemies[0].health, 1000 - robot.damage * 1.35);
-  assert.equal(game.enemies[1].health, 1000 - robot.damage * 1.35);
-  assert.equal(game.enemies[1].burnDamage, robot.damage * 1.35 * 0.3);
-  const single = upgraded('fire', 2); single.enemies = [enemy(100, 3)];
-  advance(single, 5); assert.equal(single.enemies[0].health, 1000 - single.robots[0].damage);
-});
-
-test('wave two cooling affects a cluster only for an uncooled target; otherwise basic attack', () => {
-  const game = upgraded('ice', 2), robot = game.robots[0];
-  game.enemies = [enemy(100, 3), enemy(101, 5)];
-  assert.equal(advance(game, 5).length, 2);
-  assert.ok(game.enemies.every(target => target.slowTime === 3 && target.slowFactor === 0.35));
-  assert.equal(game.enemies[0].health, 1000 - robot.damage * 1.15);
-  const cooled = upgraded('ice', 2);
-  cooled.enemies = [{ ...enemy(100, 3), slowTime: 5, slowFactor: 0.6 }, enemy(101, 5)];
-  assert.equal(advance(cooled, 5).length, 1);
-  assert.equal(cooled.enemies[0].health, 1000 - cooled.robots[0].damage);
-  assert.equal(cooled.enemies[1].slowTime, 0);
-});
-
-test('wave two electricity increases chain targets and chain damage while keeping two pulses', () => {
-  const game = upgraded('electric', 2), robot = game.robots[0];
-  game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 3.6)];
-  const shots = advance(game);
-  assert.equal(shots.filter(shot => !shot.chain).length, 2);
-  assert.equal(shots.filter(shot => shot.chain).length, 4);
-  assert.equal(game.enemies[1].health, 1000 - robot.damage * 0.75 * 2);
-  assert.equal(game.enemies[2].health, 1000 - robot.damage * 0.75 * 2);
-});
-
-test('wave three health variable doubles missile damage above 100 and falls back below threshold', () => {
-  for (const health of [100, 99]) {
-    const game = upgraded('fire', 3), robot = game.robots[0];
-    game.enemies = [enemy(100, 3, health)];
-    advance(game, 5);
-    assert.equal(game.enemies[0].health, health - robot.damage * (health >= 100 ? 2 : 1));
-  }
-  const game = upgraded('fire', 3), robot = game.robots[0];
-  game.enemies = [enemy(100, 3, 120)]; advance(game, 5);
-  assert.equal(game.enemies[0].health, 120 - robot.damage * 2);
-  robot.cooldown = 0; robot.phaseTimer = 0; robot.activeBlock = 'find';
-  advance(game, 5);
-  assert.equal(game.enemies[0].burnDamage, robot.damage * 2 * 0.2);
-  assert.ok(game.enemies[0].health > 120 - robot.damage * 4 - 10, 'the next attack reevaluates current health and uses basic damage');
-});
-
-test('wave three count variable cools all in-range enemies above three; fewer enemies still take basic damage', () => {
-  const game = upgraded('ice', 3), robot = game.robots[0];
-  game.enemies = [enemy(100, 3), enemy(101, 5), enemy(102, 5.8), enemy(103, 14)];
-  const shots = advance(game, 5);
-  assert.equal(shots.length, 3);
-  assert.ok(game.enemies.slice(0, 3).every(target => target.health === 1000 - robot.damage * 1.4 && target.slowFactor === 0.25 && target.slowTime === 4));
-  assert.equal(game.enemies[3].health, 1000);
-  const single = upgraded('ice', 3); single.enemies = [enemy(100, 3)];
-  assert.equal(advance(single, 5).length, 1);
-  assert.equal(single.enemies[0].health, 1000 - single.robots[0].damage); assert.equal(single.enemies[0].slowFactor, 0.6);
-});
-
-test('wave three electricity overload fires three pulses and chains to every other in-range target', () => {
-  const game = upgraded('electric', 3), robot = game.robots[0];
-  game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 3.6), enemy(103, 4)];
-  const shots = advance(game, 13);
-  assert.equal(shots.filter(shot => !shot.chain).length, 3);
-  assert.equal(shots.filter(shot => shot.chain).length, 9);
-  assert.equal(game.enemies[0].health, 1000 - robot.damage * 1.25 * 3);
-  const single = upgraded('electric', 3); single.enemies = [enemy(100, 3)];
-  assert.equal(advance(single, 13).length, 2);
-  assert.equal(single.enemies[0].health, 1000 - single.robots[0].damage * 2);
-});
-
-test('strong cooling expires without being kept permanently by weaker basic cooling', () => {
-  const game = upgraded('ice', 3);
-  game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 3.6)]; advance(game, 5);
-  assert.equal(game.enemies[0].slowFactor, 0.25);
-  game.enemies = game.enemies.slice(0, 1);
-  advance(game, 100);
-  assert.equal(game.enemies[0].slowFactor, 0.6, 'after four seconds, the single target returns to the weaker basic cooling');
-  assert.ok(game.enemies[0].slowTime > 0);
-});
-
-test('base and enhanced programs wait when all enemies are dead or outside range', () => {
-  for (const kind of kinds) for (const wave of [1, 2, 3] as const) {
-    const game = wave === 1 ? setup(kind) : upgraded(kind, wave);
-    if (wave === 1) complete(game);
-    game.enemies = [enemy(100, 14), enemy(101, 3, 0)];
-    assert.deepEqual(advance(game), []);
-    assert.equal(game.enemies.find(enemy => enemy.id === 100)!.health, 1000);
-    assert.equal(game.robots[0].attacks, 0);
+test('automatically acquired robots require their own current wave answer after deployment', () => {
+  for (const wave of waves) {
+    const game = setup('ice', wave), first = game.robots.at(-1)!; complete(game, first.id);
+    game.elementEnergy.ice = 0; const owned = game.robotCount;
+    game.enemies = [enemy(100, 14, 0), enemy(101, 14, 0), enemy(102, 14, 0)]; game.step(0.05);
+    const stored = game.robots.at(-1)!;
+    assert.equal(stored.deployed, false); assert.equal(stored.autoAttackActive, false);
+    assert.equal(stored.missionNumber, wave); assert.deepEqual(stored.completedMissions, []);
+    game.selectRobot(stored.id);
+    assert.equal(stored.deployed, true); assert.equal(game.robotCount, owned + 1);
+    for (const robot of game.robots) { robot.x = 3; robot.y = 5; }
+    game.enemies = [enemy(200, 3)]; advance(game, 30);
+    assert.ok(first.attacks > 0); assert.equal(stored.attacks, 0);
+    complete(game, stored.id); advance(game, 30); assert.ok(stored.attacks > 0);
   }
 });
 
-test('shared reinforcement applies to every existing robot and automatically acquired robots after deployment', () => {
-  const game = setup('ice'), first = game.robots[0], second = summon(game, 'ice');
-  complete(game); nextWave(game); complete(game);
-  assert.ok([first, second].every(robot => robot.enhancements.includes(2)));
-  game.elementEnergy.ice = 0;
-  const owned = game.robotCount;
-  game.enemies = [enemy(100, 14, 0), enemy(101, 14, 0), enemy(102, 14, 0)];
-  game.step(0.05);
-  const stored = game.robots.at(-1)!;
-  assert.equal(stored.deployed, false); assert.equal(stored.basicCompleted, true); assert.deepEqual(stored.enhancements, [2]);
-  game.selectRobot(stored.id);
-  assert.equal(stored.deployed, true); assert.equal(game.robotCount, owned + 1); assert.equal(game.elementEnergy.ice, 0);
-  for (const robot of game.robots) { robot.x = 3; robot.y = 5; }
-  game.enemies = [enemy(200, 3)]; advance(game, 30);
-  assert.ok([first, second, stored].every(robot => robot.attacks > 0));
-});
-
-test('paused and finished games cannot edit missions, deploy stored robots or spend energy', () => {
+test('paused and finished games cannot edit, deploy or spend energy', () => {
   const game = setup('ice'); complete(game);
   game.enemies = [enemy(100, 14, 0), enemy(101, 14, 0), enemy(102, 14, 0)]; game.step(0.05);
   const stored = game.robots.at(-1)!;
@@ -334,14 +255,40 @@ test('paused and finished games cannot edit missions, deploy stored robots or sp
   }
 });
 
-test('invalid inputs do not alter shared programs and new games reset all completion and upgrade choices', () => {
+test('rare boss rewards require a new answer even when that kind already completed its mission', () => {
+  for (const kind of kinds) {
+    const roll = { fire: 0, ice: 0.4, electric: 0.99 }[kind];
+    const rewards = [0, 0.4, 0.99, 0.01, roll]; let index = 0;
+    const game = new DefenseSimulation(() => rewards[index++]);
+    game.startWave(); game.player = { x: 14, y: 11 };
+    const learned = summon(game, kind); complete(game, learned.id);
+    game.enemies = [{ ...enemy(100, 14, 0), kind: 'summoned' }, enemy(101, 14)]; game.step(0.05);
+    const added = game.robots.at(-1)!;
+    assert.equal(added.kind, kind); assert.equal(added.deployed, false); assert.equal(added.autoAttackActive, false);
+    assert.deepEqual(added.code, [null, null]); game.selectRobot(added.id);
+    for (const robot of game.robots) { robot.x = 3; robot.y = 5; }
+    game.enemies = [enemy(200, 3)]; advance(game, 30);
+    assert.ok(learned.attacks > 0); assert.equal(added.attacks, 0);
+    complete(game, added.id); advance(game, 30); assert.ok(added.attacks > 0);
+  }
+});
+
+test('merging retains the selected mission and activation; replacements need a new answer', () => {
+  const game = setup('electric'), selected = game.robots[0]; complete(game);
+  summon(game, 'electric'); game.selectRobot(selected.id);
+  const program = JSON.stringify(selected.program); game.elementEnergy.electric = 3; game.merge();
+  assert.equal(selected.grade, 2); assert.equal(JSON.stringify(selected.program), program); assert.equal(selected.autoAttackActive, true);
+  const replacement = game.robots.at(-1)!;
+  assert.notEqual(replacement.id, selected.id); assert.equal(replacement.autoAttackActive, false); assert.deepEqual(replacement.code, [null, null]);
+});
+
+test('invalid blocks cannot mutate a mission and restarting resets all activation and completion', () => {
   const game = setup('ice'), robot = game.robots[0], before = JSON.stringify(game);
-  game.updateCode(-1, 0, 'in-range'); game.updateCode(robot.id, -1, 'cool'); game.updateCode(robot.id, 0.5, 'cool');
-  game.updateCode(robot.id, 0, 'enemy-count'); game.runCode(-1);
+  game.updateCode(-1, 0, 'find'); game.updateCode(robot.id, -1, 'cool'); game.updateCode(robot.id, 0.5, 'cool');
+  game.updateCode(robot.id, 0, 'missile'); game.updateCode(robot.id, 0, 'in-range'); game.runCode(-1);
   assert.equal(JSON.stringify(game), before);
-  complete(game); nextWave(game); complete(game);
-  const fresh = new DefenseSimulation();
-  assert.equal(fresh.robotCount, 0); assert.deepEqual(fresh.enhancementChoices, { 2: null, 3: null });
-  assert.ok(kinds.every(kind => fresh.programs[kind][1].status === 'waiting'));
-  assert.notEqual(fresh.programs.ice[1].code, game.programs.ice[1].code);
+  complete(game); nextWave(game); summon(game, 'ice'); complete(game);
+  const fresh = new DefenseSimulation(); assert.equal(fresh.robotCount, 0);
+  const added = summon(fresh, 'ice'); assert.equal(added.missionNumber, 1); assert.equal(added.autoAttackActive, false);
+  assert.deepEqual(added.completedMissions, []); assert.deepEqual(added.code, [null, null]); assert.notEqual(added.program, robot.program);
 });

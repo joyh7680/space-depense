@@ -20,7 +20,7 @@ const portraitUrl = `url("${portraitAssetUrl}")`;
 const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
 const monsterArt = `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${getRegularMonster(1).file}`;
 const retryButton = ref<HTMLButtonElement>();
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, enhancementChoices: { 2: null, 3: null }, robots: [], robotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, robots: [], robotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
 const remainingHearts = computed(() => Math.max(0, Math.min(10, Math.ceil(state.value.health / 10))));
 const canDeploy = computed(() => ready.value && state.value.status === 'running');
 const finished = computed(() => state.value.status === 'cleared' || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
@@ -128,7 +128,7 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <p v-if="ready && canDeploy" class="battle-hint" role="status">{{ state.message || '에너지 3개 → 로봇 자동 소환 → 로봇 버튼에서 코딩' }}</p>
     </div>
-    <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :enhancement-choices="state.enhancementChoices" :interactive="canDeploy && !summonOpen" @change="(slot, block) => room?.updateCode(codingRobot!.id, slot, block)" @run="room?.runCode(codingRobot.id)" />
+    <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy && !summonOpen" @change="(slot, block, sourceSlot) => room?.updateCode(codingRobot!.id, slot, block, sourceSlot)" />
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
     <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
       <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="true" aria-label="로봇 선택" tabindex="-1" @keydown="dialogKey">

@@ -383,7 +383,7 @@ export class DefenseScene extends Phaser.Scene {
         label = this.add.text(x, y + 38, '', { fontFamily: 'sans-serif', fontSize: '22px', color: '#e7f9f5', backgroundColor: '#1b2638', padding: { x: 5, y: 3 } }).setOrigin(0.5).setDepth(17);
         this.unitLabels.set(robot.id, label);
       }
-      const attackEnabled = robot.basicCompleted;
+      const attackEnabled = robot.autoAttackActive;
       art.setAlpha(attackEnabled ? 1 : 0.55);
       label.setPosition(x, y + 38).setDepth(dragging ? 111 : 17).setVisible(!attackEnabled).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n공격 대기`);
     }
@@ -438,7 +438,7 @@ export class DefenseScene extends Phaser.Scene {
   toggleGrid(): void { this.showGrid = !this.showGrid; this.room.grid.setVisible(this.showGrid); this.publish(); }
   startWave(): void {
     this.inspectRange = false;
-    if (this.simulation.startWave()) { this.mode = 'move'; this.notice = this.simulation.wave > 1 ? '자동 공격은 유지돼요. 로봇 소환 버튼에서 이번 웨이브에 강화할 종류를 선택하세요.' : '종류별 기본 미션을 완료해 자동 공격을 시작하세요.'; }
+    if (this.simulation.startWave()) { this.mode = 'move'; this.notice = this.simulation.wave > 1 ? '자동 공격은 유지돼요. 로봇 소환 버튼에서 이번 웨이브 미션을 풀 로봇을 선택하세요.' : '종류별 이번 웨이브 미션을 완료해 자동 공격을 시작하세요.'; }
     else this.notice = '전투가 진행 중이에요.';
     this.publish();
   }
@@ -452,13 +452,15 @@ export class DefenseScene extends Phaser.Scene {
     this.inspectRange = deployed; this.mode = deployed ? 'relocate' : 'move';
     const robot = this.simulation.robots.find(robot => robot.id === id);
     this.notice = deployed
-      ? robot?.basicCompleted ? '자동 공격 중이에요. 로봇을 드래그해서 배치하세요.' : '로봇을 드래그해서 배치할 수 있어요. 오른쪽 기본 미션을 완료하면 공격을 시작해요.'
+      ? robot?.autoAttackActive ? '자동 공격 중이에요. 로봇을 드래그해서 배치하세요.' : '로봇을 드래그해서 배치할 수 있어요. 오른쪽 이번 웨이브 미션을 완료하면 공격을 시작해요.'
       : robot?.missionMessage ?? '로봇 소환 버튼에서 로봇을 선택하세요.';
     this.drawUnits();
     this.options.parent.focus({ preventScroll: true }); this.publish();
   }
-  updateCode(id: number, slot: number, block: CodingBlockId | null): void {
-    this.simulation.updateCode(id, slot, block); this.publish();
+  updateCode(id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number): void {
+    const completedMission = this.simulation.updateCode(id, slot, block, sourceSlot);
+    if (completedMission) this.notice = this.simulation.robots.find(robot => robot.id === id)!.program[completedMission].message;
+    this.publish();
   }
   runCode(id: number): void { this.notice = this.simulation.runCode(id); this.publish(); }
   merge(): void { this.notice = this.simulation.merge(); this.publish(); }
@@ -491,7 +493,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(Math.max(0, s.countdown - 0.000001)), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, enhancementChoices: { ...s.enhancementChoices }, robots: s.robots.map(({ cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], enhancements: [...robot.enhancements] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(Math.max(0, s.countdown - 0.000001)), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, robots: s.robots.map(({ program, cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], completedMissions: [...robot.completedMissions] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
     this.options.onState?.(state);
   }
 }

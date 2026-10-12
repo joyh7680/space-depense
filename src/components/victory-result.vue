@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { getCodingMission } from '../game/coding-missions';
 
 defineProps<{ wave: number; kills: number; total: number; escaped: number; reward: number }>();
 defineEmits<{ replay: []; next: [] }>();
@@ -39,7 +40,7 @@ onMounted(() => dialog.value?.focus({ preventScroll: true }));
       <strong>+{{ reward }}<span>에너지</span></strong>
     </div>
     <button ref="replayButton" class="victory-replay" @click="wave < 3 ? $emit('next') : $emit('replay')"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg>{{ wave < 3 ? `웨이브 ${wave + 1} 시작` : '다시 플레이' }}<svg class="victory-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
-    <p class="victory-footnote">{{ wave < 3 ? `다음 웨이브는 모든 로봇이 블록 ${wave + 1}개 문제를 풀어요` : '웨이브 3까지 모두 완료했어요' }}</p>
+    <p class="victory-footnote">{{ wave < 3 ? `다음 웨이브: ${getCodingMission('fire', wave + 1).title} · ${getCodingMission('fire', wave + 1).concept} · 기존 자동 공격 유지` : '웨이브 3까지 모두 완료했어요' }}</p>
   </section>
 </template>
 

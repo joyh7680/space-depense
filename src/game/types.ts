@@ -1,4 +1,4 @@
-import type { CodingBlockId, RobotCode, MissionNumber, EnhancementChoices } from './coding-missions.ts';
+import type { CodingBlockId, RobotCode, MissionNumber } from './coding-missions.ts';
 export type TilePosition = { x: number; y: number };
 export type RobotKind = 'fire' | 'ice' | 'electric';
 export type ElementEnergy = Record<RobotKind, number>;
@@ -9,7 +9,7 @@ export type RobotState = TilePosition & {
   id: number; kind: RobotKind; grade: number; range: number; damage: number; deployed: boolean;
   activeBlock: CodeBlock; attacks: number; targetId: number | null;
   serial: number; code: RobotCode; missionStatus: 'waiting' | 'error' | 'completed'; missionMessage: string;
-  missionNumber: MissionNumber; basicCompleted: boolean; enhancements: MissionNumber[];
+  missionNumber: MissionNumber; autoAttackActive: boolean; completedMissions: MissionNumber[];
 };
 export type DefenseState = {
   status: GameStatus; wave: number; health: number; credits: number; kills: number;
@@ -18,14 +18,13 @@ export type DefenseState = {
   mode: GameMode; grid: boolean; message: string; countdown: number;
   monsterSummonCountdown: number | null;
   defeatAnimationComplete: boolean;
-  enhancementChoices: EnhancementChoices;
 };
 export type GameController = {
   setInteractionLocked: (locked: boolean) => void;
   setMode: (mode: GameMode) => void;
   summon: (kind: RobotKind) => void;
   selectRobot: (id: number) => void;
-  updateCode: (id: number, slot: number, block: CodingBlockId | null) => void;
+  updateCode: (id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number) => void;
   runCode: (id: number) => void;
   merge: () => void;
   toggleGrid: () => void;
