@@ -4,16 +4,22 @@ import { DefenseSimulation, ROUTE } from '../src/game/defense-simulation.ts';
 import { ROBOT_KINDS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
 
 const advance = (game: DefenseSimulation, seconds: number) => {
-  for (let frame = 0; frame < Math.round(seconds * 20); frame++) game.step(0.05);
+  // Isolate the boss timer from regular enemies without disabling the spawner.
+  for (let frame = 0; frame < Math.round(seconds * 20); frame++) {
+    if (game.status === 'running') game.enemies = game.enemies.filter(enemy => enemy.kind === 'summoned');
+    game.step(0.05);
+    if (game.status === 'running') game.enemies = game.enemies.filter(enemy => enemy.kind === 'summoned');
+  }
 };
 const spawnBoss = (game: DefenseSimulation) => {
-  game.startWave(); game.spawned = WAVE_ONE.enemies;
+  game.player = { x: 14, y: 11 };
+  game.startWave();
   advance(game, SUMMONED_MONSTER.summonDelay);
 };
 
 test('one boss automatically appears exactly 100 seconds after game start without input', () => {
   const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
-  game.startWave(); game.spawned = WAVE_ONE.enemies;
+  game.startWave();
   assert.equal(game.enemies.length, 0);
   assert.equal(game.totalEnemies, WAVE_ONE.enemies + 1);
   assert.equal(game.monsterSummonCountdown, 100);
@@ -50,7 +56,7 @@ test('the delay starts with the wave and regular monsters continue to spawn', ()
   game.step(0.05);
   assert.equal(game.spawned, 1);
   assert.equal(game.enemies[0].kind, undefined);
-  game.enemies = []; game.spawned = WAVE_ONE.enemies;
+  game.enemies = [];
   advance(game, 99.9);
   assert.equal(game.enemies.length, 0);
   assert.equal(game.monsterSummonCountdown, 1);
@@ -60,7 +66,7 @@ test('the delay starts with the wave and regular monsters continue to spawn', ()
 
 test('repeated start requests do not restart the automatic boss countdown', () => {
   const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
-  game.startWave(); game.spawned = WAVE_ONE.enemies;
+  game.startWave();
   advance(game, 20);
   assert.equal(game.startWave(), false);
   assert.equal(game.monsterSummonCountdown, 80);
@@ -71,7 +77,7 @@ test('repeated start requests do not restart the automatic boss countdown', () =
 
 test('pause freezes automatic spawning, and resuming completes the remaining delay', () => {
   const game = new DefenseSimulation();
-  game.startWave(); game.spawned = WAVE_ONE.enemies;
+  game.startWave();
   advance(game, 15); game.togglePause();
   const before = JSON.stringify(game);
   advance(game, 90);
@@ -84,7 +90,7 @@ test('pause freezes automatic spawning, and resuming completes the remaining del
 
 test('defeat stops automatic spawning and a new game starts a fresh 100 second countdown', () => {
   const game = new DefenseSimulation();
-  game.startWave(); game.spawned = WAVE_ONE.enemies;
+  game.startWave();
   const end = ROUTE.at(-1)!;
   game.enemies.push({ ...end, x: end.x + 0.001, id: 100, waypoint: ROUTE.length - 1, health: 100, burnTime: 0, burnDamage: 0, slowTime: 0 });
   game.step(0.05);
@@ -93,7 +99,7 @@ test('defeat stops automatic spawning and a new game starts a fresh 100 second c
   advance(game, 60);
   assert.equal(JSON.stringify(game), before);
   const reset = new DefenseSimulation();
-  reset.startWave(); reset.spawned = WAVE_ONE.enemies;
+  reset.startWave();
   assert.equal(reset.monsterSummonCountdown, 100);
   assert.equal(reset.totalEnemies, WAVE_ONE.enemies + 1);
   advance(reset, 100);

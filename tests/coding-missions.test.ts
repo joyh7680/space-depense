@@ -6,12 +6,20 @@ import type { RobotKind } from '../src/game/types.ts';
 
 function setup(kind: RobotKind, wave = 1) {
   const game = new DefenseSimulation(() => 0.4);
-  game.player = { x: 14, y: 11 }; game.startWave(); game.wave = wave; game.spawned = 12;
+  game.player = { x: 14, y: 11 }; game.startWave(); game.wave = wave;
   game.elementEnergy[kind] = 3; game.summon(kind);
   return game;
 }
 const enemy = (id: number, x: number): Enemy => ({ id, x, y: 4, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
-const advance = (game: DefenseSimulation, frames = 5) => Array.from({ length: frames }, () => game.step(0.05)).flat();
+const advance = (game: DefenseSimulation, frames = 5) => {
+  // Coding tests exercise their supplied targets while regular spawning remains enabled.
+  const targets = new Set(game.enemies.map(enemy => enemy.id));
+  return Array.from({ length: frames }, () => {
+    const shots = game.step(0.05);
+    game.enemies = game.enemies.filter(enemy => targets.has(enemy.id));
+    return shots;
+  }).flat();
+};
 const complete = (game: DefenseSimulation, id = game.robots[0].id) => {
   const robot = game.robots.find(robot => robot.id === id)!;
   getCodingMission(robot.kind, game.wave).slots.forEach((slot, index) => game.updateCode(id, index, slot.block));
@@ -31,10 +39,11 @@ test('wave transitions replace every existing draft and completed mission with t
     for (const robot of game.robots) complete(game, robot.id);
     assert.ok(game.robots.every(robot => robot.missionStatus === 'completed'));
     // Clear a real wave, including its timed boss, without waiting through the battle.
-    game.spawned = 12; game.enemies = []; game.elapsed = 100;
+    game.enemies = []; game.elapsed = 100;
     game.step(0.05);
     assert.equal(game.enemies[0].kind, 'summoned');
-    game.enemies[0].health = 0; game.step(0.05);
+    for (const enemy of game.enemies) enemy.health = 0;
+    game.step(0.05);
     assert.equal(game.status, 'cleared');
     assert.equal(game.startWave(), wave < 3);
     if (wave < 3) {
@@ -44,7 +53,6 @@ test('wave transitions replace every existing draft and completed mission with t
       assert.ok(game.robots.every(robot => robot.missionStatus === 'waiting' && robot.code.every(block => block === null)));
       assert.deepEqual(game.robots.slice(0, 3).map(robot => robot.id), ids);
       game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 3.6)];
-      game.spawned = 12;
       assert.deepEqual(advance(game), [], 'previous wave completion cannot enable attacks in the next wave');
     }
   }
@@ -163,7 +171,7 @@ test('fire stores nearby count condition, waits below three, then damages multip
 test('automatic summons can create two independent missions in one reward batch and keep the remainder', () => {
   let rolls = 0;
   const game = new DefenseSimulation(() => rolls++ < 7 ? 0.4 : 0); game.player = { x: 14, y: 11 }; game.startWave();
-  game.enemies = Array.from({ length: 3 }, (_, i) => ({ ...enemy(100 + i, 3), health: 0 }));
+  game.enemies = Array.from({ length: 9 }, (_, i) => ({ ...enemy(100 + i, 3), health: 0 }));
   game.step(0.05);
   assert.equal(game.robotCount, 2); assert.equal(game.elementEnergy.ice, 1); assert.equal(game.selectedId, null);
   assert.equal(game.deployedRobots.length, 0);

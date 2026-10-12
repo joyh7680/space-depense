@@ -28,6 +28,7 @@ export class DefenseSimulation {
   escaped = 0;
   spawned = 0;
   private bossSpawned = false;
+  private bossDefeated = false;
   elapsed = 0;
   countdown = 5;
   player: TilePosition = { x: 5, y: 5 };
@@ -44,7 +45,10 @@ export class DefenseSimulation {
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
   get robotCount(): number { return this.robots.length; }
   get deployedRobots(): Robot[] { return this.robots.filter(robot => robot.deployed); }
-  get totalEnemies(): number { return WAVE_ONE.enemies + 1; }
+  get totalEnemies(): number {
+    if (this.bossDefeated || this.status === 'defeat') return this.spawned + Number(this.bossSpawned);
+    return Math.max(WAVE_ONE.enemies, this.spawned) + 1;
+  }
   get monsterSummonCountdown(): number | null {
     return this.bossSpawned ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
   }
@@ -182,7 +186,7 @@ export class DefenseSimulation {
     this.wave = nextWave ? this.wave + 1 : 1;
     if (nextWave) {
       this.kills = 0; this.escaped = 0; this.spawned = 0; this.elapsed = 0;
-      this.bossSpawned = false; this.playerCooldown = 0; this.selectedId = null;
+      this.bossSpawned = false; this.bossDefeated = false; this.playerCooldown = 0; this.selectedId = null;
       for (const robot of this.robots) {
         robot.code = getCodingMission(robot.kind, this.wave).slots.map(() => null);
         robot.missionStatus = 'waiting';
@@ -208,16 +212,17 @@ export class DefenseSimulation {
     if (this.status !== 'running') return [];
     this.elapsed += dt; this.spawnTimer -= dt;
     this.spawnBoss();
-    if (this.spawned < WAVE_ONE.enemies && this.spawnTimer <= 0) {
-      this.enemies.push({ ...ROUTE[0], id: ++this.sequence, health: WAVE_ONE.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
-      this.spawned++; this.spawnTimer += WAVE_ONE.spawnInterval;
-    }
     for (const enemy of this.enemies) {
       if (enemy.burnTime > 0) enemy.health -= enemy.burnDamage * Math.min(dt, enemy.burnTime);
       enemy.burnTime = Math.max(0, enemy.burnTime - dt);
       enemy.slowTime = Math.max(0, enemy.slowTime - dt);
     }
-    this.collectKills(); this.moveEnemies(dt);
+    this.collectKills();
+    if (!this.bossDefeated && this.spawnTimer <= 0) {
+      this.enemies.push({ ...ROUTE[0], id: ++this.sequence, health: WAVE_ONE.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
+      this.spawned++; this.spawnTimer += WAVE_ONE.spawnInterval;
+    }
+    this.moveEnemies(dt);
     if (this.health <= 0) { this.health = 0; this.status = 'defeat'; return []; }
     const shots = this.executeRobots(dt);
     this.playerCooldown = Math.max(0, this.playerCooldown - dt);
@@ -228,7 +233,7 @@ export class DefenseSimulation {
       this.playerCooldown = 0.8;
     }
     this.collectKills();
-    if (this.spawned === WAVE_ONE.enemies && this.enemies.length === 0 && this.bossSpawned) {
+    if (this.bossDefeated && this.enemies.length === 0) {
       this.status = 'cleared'; this.credits += WAVE_ONE.clearEnergy;
     }
     return shots;
@@ -236,8 +241,10 @@ export class DefenseSimulation {
   private collectKills(): void {
     this.enemies = this.enemies.filter(e => {
       if (e.health > 0) return true;
-      // Each defeated monster grants three independently rolled elements.
-      for (let reward = 0; reward < 3; reward++) {
+      if (e.kind === 'summoned') this.bossDefeated = true;
+      // Regular monsters grant one random element; summoned bosses still grant three.
+      const rewardCount = e.kind === 'summoned' ? 3 : 1;
+      for (let reward = 0; reward < rewardCount; reward++) {
         this.elementEnergy[this.randomKind()]++;
       }
       if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < 8) {
