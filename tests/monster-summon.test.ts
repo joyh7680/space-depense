@@ -50,7 +50,7 @@ test('one boss automatically appears exactly 100 seconds after game start withou
 
 test('the delay starts with the wave and regular monsters continue to spawn', () => {
   const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
-  advance(game, 5);
+  advance(game, 3);
   assert.equal(game.status, 'running');
   assert.equal(game.monsterSummonCountdown, 100);
   game.step(0.05);

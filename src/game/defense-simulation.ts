@@ -31,7 +31,7 @@ export class DefenseSimulation {
   private bossSpawned = false;
   private bossDefeated = false;
   elapsed = 0;
-  countdown = 5;
+  countdown = 3;
   player: TilePosition = { x: 5, y: 5 };
   private playerCooldown = 0;
   selectedId: number | null = null;

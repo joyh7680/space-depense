@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE, isRouteTile, type Enemy } from '../src/game/defense-simulation.ts';
-import { DEPLOY_SLOTS, WAVE_ONE } from '../src/game/wave-one.ts';
+import { DEPLOY_SLOTS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
 import type { RobotKind } from '../src/game/types.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 import { getCodingMission } from '../src/game/coding-missions.ts';
@@ -236,10 +236,20 @@ test('new games do not share combat, selection or resource state', () => {
   assert.equal(b.status, 'ready'); assert.equal(b.credits, 300); assert.equal(b.robots.length, 0); assert.equal(b.selectedId, null); assert.equal(b.elapsed, 0); assert.deepEqual(b.elementEnergy, { fire: 0, electric: 0, ice: 0 });
 });
 
-test('five second countdown starts wave once without summoning and creates mint wave enemies', () => {
+test('three second countdown shows 3, 2, 1 before combat starts once', () => {
  const game = new DefenseSimulation();
- advance(game, 4.9); assert.equal(game.status, 'ready'); assert.ok(game.countdown > 0); assert.equal(game.spawned, 0);
- advance(game, 0.15); assert.equal(game.status, 'running'); assert.equal(game.wave, 1); assert.equal(game.robots.length, 0);
+ assert.equal(Math.ceil(game.countdown), 3);
+ for (const expected of [2, 1]) {
+   advance(game, 1);
+   assert.ok(Math.abs(game.countdown - expected) < 0.000001);
+   assert.equal(game.status, 'ready');
+   assert.equal(game.wave, 0); assert.equal(game.elapsed, 0);
+   assert.equal(game.spawned, 0); assert.equal(game.enemies.length, 0);
+   assert.equal(game.monsterSummonCountdown, SUMMONED_MONSTER.summonDelay);
+ }
+ advance(game, 0.95); assert.equal(game.status, 'ready'); assert.ok(game.countdown > 0);
+ advance(game, 0.05); assert.equal(game.status, 'running'); assert.equal(game.wave, 1); assert.equal(game.robots.length, 0);
+ assert.equal(game.countdown, 0); assert.equal(game.elapsed, 0); assert.equal(game.spawned, 0);
  advance(game, 0.1); assert.equal(game.spawned, 1); assert.equal(game.startWave(), false);
 });
 test('connected route stays on walkable orthogonal tiles and rejects robot placement', () => {

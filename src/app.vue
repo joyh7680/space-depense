@@ -20,8 +20,8 @@ const portraitUrl = `url("${portraitAssetUrl}")`;
 const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
 const monsterArt = `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${getRegularMonster(1).file}`;
 const retryButton = ref<HTMLButtonElement>();
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 5, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, enhancementChoices: { 2: null, 3: null }, robots: [], robotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
-const canDeploy = computed(() => ready.value && ['ready', 'running'].includes(state.value.status));
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, enhancementChoices: { 2: null, 3: null }, robots: [], robotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
+const canDeploy = computed(() => ready.value && state.value.status === 'running');
 const finished = computed(() => state.value.status === 'cleared' || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
 watch(() => state.value.status, status => {
   if (summonOpen.value && (status === 'defeat' || status === 'cleared')) closeSummon();
@@ -93,6 +93,11 @@ function dialogKey(event: KeyboardEvent) {
   <main class="game-screen" aria-label="코드모스 우주 디펜스" :style="{ '--portrait-url': portraitUrl }" :data-player-x="state.player.x" :data-player-y="state.player.y">
     <div class="battle-area">
     <SpaceDefenseRoom ref="room" @state="state = $event" @ready="ready = true" @error="error = $event" />
+    <div v-if="ready && !error && state.status === 'ready'" class="countdown-hud" role="status" aria-live="polite" aria-atomic="true">
+      <small>게임 시작까지</small>
+      <strong>{{ state.countdown }}</strong>
+      <span>잠시 후 전투가 시작돼요!</span>
+    </div>
     <div class="profile-hud">
       <div class="profile-avatar"><i class="codmos-portrait" /></div>
       <div><small>Lv. 1 <span>ϟ {{ state.credits }}</span></small><strong>우주 지휘관</strong></div>

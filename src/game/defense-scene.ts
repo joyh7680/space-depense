@@ -96,7 +96,6 @@ export class DefenseScene extends Phaser.Scene {
     this.scale.on('resize', this.fitRoom, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.fitRoom, this));
     this.fitRoom();
-    this.simulation.startWave();
     this.options.parent.focus({ preventScroll: true });
     this.publish();
   }
@@ -204,7 +203,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private onPointer(pointer: Phaser.Input.Pointer): void {
     this.options.parent.focus({ preventScroll: true });
-    if (this.interactionLocked || ['paused', 'defeat', 'cleared'].includes(this.simulation.status)) return;
+    if (this.interactionLocked || this.simulation.status !== 'running') return;
     const tile = this.tileAt(pointer);
     if (this.simulation.deployedRobots.some(d => d.x === tile.x && d.y === tile.y)) {
       const robot = this.simulation.deployedRobots.find(d => d.x === tile.x && d.y === tile.y)!;
@@ -221,7 +220,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private updateHover(pointer: Phaser.Input.Pointer): void {
     this.hover.clear();
-    if (this.interactionLocked || ['paused', 'defeat', 'cleared'].includes(this.simulation.status)) return;
+    if (this.interactionLocked || this.simulation.status !== 'running') return;
     const tile = this.tileAt(pointer);
     if (!isWalkable(tile.x, tile.y)) return;
     this.hover.lineStyle(3, isRouteTile(tile.x, tile.y) ? 0xff7070 : this.mode === 'relocate' ? 0xf3bd6f : 0x89e4dd, 0.85);
@@ -241,7 +240,7 @@ export class DefenseScene extends Phaser.Scene {
     const shots = this.simulation.step(delta / 1000);
     if (this.simulation.enemies.some(enemy => enemy.kind === 'summoned' && !previousBosses.has(enemy.id))) this.notice = '보스급 몬스터 출현! 로봇을 배치해서 막아 주세요.';
     if (previousHealth > 0 && this.simulation.status === 'defeat') this.destroyStation();
-    if (!['paused', 'defeat', 'cleared'].includes(this.simulation.status)) this.movePlayer(time);
+    if (this.simulation.status === 'running') this.movePlayer(time);
     this.room.updateWall(Math.max(this.playerTile.y, ...this.simulation.deployedRobots.map(r => r.y)));
     this.drawUnits();
     let rewardIndex = 0;
@@ -417,8 +416,8 @@ export class DefenseScene extends Phaser.Scene {
     this.aliens.clear(); this.robotArt.clear(); this.unitLabels.clear();
     this.inspectRange = false;
     this.simulation = new DefenseSimulation(); this.mode = 'move'; this.target = null;
-    this.simulation.startWave();
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
+    this.player.play('idle', true);
     this.player.setAngle(0);
     this.stationDamage.clear().setAlpha(1); this.core.setAlpha(1);
     this.cameras.main.resetFX();
@@ -431,7 +430,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(s.countdown), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, enhancementChoices: { ...s.enhancementChoices }, robots: s.robots.map(({ cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], enhancements: [...robot.enhancements] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(Math.max(0, s.countdown - 0.000001)), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, enhancementChoices: { ...s.enhancementChoices }, robots: s.robots.map(({ cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], enhancements: [...robot.enhancements] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete };
     this.options.onState?.(state);
   }
 }
