@@ -1,0 +1,72 @@
+{
+  "frames": {
+    "fire": {
+      "frame": {
+        "x": 228,
+        "y": 877,
+        "w": 240,
+        "h": 244
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 240,
+        "h": 244
+      },
+      "sourceSize": {
+        "w": 240,
+        "h": 244
+      }
+    },
+    "ice": {
+      "frame": {
+        "x": 318,
+        "y": 1343,
+        "w": 242,
+        "h": 249
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 242,
+        "h": 249
+      },
+      "sourceSize": {
+        "w": 242,
+        "h": 249
+      }
+    },
+    "electric": {
+      "frame": {
+        "x": 1510,
+        "y": 1428,
+        "w": 231,
+        "h": 208
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 231,
+        "h": 208
+      },
+      "sourceSize": {
+        "w": 231,
+        "h": 208
+      }
+    }
+  },
+  "meta": {
+    "image": "int-front.png",
+    "size": {
+      "w": 2036,
+      "h": 1876
+    },
+    "scale": "1"
+  }
+}

@@ -1,0 +1,500 @@
+
+> space-defense@0.1.0 test
+> node --experimental-strip-types --test tests/*.test.ts
+
+TAP version 13
+# Subtest: the first question teaches the wave concept with the matching robot attack
+ok 1 - the first question teaches the wave concept with the matching robot attack
+  ---
+  duration_ms: 51.8149
+  type: 'test'
+  ...
+# Subtest: nine robots of the same kind receive distinct questions, answers and palettes in every wave
+ok 2 - nine robots of the same kind receive distinct questions, answers and palettes in every wave
+  ---
+  duration_ms: 160.2506
+  type: 'test'
+  ...
+# Subtest: a foreign question block cannot enter a robot answer and a merged replacement gets a fresh question
+ok 3 - a foreign question block cannot enter a robot answer and a merged replacement gets a fresh question
+  ---
+  duration_ms: 3.785
+  type: 'test'
+  ...
+# Subtest: all three kinds can finish each wave independently without reserving one kind
+ok 4 - all three kinds can finish each wave independently without reserving one kind
+  ---
+  duration_ms: 7.2718
+  type: 'test'
+  ...
+# Subtest: mission completion enables only the selected robot, including robots obtained in later waves
+ok 5 - mission completion enables only the selected robot, including robots obtained in later waves
+  ---
+  duration_ms: 19.2954
+  type: 'test'
+  ...
+# Subtest: drafts and errors stay with each robot when selecting the same or a different kind
+ok 6 - drafts and errors stay with each robot when selecting the same or a different kind
+  ---
+  duration_ms: 3.6243
+  type: 'test'
+  ...
+# Subtest: wave transitions remove completed robots and drafts; new robots need the current mission
+ok 7 - wave transitions remove completed robots and drafts; new robots need the current mission
+  ---
+  duration_ms: 2.3133
+  type: 'test'
+  ...
+# Subtest: new robots in later waves wait for a correct answer before attacking
+ok 8 - new robots in later waves wait for a correct answer before attacking
+  ---
+  duration_ms: 5.8707
+  type: 'test'
+  ...
+# Subtest: the final correct block automatically activates attacks and completed answers cannot trigger success again
+ok 9 - the final correct block automatically activates attacks and completed answers cannot trigger success again
+  ---
+  duration_ms: 7.1017
+  type: 'test'
+  ...
+# Subtest: failed missions never activate a waiting robot; swapping the blocks completes it
+ok 10 - failed missions never activate a waiting robot; swapping the blocks completes it
+  ---
+  duration_ms: 11.9898
+  type: 'test'
+  ...
+# Subtest: dragging to an empty slot moves a block and rejects invalid sources
+ok 11 - dragging to an empty slot moves a block and rejects invalid sources
+  ---
+  duration_ms: 1.1016
+  type: 'test'
+  ...
+# Subtest: wave two and three success never increases damage, number of shots, splash, burning, cooling or chains
+ok 12 - wave two and three success never increases damage, number of shots, splash, burning, cooling or chains
+  ---
+  duration_ms: 5.8274
+  type: 'test'
+  ...
+# Subtest: basic electricity fires twice and retargets after killing its first target in every wave
+ok 13 - basic electricity fires twice and retargets after killing its first target in every wave
+  ---
+  duration_ms: 3.8822
+  type: 'test'
+  ...
+# Subtest: every mission attacks a lone boss and distant living enemies while ignoring dead targets
+ok 14 - every mission attacks a lone boss and distant living enemies while ignoring dead targets
+  ---
+  duration_ms: 7.0957
+  type: 'test'
+  ...
+# Subtest: hangar deployment opens an independent current wave mission
+ok 15 - hangar deployment opens an independent current wave mission
+  ---
+  duration_ms: 3.5897
+  type: 'test'
+  ...
+# Subtest: paused and finished games cannot edit, deploy or spend energy
+ok 16 - paused and finished games cannot edit, deploy or spend energy
+  ---
+  duration_ms: 3.7318
+  type: 'test'
+  ...
+# Subtest: rare boss rewards require a new answer even when that kind already completed its mission
+ok 17 - rare boss rewards require a new answer even when that kind already completed its mission
+  ---
+  duration_ms: 5.3781
+  type: 'test'
+  ...
+# Subtest: merging retains the selected mission and activation; replacements need a new answer
+ok 18 - merging retains the selected mission and activation; replacements need a new answer
+  ---
+  duration_ms: 0.8097
+  type: 'test'
+  ...
+# Subtest: invalid blocks cannot mutate a mission and restarting resets all activation and completion
+ok 19 - invalid blocks cannot mutate a mission and restarting resets all activation and completion
+  ---
+  duration_ms: 0.8456
+  type: 'test'
+  ...
+# Subtest: deployment order sets the requested block counts and includes control blocks in the caps
+ok 20 - deployment order sets the requested block counts and includes control blocks in the caps
+  ---
+  duration_ms: 3.0136
+  type: 'test'
+  ...
+# Subtest: storage and acquisition order never consume a deployment difficulty step
+ok 21 - storage and acquisition order never consume a deployment difficulty step
+  ---
+  duration_ms: 2.1541
+  type: 'test'
+  ...
+# Subtest: merging never reuses a deployment order or changes existing robot difficulty
+ok 22 - merging never reuses a deployment order or changes existing robot difficulty
+  ---
+  duration_ms: 1.1058
+  type: 'test'
+  ...
+# Subtest: regular enemies keep spawning at the same interval beyond twelve kills and during the boss fight
+ok 23 - regular enemies keep spawning at the same interval beyond twelve kills and during the boss fight
+  ---
+  duration_ms: 41.7808
+  type: 'test'
+  ...
+# Subtest: each next wave resets continuous spawning, boss defeat, and the boss countdown
+ok 24 - each next wave resets continuous spawning, boss defeat, and the boss countdown
+  ---
+  duration_ms: 15.3949
+  type: 'test'
+  ...
+# Subtest: pause freezes regular spawning and resumes with the remaining interval
+ok 25 - pause freezes regular spawning and resumes with the remaining interval
+  ---
+  duration_ms: 2.0063
+  type: 'test'
+  ...
+# Subtest: room boundaries and flipped wall tiles cannot be walked on; every deploy slot is valid
+ok 26 - room boundaries and flipped wall tiles cannot be walked on; every deploy slot is valid
+  ---
+  duration_ms: 3.8904
+  type: 'test'
+  ...
+# Subtest: hybrid combinations require both ingredients and never spend credits
+ok 27 - hybrid combinations require both ingredients and never spend credits
+  ---
+  duration_ms: 22.0094
+  type: 'test'
+  ...
+# Subtest: invalid placement, occupied slots and full board preserve matching energy
+ok 28 - invalid placement, occupied slots and full board preserve matching energy
+  ---
+  duration_ms: 9.3996
+  type: 'test'
+  ...
+# Subtest: each killed regular monster grants one random element; living or escaped monsters do not
+ok 29 - each killed regular monster grants one random element; living or escaped monsters do not
+  ---
+  duration_ms: 3.0049
+  type: 'test'
+  ...
+# Subtest: merge requires matching kind and grade, preserves selected identity and cooldown, and caps at grade 3
+ok 30 - merge requires matching kind and grade, preserves selected identity and cooldown, and caps at grade 3
+  ---
+  duration_ms: 4.6418
+  type: 'test'
+  ...
+# Subtest: different kinds cannot merge
+ok 31 - different kinds cannot merge
+  ---
+  duration_ms: 1.243
+  type: 'test'
+  ...
+# Subtest: pause and finished states reject charged robots without spending energy; battle allows deployment
+ok 32 - pause and finished states reject charged robots without spending energy; battle allows deployment
+  ---
+  duration_ms: 3.0403
+  type: 'test'
+  ...
+# Subtest: sequential code selects the nearest living target, then attacks, then waits
+ok 33 - sequential code selects the nearest living target, then attacks, then waits
+  ---
+  duration_ms: 2.8928
+  type: 'test'
+  ...
+# Subtest: every robot kind attacks distant enemies without a deployment radius
+ok 34 - every robot kind attacks distant enemies without a deployment radius
+  ---
+  duration_ms: 5.1439
+  type: 'test'
+  ...
+# Subtest: a selected target remains attackable after moving beyond the former radius
+ok 35 - a selected target remains attackable after moving beyond the former radius
+  ---
+  duration_ms: 1.9858
+  type: 'test'
+  ...
+# Subtest: distant explosion attacks keep splash damage local to the target
+ok 36 - distant explosion attacks keep splash damage local to the target
+  ---
+  duration_ms: 1.6271
+  type: 'test'
+  ...
+# Subtest: repeated code respects attack cooldown and reacquires dead targets
+ok 37 - repeated code respects attack cooldown and reacquires dead targets
+  ---
+  duration_ms: 6.2892
+  type: 'test'
+  ...
+# Subtest: plasma burns, thermal shock cools and heats nearby enemies, and cryo bolt chains and slows
+ok 38 - plasma burns, thermal shock cools and heats nearby enemies, and cryo bolt chains and slows
+  ---
+  duration_ms: 25.6067
+  type: 'test'
+  ...
+# Subtest: a burning enemy killed before reaching the base awards energy without destroying the station
+ok 39 - a burning enemy killed before reaching the base awards energy without destroying the station
+  ---
+  duration_ms: 1.0062
+  type: 'test'
+  ...
+# Subtest: clearing regular monsters waits for the automatic boss before awarding victory
+ok 40 - clearing regular monsters waits for the automatic boss before awarding victory
+  ---
+  duration_ms: 187.2557
+  type: 'test'
+  ...
+# Subtest: one survivor escapes through the base and destroys the station instead of clearing the wave
+ok 41 - one survivor escapes through the base and destroys the station instead of clearing the wave
+  ---
+  duration_ms: 1.0058
+  type: 'test'
+  ...
+# Subtest: an actual unguarded wave ends on the first escape, regardless of player position
+ok 42 - an actual unguarded wave ends on the first escape, regardless of player position
+  ---
+  duration_ms: 16.0771
+  type: 'test'
+  ...
+# Subtest: every road tile rejects player destinations, robot summons, and robot relocation
+ok 43 - every road tile rejects player destinations, robot summons, and robot relocation
+  ---
+  duration_ms: 1.5455
+  type: 'test'
+  ...
+# Subtest: player pathfinding takes a floor-only detour and respects robots placed in the way
+ok 44 - player pathfinding takes a floor-only detour and respects robots placed in the way
+  ---
+  duration_ms: 3.8866
+  type: 'test'
+  ...
+# Subtest: new games do not share combat, selection or resource state
+ok 45 - new games do not share combat, selection or resource state
+  ---
+  duration_ms: 1.9005
+  type: 'test'
+  ...
+# Subtest: three second countdown shows 3, 2, 1 before combat starts once
+ok 46 - three second countdown shows 3, 2, 1 before combat starts once
+  ---
+  duration_ms: 0.7914
+  type: 'test'
+  ...
+# Subtest: later waves reset energy and all robots before the same countdown
+ok 47 - later waves reset energy and all robots before the same countdown
+  ---
+  duration_ms: 6.2352
+  type: 'test'
+  ...
+# Subtest: connected route stays on walkable orthogonal tiles and rejects robot placement
+ok 48 - connected route stays on walkable orthogonal tiles and rejects robot placement
+  ---
+  duration_ms: 0.7252
+  type: 'test'
+  ...
+# Subtest: two horizontal lanes connect through the right turn and leave the middle open for robots
+ok 49 - two horizontal lanes connect through the right turn and leave the middle open for robots
+  ---
+  duration_ms: 0.8762
+  type: 'test'
+  ...
+# Subtest: robots relocate freely off the road without spending energy and reject occupied or player tiles
+ok 50 - robots relocate freely off the road without spending energy and reject occupied or player tiles
+  ---
+  duration_ms: 1.4877
+  type: 'test'
+  ...
+# Subtest: player drops place directly on empty floor and rejected drops preserve position and resources
+ok 51 - player drops place directly on empty floor and rejected drops preserve position and resources
+  ---
+  duration_ms: 5.7098
+  type: 'test'
+  ...
+# Subtest: the player attacks nearby enemies before any robot is summoned
+ok 52 - the player attacks nearby enemies before any robot is summoned
+  ---
+  duration_ms: 0.8452
+  type: 'test'
+  ...
+# Subtest: hybrid robots use the requested names and exact 5, 7 and 9 energy combinations
+ok 53 - hybrid robots use the requested names and exact 5, 7 and 9 energy combinations
+  ---
+  duration_ms: 8.9859
+  type: 'test'
+  ...
+# Subtest: deployment consumes one acquired stored robot without spending energy
+ok 54 - deployment consumes one acquired stored robot without spending energy
+  ---
+  duration_ms: 24.5197
+  type: 'test'
+  ...
+# Subtest: a missing primary or secondary energy blocks deployment without changing resources or selection
+ok 55 - a missing primary or secondary energy blocks deployment without changing resources or selection
+  ---
+  duration_ms: 31.187
+  type: 'test'
+  ...
+# Subtest: inventory counts only stored robots regardless of available energy combinations
+ok 56 - inventory counts only stored robots regardless of available energy combinations
+  ---
+  duration_ms: 2.2423
+  type: 'test'
+  ...
+# Subtest: random deployment stays on valid free floor and varies with the random draw
+ok 57 - random deployment stays on valid free floor and varies with the random draw
+  ---
+  duration_ms: 2.4503
+  type: 'test'
+  ...
+# Subtest: the robot limit preserves energy and merging frees capacity without automatic deployment
+ok 58 - the robot limit preserves energy and merging frees capacity without automatic deployment
+  ---
+  duration_ms: 39.1458
+  type: 'test'
+  ...
+# Subtest: paused and finished games never deploy or consume energy
+ok 59 - paused and finished games never deploy or consume energy
+  ---
+  duration_ms: 1.6527
+  type: 'test'
+  ...
+# Subtest: player kills roll exactly one element from three equally sized ranges
+ok 60 - player kills roll exactly one element from three equally sized ranges
+  ---
+  duration_ms: 3.3487
+  type: 'test'
+  ...
+# Subtest: nonfatal attacks do not award energy or consume random draws
+ok 61 - nonfatal attacks do not award energy or consume random draws
+  ---
+  duration_ms: 2.6932
+  type: 'test'
+  ...
+# Subtest: kills keep accumulating energy and only the chosen robot consumes its recipe
+ok 62 - kills keep accumulating energy and only the chosen robot consumes its recipe
+  ---
+  duration_ms: 16.9233
+  type: 'test'
+  ...
+# Subtest: burn deaths reward once before movement; pause freezes rewards and escape grants nothing
+ok 63 - burn deaths reward once before movement; pause freezes rewards and escape grants nothing
+  ---
+  duration_ms: 6.6353
+  type: 'test'
+  ...
+# Subtest: complete recipes wait for selection and manual summons use random valid floor
+ok 64 - complete recipes wait for selection and manual summons use random valid floor
+  ---
+  duration_ms: 16.6801
+  type: 'test'
+  ...
+# Subtest: manual choices and total counts never double spend shared energy and respect capacity
+ok 65 - manual choices and total counts never double spend shared energy and respect capacity
+  ---
+  duration_ms: 21.0819
+  type: 'test'
+  ...
+# Subtest: a manually summoned robot cannot attack until its own mission succeeds
+ok 66 - a manually summoned robot cannot attack until its own mission succeeds
+  ---
+  duration_ms: 2.4558
+  type: 'test'
+  ...
+# Subtest: one boss automatically appears exactly 100 seconds after game start without input
+ok 67 - one boss automatically appears exactly 100 seconds after game start without input
+  ---
+  duration_ms: 17.926
+  type: 'test'
+  ...
+# Subtest: the delay starts with the wave and regular monsters continue to spawn
+ok 68 - the delay starts with the wave and regular monsters continue to spawn
+  ---
+  duration_ms: 5.3739
+  type: 'test'
+  ...
+# Subtest: repeated start requests do not restart the automatic boss countdown
+ok 69 - repeated start requests do not restart the automatic boss countdown
+  ---
+  duration_ms: 5.8625
+  type: 'test'
+  ...
+# Subtest: pause freezes automatic spawning, and resuming completes the remaining delay
+ok 70 - pause freezes automatic spawning, and resuming completes the remaining delay
+  ---
+  duration_ms: 12.8332
+  type: 'test'
+  ...
+# Subtest: defeat stops automatic spawning and a new game starts a fresh 100 second countdown
+ok 71 - defeat stops automatic spawning and a new game starts a fresh 100 second countdown
+  ---
+  duration_ms: 9.0576
+  type: 'test'
+  ...
+# Subtest: special kills always award three random elements, with the rare robot roll independent
+ok 72 - special kills always award three random elements, with the rare robot roll independent
+  ---
+  duration_ms: 21.3582
+  type: 'test'
+  ...
+# Subtest: rare rewards store every robot kind for later manual deployment and preserve selection
+ok 73 - rare rewards store every robot kind for later manual deployment and preserve selection
+  ---
+  duration_ms: 63.1584
+  type: 'test'
+  ...
+# Subtest: rare rewards respect the nine robot limit while still awarding element energy
+ok 74 - rare rewards respect the nine robot limit while still awarding element energy
+  ---
+  duration_ms: 16.8832
+  type: 'test'
+  ...
+# Subtest: a rare reward manually deploys without energy as the ninth robot
+ok 75 - a rare reward manually deploys without energy as the ninth robot
+  ---
+  duration_ms: 10.1038
+  type: 'test'
+  ...
+# Subtest: rare rewards can add the ninth robot
+ok 76 - rare rewards can add the ninth robot
+  ---
+  duration_ms: 22.571
+  type: 'test'
+  ...
+# Subtest: special monsters award nothing on escape and prevent clearing until defeated
+ok 77 - special monsters award nothing on escape and prevent clearing until defeated
+  ---
+  duration_ms: 4.1786
+  type: 'test'
+  ...
+# Subtest: burning special monsters reward once before they can escape; paused rewards wait
+ok 78 - burning special monsters reward once before they can escape; paused rewards wait
+  ---
+  duration_ms: 8.2442
+  type: 'test'
+  ...
+# Subtest: front and diagonal wall overlays block the floor tiles underneath
+ok 79 - front and diagonal wall overlays block the floor tiles underneath
+  ---
+  duration_ms: 4.863
+  type: 'test'
+  ...
+# Subtest: visible floor up to the front wall remains walkable
+ok 80 - visible floor up to the front wall remains walkable
+  ---
+  duration_ms: 1.267
+  type: 'test'
+  ...
+# Subtest: wall-covered tiles reject robot placement and relocation without consuming energy
+ok 81 - wall-covered tiles reject robot placement and relocation without consuming energy
+  ---
+  duration_ms: 9.8667
+  type: 'test'
+  ...
+1..81
+# tests 81
+# suites 0
+# pass 81
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1157.7422

@@ -7,8 +7,11 @@ export const WAVE_ONE = { enemies: REGULAR_ENEMY_COUNTS[0], health: 68, speed: 0
 // Minimum cost; each robot's actual energy cost is defined by its recipe below.
 export const ROBOT_CHARGE_COST = 5;
 export const MAX_ROBOTS = 9;
-export const SUMMONED_MONSTER = { health: WAVE_ONE.health * 10, size: 150, elementEnergyReward: 3, robotDropChance: 0.02 } as const;
+export const SUMMONED_MONSTER = { summonDelay: 100, health: WAVE_ONE.health * 10, size: 150, elementEnergyReward: 3, robotDropChance: 0.02 } as const;
 export const MAX_GRADE = 3;
+// World-space radii: the shared robot circle matches the red reference outline.
+export const ROBOT_ATTACK_RADIUS = 190;
+export const PLAYER_LASER_RADIUS = ROBOT_ATTACK_RADIUS;
 export const ROBOT_KINDS: readonly RobotKind[] = ['fire', 'ice', 'electric'];
 export const ELEMENTS = {
   fire: { name: '화염', color: 0xffac70, symbol: '♨' },
@@ -17,9 +20,9 @@ export const ELEMENTS = {
 } as const;
 // Kind keys retain the existing character skins and coding mission families.
 export const ROBOTS = {
-  fire: { name: '플라즈마', color: 0xd78aff, damage: 19, range: 3.2, attackInterval: 1.2, description: '원 영역 안 공격 + 주변 폭발 피해', recipe: [{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }] },
-  ice: { name: '써멀 쇼크', color: 0xffad65, damage: 20, range: 2.5, attackInterval: 0.9, description: '근거리 냉열 충격파 + 이동속도 감소', recipe: [{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 2 }, { kind: 'electric', amount: 1 }] },
-  electric: { name: '크라이오 볼트', color: 0x7eeaff, damage: 22, range: 2.5, attackInterval: 0.4, description: '근거리 몬스터 빠른 공격', recipe: [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }, { kind: 'fire', amount: 1 }] },
+  fire: { name: '플라즈마', color: 0xd78aff, damage: 19, attackRadius: ROBOT_ATTACK_RADIUS, attackInterval: 1.2, description: '근거리 에너지탄 공격 + 주변 폭발 피해', recipe: [{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }] },
+  ice: { name: '써멀 쇼크', color: 0xffad65, damage: 20, attackRadius: ROBOT_ATTACK_RADIUS, attackInterval: 0.9, description: '근거리 냉열 충격파 + 이동속도 감소', recipe: [{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 2 }, { kind: 'electric', amount: 1 }] },
+  electric: { name: '크라이오 볼트', color: 0x7eeaff, damage: 22, attackRadius: ROBOT_ATTACK_RADIUS, attackInterval: 0.4, description: '근거리 몬스터 빠른 공격', recipe: [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }, { kind: 'fire', amount: 1 }] },
 } as const;
 export const DEPLOY_SLOTS: readonly TilePosition[] = [
   { x: 3, y: 5 }, { x: 7, y: 5 }, { x: 9, y: 5 }, { x: 11, y: 5 },

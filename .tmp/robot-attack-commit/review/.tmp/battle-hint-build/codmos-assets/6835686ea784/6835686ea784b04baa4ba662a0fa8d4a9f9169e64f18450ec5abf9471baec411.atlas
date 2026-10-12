@@ -1,0 +1,20 @@
+
+3aa3079c-d3c1-44ca-92ad-e646f9cf1a42.png
+size: 288, 232
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+effect_clear
+  rotate: false
+  xy: 2, 2
+  size: 228, 228
+  orig: 228, 228
+  offset: 0, 0
+  index: -1
+effect_particle
+  rotate: false
+  xy: 232, 178
+  size: 52, 52
+  orig: 52, 52
+  offset: 0, 0
+  index: -1

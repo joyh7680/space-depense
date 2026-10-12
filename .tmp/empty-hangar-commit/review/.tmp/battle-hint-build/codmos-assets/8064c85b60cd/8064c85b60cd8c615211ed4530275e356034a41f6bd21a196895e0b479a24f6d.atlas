@@ -1,0 +1,20 @@
+
+cebb064b-f62e-4354-83f0-577bcdf7570f.png
+size: 576, 436
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+wizard
+  rotate: true
+  xy: 2, 2
+  size: 432, 556
+  orig: 432, 556
+  offset: 0, 0
+  index: -1
+wizard_mouth
+  rotate: true
+  xy: 560, 419
+  size: 15, 14
+  orig: 15, 14
+  offset: 0, 0
+  index: -1

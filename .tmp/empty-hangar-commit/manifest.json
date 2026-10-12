@@ -1,0 +1,15 @@
+{
+  "base": "6e38808aa49930b333f2d78166d8166f3feeda16",
+  "entries": {
+    "src/app.vue": "a66d8394b458d883b1c18736540d93ca8ccb1435",
+    "src/style.css": "bd4a660bbb18f76d5f66860dc79cb9e052a378d3"
+  },
+  "stageEntries": {
+    "src/app.vue": "a66d8394b458d883b1c18736540d93ca8ccb1435",
+    "src/style.css": "bd4a660bbb18f76d5f66860dc79cb9e052a378d3"
+  },
+  "originalEntries": {
+    "src/app.vue": "527669e7c5d7e0854d99442ed38e061f13086c3e",
+    "src/style.css": "712c9d96befac8e1c777bf4323959a418c2cd296"
+  }
+}

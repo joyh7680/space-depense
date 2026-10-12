@@ -1,0 +1,26 @@
+{
+  "base": "1493894a0c9638b7271c961c748c9c428c3d0e32",
+  "entries": {
+    "README.md": "ebbec4f32614dcc932a9ea4f19f36048f83c9aa0",
+    "src/app.vue": "8988e7066123d8145d8ba53d992afc289e3ffb81",
+    "src/components/robot-coding-panel.vue": "e078b2210aa5becfbcb40e728cf55082c7495936",
+    "src/game/defense-scene.ts": "84558a54a0ce3eadbd866b0db89b64fb3c5b7b73",
+    "src/style.css": "712c9d96befac8e1c777bf4323959a418c2cd296",
+    "src/game/robot-visuals.ts": "b6cb0700e0420601555f49b1b686ede3ad87b31c",
+    "public/games/space/robots/cryo-bolt.svg": "e498e0bdfb71572fd4e25c5d29042ce1b418397f",
+    "public/games/space/robots/thermal-shock.svg": "b1dc672a13f39da6f40d56fca4d06139d88a4d6b",
+    "public/games/space/robots/plasma.svg": "1674ac5b40ce83cfdd2f3c025c6e6a69796878d0"
+  },
+  "stageEntries": {
+    "README.md": "6e9379d59834e5365d5df829bc054b94892b5c19",
+    "src/app.vue": "8988e7066123d8145d8ba53d992afc289e3ffb81",
+    "src/components/robot-coding-panel.vue": "e078b2210aa5becfbcb40e728cf55082c7495936",
+    "src/game/defense-scene.ts": "84558a54a0ce3eadbd866b0db89b64fb3c5b7b73",
+    "src/style.css": "712c9d96befac8e1c777bf4323959a418c2cd296",
+    "src/game/robot-visuals.ts": "b6cb0700e0420601555f49b1b686ede3ad87b31c",
+    "public/games/space/robots/cryo-bolt.svg": "e498e0bdfb71572fd4e25c5d29042ce1b418397f",
+    "public/games/space/robots/thermal-shock.svg": "b1dc672a13f39da6f40d56fca4d06139d88a4d6b",
+    "public/games/space/robots/plasma.svg": "1674ac5b40ce83cfdd2f3c025c6e6a69796878d0"
+  },
+  "originalIndexTree": "b3edddd04d360eacaceaa741a020b9335f606821"
+}

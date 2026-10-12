@@ -1,0 +1,62 @@
+
+1ac58a05-65fb-4faf-a1f3-424b00afe3a4.png
+size: 288, 128
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+arm_l
+  rotate: true
+  xy: 210, 11
+  size: 49, 41
+  orig: 49, 41
+  offset: 0, 0
+  index: -1
+arm_r
+  rotate: true
+  xy: 167, 2
+  size: 50, 41
+  orig: 50, 41
+  offset: 0, 0
+  index: -1
+body
+  rotate: true
+  xy: 2, 2
+  size: 123, 163
+  orig: 123, 163
+  offset: 0, 0
+  index: -1
+bubble
+  rotate: true
+  xy: 253, 5
+  size: 47, 30
+  orig: 47, 30
+  offset: 0, 0
+  index: -1
+eyes
+  rotate: true
+  xy: 258, 92
+  size: 33, 22
+  orig: 33, 22
+  offset: 0, 0
+  index: -1
+eyes_close
+  rotate: true
+  xy: 258, 54
+  size: 36, 16
+  orig: 36, 16
+  offset: 0, 0
+  index: -1
+eyes_wrong
+  rotate: false
+  xy: 167, 62
+  size: 42, 12
+  orig: 42, 12
+  offset: 0, 0
+  index: -1
+particle
+  rotate: false
+  xy: 167, 76
+  size: 89, 49
+  orig: 89, 49
+  offset: 0, 0
+  index: -1

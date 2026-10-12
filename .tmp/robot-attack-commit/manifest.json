@@ -1,0 +1,13 @@
+{
+  "base": "1e85957fe76bcda0ffdcc303bd0d6bbdbb497ebc",
+  "entries": {
+    "src/game/defense-scene.ts": "1755e023ce80421b8a3f45ff1dfd12e152fda83d",
+    "README.md": "6301d73c5a02bc9a44a674d3f86910e470edb3f2",
+    "src/components/robot-coding-panel.vue": "f82424324995384b03c46e275a35e77725c21363",
+    "src/game/coding-missions.ts": "d14a79aca65a801d2821e6137ac76e1e2951ea58",
+    "src/game/defense-simulation.ts": "6ca1039c82300ce1f51cff4f0e0ba98dbfa1d87c",
+    "src/game/wave-one.ts": "5e9d89e527f2f304e74580c5402a26a99c94ccb5",
+    "tests/coding-missions.test.ts": "8cf8c9fa735227890b67585d287cedd7809d2888",
+    "tests/defense-simulation.test.ts": "7bc59684b1aa1e9d2174e47b7e5a46be299d34fa"
+  }
+}

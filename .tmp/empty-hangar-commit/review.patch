@@ -1,0 +1,77 @@
+diff --git a/src/app.vue b/src/app.vue
+index 527669e..a66d839 100644
+--- a/src/app.vue
++++ b/src/app.vue
+@@ -50,6 +50,13 @@ const robotStatus = computed(() => (['electric', 'ice', 'fire'] as const).map(ki
+   kind, count: getAvailableRobotCount(state.value.elementEnergy, state.value.robots, kind),
+ })));
+ const summonCount = computed(() => getTotalSummonCount(state.value.elementEnergy, state.value.robots));
++watch([canDeploy, summonCount], ([deployable, count], [wasDeployable, previousCount]) => {
++  if (!deployable) {
++    closeSummon();
++  } else if (count > 0 && (!wasDeployable || count > previousCount)) {
++    void openSummon();
++  }
++});
+ const robotArt = {
+  fire: robotPortraitStyle('fire'),
+  ice: robotPortraitStyle('ice'),
+@@ -67,8 +74,12 @@ async function openSummon() {
+   summonDialog.value?.focus({ preventScroll: true });
+ }
+ function closeSummon() { summonOpen.value = false; openRecipe.value = null; }
+-function summonRobot(kind: RobotKind) {
+-  if (canDeploy.value && room.value?.deployRobotKind(kind)) { codingRobotId.value = null; closeSummon(); }
++async function summonRobot(kind: RobotKind) {
++  if (canDeploy.value && room.value?.deployRobotKind(kind)) {
++    codingRobotId.value = null;
++    await nextTick();
++    summonDialog.value?.focus({ preventScroll: true });
++  }
+ }
+ function replay() {
+   closeSummon();
+@@ -112,18 +123,18 @@ function nextWave() {
+           <EnergyIcon :kind="kind" /><b>{{ state.elementEnergy[kind] }}</b>
+         </span>
+       </div>
+-      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="`로봇 배치, 소환 가능 ${summonCount}대`" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
++      <button class="robot-button" :class="{ open: summonOpen, empty: summonCount === 0 }" :disabled="!canDeploy" :aria-label="`로봇 배치, 소환 가능 ${summonCount}대`" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
+         <span class="robot-button-count">{{ summonCount }}</span>
+         <i class="robot-portrait" :style="robotArt.fire" aria-hidden="true" />
+         <b>로봇 배치</b>
+       </button>
+       <Transition name="battle-hint">
+-        <p v-if="canDeploy && state.message" class="battle-hint" role="status" aria-atomic="true">{{ state.message }}</p>
++        <p v-if="canDeploy && state.message && !summonOpen" class="battle-hint" role="status" aria-atomic="true">{{ state.message }}</p>
+       </Transition>
+     </div>
+     </div>
+     <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
+-      <section id="robot-hangar" ref="summonDialog" class="robot-status-hud" role="dialog" aria-modal="false" aria-label="로봇 선택" tabindex="-1" @keydown.esc="closeSummon">
++      <section id="robot-hangar" ref="summonDialog" class="robot-status-hud" :class="{ empty: summonCount === 0 }" role="dialog" aria-modal="false" aria-label="로봇 선택" tabindex="-1" @keydown.esc="closeSummon">
+         <div class="robot-status-roster">
+           <div v-for="card in robotStatus" :key="card.kind" class="robot-card-slot" :class="card.kind">
+             <button class="robot-button robot-status-unit" :class="card.kind" :disabled="!canDeploy || !card.count" :aria-label="`${ROBOTS[card.kind].name}, 소환 가능 ${card.count}대, ${ROBOTS[card.kind].description}`" @click="summonRobot(card.kind)">
+diff --git a/src/style.css b/src/style.css
+index 712c9d9..bd4a660 100644
+--- a/src/style.css
++++ b/src/style.css
+@@ -218,6 +218,8 @@ button:not(:disabled):active{transform:translateY(3px)}
+ .bottom-controls>.robot-button{flex-shrink:0;width:var(--robot-button-width)}
+ .robot-button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;width:82px;height:88px;padding:6px 4px 8px;border:2px solid #c9cbb5;border-radius:13px;background:linear-gradient(145deg,#4a5b62,#283841);box-shadow:inset 0 0 0 3px #1b2931,inset 0 0 0 4px #81918d,0 4px 0 #17232e,0 7px 15px #0005;transition:filter .15s}
+ .robot-button:hover,.robot-button.open{filter:brightness(1.15);border-color:#fff0b5}
++.robot-button.empty{opacity:.4}
++.robot-button.empty:hover,.robot-button.empty.open{filter:none;border-color:#c9cbb5}
+ .robot-button b{font-size:14px;line-height:1.2;color:#fff4d0;text-shadow:0 2px 0 #14232d}
+ .robot-button-count{position:absolute;z-index:1;right:-7px;top:-9px;display:grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border:2px solid #fff4cd;border-radius:8px;background:#76be59;color:#172e21;font-size:14px;font-weight:900;box-shadow:0 2px 0 #24382a;font-variant-numeric:tabular-nums}
+ .monster-summon-timer{min-width:38px;font-size:12px;white-space:nowrap}
+@@ -229,6 +231,8 @@ button:not(:disabled):active{transform:translateY(3px)}
+ 
+ .summon-backdrop{position:absolute;inset:0;z-index:10;display:flex;justify-content:center;align-items:flex-end;padding:16px 16px 126px;pointer-events:auto}
+ .robot-status-hud{width:280px;max-width:100%;min-width:0;padding:8px;border:1px solid #a9ad8f;border-radius:8px;background:#d9dcc1;box-shadow:0 3px 8px #0004;pointer-events:auto;outline:none}
++.robot-status-hud.empty{opacity:.4}
++.robot-status-hud.empty .robot-status-unit:disabled{opacity:1}
+ .robot-status-roster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+ .robot-card-slot{position:relative;min-width:0}
+ .robot-status-unit{width:100%;min-width:0;cursor:pointer}

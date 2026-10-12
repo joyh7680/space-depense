@@ -1,0 +1,20 @@
+
+57c34d22-e092-4ae0-9c14-da9c81b5feaf.png
+size: 112, 72
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+particle
+  rotate: true
+  xy: 69, 14
+  size: 53, 39
+  orig: 53, 39
+  offset: 0, 0
+  index: -1
+twinkle
+  rotate: false
+  xy: 2, 2
+  size: 65, 65
+  orig: 68, 68
+  offset: 2, 1
+  index: -1

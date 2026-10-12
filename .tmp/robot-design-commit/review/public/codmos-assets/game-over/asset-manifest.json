@@ -1,0 +1,28 @@
+[
+  {
+    "file": "5e04ca1208c8/03f99ad7-2496-46a1-88d8-ec7523c394bb.atlas",
+    "sha256": "5e04ca1208c88a996e69d5ce375a2de197444abb03e3e0dffc6176f145761bdf",
+    "assetGroups": [],
+    "originalPaths": [
+      "runtime/cdn.codmos.io/5e04ca1208c88a996e69d5ce375a2de197444abb03e3e0dffc6176f145761bdf.atlas"
+    ]
+  },
+  {
+    "file": "aade50f4c372/aade50f4c372a6debdbce8326e7c7272b8829243467258b17f4e6ecdfbbaba92.json",
+    "sha256": "aade50f4c372a6debdbce8326e7c7272b8829243467258b17f4e6ecdfbbaba92",
+    "assetGroups": [],
+    "originalPaths": [
+      "blobs/aade50f4c372a6debdbce8326e7c7272b8829243467258b17f4e6ecdfbbaba92.json",
+      "origins/cdn.codmos.io/default/public/0005e145-bb1a-4d4c-8aaf-1db172448269.json"
+    ]
+  },
+  {
+    "file": "e56bb4d926f2/e56bb4d926f2a5bfafc0cc9bc364c8e5f39c509472c035e2ed6c7770d579a5ad.atlas",
+    "sha256": "e56bb4d926f2a5bfafc0cc9bc364c8e5f39c509472c035e2ed6c7770d579a5ad",
+    "assetGroups": [],
+    "originalPaths": [
+      "blobs/e56bb4d926f2a5bfafc0cc9bc364c8e5f39c509472c035e2ed6c7770d579a5ad.atlas",
+      "origins/cdn.codmos.io/default/public/aab9d970-e0f7-4e87-8578-e15099599ad6.atlas"
+    ]
+  }
+]

@@ -1,0 +1,132 @@
+{
+  "frames": {
+    "smoke01": {
+      "frame": {
+        "x": 2,
+        "y": 110,
+        "w": 162,
+        "h": 152
+      },
+      "rotated": true,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 162,
+        "h": 152
+      },
+      "sourceSize": {
+        "w": 162,
+        "h": 152
+      }
+    },
+    "smoke02": {
+      "frame": {
+        "x": 2,
+        "y": 2,
+        "w": 106,
+        "h": 111
+      },
+      "rotated": true,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 106,
+        "h": 111
+      },
+      "sourceSize": {
+        "w": 106,
+        "h": 111
+      }
+    },
+    "smoke03": {
+      "frame": {
+        "x": 156,
+        "y": 123,
+        "w": 32,
+        "h": 28
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 28
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 28
+      }
+    },
+    "smoke04": {
+      "frame": {
+        "x": 156,
+        "y": 204,
+        "w": 59,
+        "h": 68
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 59,
+        "h": 68
+      },
+      "sourceSize": {
+        "w": 59,
+        "h": 68
+      }
+    },
+    "smoke05": {
+      "frame": {
+        "x": 156,
+        "y": 153,
+        "w": 49,
+        "h": 45
+      },
+      "rotated": true,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 49,
+        "h": 45
+      },
+      "sourceSize": {
+        "w": 49,
+        "h": 45
+      }
+    },
+    "smoke06": {
+      "frame": {
+        "x": 115,
+        "y": 4,
+        "w": 99,
+        "h": 104
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 99,
+        "h": 104
+      },
+      "sourceSize": {
+        "w": 99,
+        "h": 104
+      }
+    }
+  },
+  "meta": {
+    "image": "9ae27227-06b4-432c-95e7-305f10efc0e5.png",
+    "size": {
+      "w": 220,
+      "h": 276
+    },
+    "source": "03f99ad7-2496-46a1-88d8-ec7523c394bb.atlas"
+  }
+}

@@ -16,7 +16,7 @@ export type DefenseState = {
   enemies: number; spawned: number; total: number; escaped: number; elapsed: number;
   robots: RobotState[]; robotCount: number; storedRobotCount: number; elementEnergy: ElementEnergy; selectedId: number | null; player: TilePosition;
   mode: GameMode; grid: boolean; message: string; countdown: number;
-  monsterSummonRemaining: number | null;
+  monsterSummonCountdown: number | null;
   defeatAnimationComplete: boolean;
   victoryAnimationComplete: boolean;
 };

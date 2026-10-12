@@ -1,0 +1,9 @@
+{
+  "base": "6ece542b1f7fe7060f3a61579bee509e3426197f",
+  "staged": {
+    "README.md": "0e2f1ef5d98dbda74619791c9158f608961299e5",
+    "src/game/wave-one.ts": "ae8ed0bab3e1d57201953bf6d1f2f306c57dec84",
+    "tests/element-energy.test.ts": "89b2f0dc9ee1df3e74140e1d71aca86b4f956c81",
+    "tests/defense-simulation.test.ts": "67ca4b11012051f5345658cab01f4ef85f31c192"
+  }
+}

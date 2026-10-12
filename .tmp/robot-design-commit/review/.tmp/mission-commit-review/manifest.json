@@ -1,0 +1,16 @@
+{
+  "base": "81491876e73d72aa568e6e4a819e06bb3d67eb16",
+  "files": [
+    "README.md",
+    "src/app.vue",
+    "src/components/robot-coding-panel.vue",
+    "src/components/victory-result.vue",
+    "src/game/coding-missions.ts",
+    "src/game/defense-scene.ts",
+    "src/game/defense-simulation.ts",
+    "src/game/types.ts",
+    "tests/coding-missions.test.ts",
+    "src/components/space-defense-room.vue"
+  ],
+  "dir": "C:\\workspace\\space-defense\\.tmp\\mission-commit-review"
+}

@@ -1,0 +1,41 @@
+{
+  "base": "81491876e73d72aa568e6e4a819e06bb3d67eb16",
+  "files": [
+    "README.md",
+    "src/app.vue",
+    "src/components/robot-coding-panel.vue",
+    "src/components/victory-result.vue",
+    "src/game/coding-missions.ts",
+    "src/game/defense-scene.ts",
+    "src/game/defense-simulation.ts",
+    "src/game/types.ts",
+    "tests/coding-missions.test.ts",
+    "src/components/space-defense-room.vue"
+  ],
+  "dir": "C:\\workspace\\space-defense\\.tmp\\mission-commit-review",
+  "index": "C:\\workspace\\space-defense\\.tmp\\mission-commit-review\\index",
+  "blobs": {
+    "README.md": "40551bb50a2a04bd02348ee305144cacb9883f9c",
+    "src/app.vue": "7a8004fa8e633a5828395cd5b71bc2581bd0bbcc",
+    "src/components/robot-coding-panel.vue": "5b574eac446a51aaa2042f49e497997644f09491",
+    "src/components/victory-result.vue": "04ac5a72b728e8f16f6ee8e0e1b69e6cf995bf0e",
+    "src/game/coding-missions.ts": "0665adbd111aff91f8ccc886bf804ad232fdc2fa",
+    "src/game/defense-scene.ts": "2b3b24132592524f6258563f05c871fa8a78deea",
+    "src/game/defense-simulation.ts": "8289b9b8bd9f29781e65e744ef4415bce42070a2",
+    "src/game/types.ts": "7e78ec818681b0f059c1da1513a7fe6a2d790c89",
+    "tests/coding-missions.test.ts": "16ba6110863e0b25aefc7922002d6edabde7b974",
+    "src/components/space-defense-room.vue": "883960684f5b39edb791faca4c5b3ebe62ed35b1"
+  },
+  "indexContents": {
+    "README.md": "5b48f0c6cf57fe0e33d7f93b6903c6b43775d087",
+    "src/app.vue": "7a8004fa8e633a5828395cd5b71bc2581bd0bbcc",
+    "src/components/robot-coding-panel.vue": "5b574eac446a51aaa2042f49e497997644f09491",
+    "src/components/victory-result.vue": "04ac5a72b728e8f16f6ee8e0e1b69e6cf995bf0e",
+    "src/game/coding-missions.ts": "0665adbd111aff91f8ccc886bf804ad232fdc2fa",
+    "src/game/defense-scene.ts": "2b3b24132592524f6258563f05c871fa8a78deea",
+    "src/game/defense-simulation.ts": "c8a7c40f47fb06f8b286e23a35bebaf2df632a0c",
+    "src/game/types.ts": "7e78ec818681b0f059c1da1513a7fe6a2d790c89",
+    "tests/coding-missions.test.ts": "16ba6110863e0b25aefc7922002d6edabde7b974",
+    "src/components/space-defense-room.vue": "883960684f5b39edb791faca4c5b3ebe62ed35b1"
+  }
+}

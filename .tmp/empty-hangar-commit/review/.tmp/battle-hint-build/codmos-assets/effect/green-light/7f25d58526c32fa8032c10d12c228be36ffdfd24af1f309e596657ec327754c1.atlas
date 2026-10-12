@@ -1,0 +1,62 @@
+
+c516760e-6c8c-4d1d-8db9-b78796a65ebe.png
+size: 1100, 304
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+base_down
+  rotate: true
+  xy: 2, 8
+  size: 292, 197
+  orig: 292, 197
+  offset: 0, 0
+  index: -1
+base_left
+  rotate: true
+  xy: 201, 8
+  size: 292, 197
+  orig: 292, 197
+  offset: 0, 0
+  index: -1
+base_right
+  rotate: true
+  xy: 400, 8
+  size: 292, 197
+  orig: 292, 197
+  offset: 0, 0
+  index: -1
+base_up
+  rotate: true
+  xy: 599, 8
+  size: 292, 197
+  orig: 292, 197
+  offset: 0, 0
+  index: -1
+line_down
+  rotate: false
+  xy: 798, 152
+  size: 148, 148
+  orig: 148, 148
+  offset: 0, 0
+  index: -1
+line_left
+  rotate: false
+  xy: 948, 152
+  size: 148, 148
+  orig: 148, 148
+  offset: 0, 0
+  index: -1
+line_right
+  rotate: false
+  xy: 798, 2
+  size: 148, 148
+  orig: 148, 148
+  offset: 0, 0
+  index: -1
+line_up
+  rotate: false
+  xy: 948, 2
+  size: 148, 148
+  orig: 148, 148
+  offset: 0, 0
+  index: -1

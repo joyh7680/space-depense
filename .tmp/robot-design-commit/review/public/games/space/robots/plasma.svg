@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="80" viewBox="0 0 64 80" shape-rendering="crispEdges">
+<title>플라즈마 — 돔 헬멧과 플라즈마 반응로 흉갑</title>
+<path fill="#dacced" d="M8 44h10v6h2v12H6V50h2zm38 0h10v6h2v12H44V50h2z"/>
+<path fill="#cdb8e4" d="M20 61h10v14H16v-7h4zm14 0h10v7h4v7H34z"/>
+<path fill="#9783bd" d="M22 63h6v7h-9v3h9v-3h-6zm14 0h6v7h3v3H36z"/>
+<path fill="#eee7f5" d="M22 63h6v3h-6zm14 0h6v3h-6z"/>
+<path fill="#c2a5e3" d="M23 42h18v3h5v4h2v7h-6v6H22v-6h-6v-7h2v-4h5z"/>
+<path fill="#f0edf7" d="M23 42h18v4H23zM19 46h5v5h-5zm21 0h5v5h-5z"/>
+<path fill="#9783bd" d="M16 52h6v6h20v-6h6v4h-6v6H22v-6h-6z"/>
+<path fill="#b9a2d7" d="M28 46h8v2h4v10h-4v2h-8v-2h-4V48h4z"/>
+<path fill="#d999c0" d="M28 48h8v2h2v6h-2v2h-8v-2h-2v-6h2z"/>
+<path fill="#f7c6e2" d="M30 49h4v2h2v4h-2v2h-4v-2h-2v-4h2z"/>
+<path fill="#fff0f7" d="M31 51h2v4h-2z"/>
+<path fill="#eee7f5" d="M10 46h6v4h-6zm38 0h6v4h-6z"/>
+<path fill="#9783bd" d="M8 52h10v8H8zm38 0h10v8H46z"/>
+<path fill="#d999c0" d="M9 53h7v3H9zm39 0h7v3h-7z"/>
+<path fill="#c2a5e3" d="M26 4h12v2h7v4h5v5h3v7h3v9h-4v5h-6v5H18v-5h-6v-5H8v-9h3v-7h4v-5h5V6h6z"/>
+<path fill="#f4eafa" d="M26 4h12v2H26zM20 6h11v4H20zM15 10h9v5h-9zM11 15h7v7h-7z"/>
+<path fill="#e3d2f0" d="M29 8h12v4H29zM8 22h5v8H8z"/>
+<path fill="#9783bd" d="M46 11h4v6h3v5h3v9h-4v5h-6v5H18v-4h26v-5h5V22h-3z"/>
+<path fill="#f0edf7" d="M15 34h5v4h24v-4h5v4h-4v3H19v-3h-4z"/>
+<path fill="#506080" d="M27 14h10v3h6v4h4v12h-6v3H23v-3h-6V21h4v-4h6z"/>
+<path fill="#3f6581" d="M28 16h8v3h6v4h3v8h-5v3H24v-3h-5v-8h4v-4h5z"/>
+<path fill="#7299ae" d="M28 16h8v3h-8zM23 19h7v4h-7zM19 23h6v4h-6z"/>
+<path fill="#29425d" d="M26 25h19v6h-5v3H24v-3h2z"/>
+<path fill="#f7c6e2" d="M28 24h8v2h4v3H24v-3h4z"/>
+<path fill="#fff0f7" d="M30 23h4v4h-4z"/>
+<path fill="#d999c0" d="M9 25h4v7H9zm42 0h4v7h-4z"/>
+</svg>

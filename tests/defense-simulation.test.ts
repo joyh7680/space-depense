@@ -2,7 +2,7 @@ import { fundRobot, setRobotEnergy } from './robot-energy-helpers.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE, isRouteTile, type Enemy } from '../src/game/defense-simulation.ts';
-import { DEPLOY_SLOTS, ROBOTS, ROBOT_CHARGE_COST, WAVE_ONE } from '../src/game/wave-one.ts';
+import { DEPLOY_SLOTS, ROBOTS, ROBOT_CHARGE_COST, WAVE_ONE, ROBOT_ATTACK_RADIUS, PLAYER_LASER_RADIUS } from '../src/game/wave-one.ts';
 import type { RobotKind } from '../src/game/types.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 import { getCodingMission } from '../src/game/coding-missions.ts';
@@ -131,14 +131,16 @@ test('sequential code selects the nearest living target, then attacks, then wait
   assert.ok(game.enemies.find(e => e.id === 101)!.health < 1000);
 });
 
-test('nearby robots and plasma attack only within their configured reach', () => {
+test('all robots use the reference-sized world circle and attack only inside it', () => {
+  assert.equal(ROBOT_ATTACK_RADIUS, 190);
   for (const kind of ['fire', 'ice', 'electric'] as const) for (const inside of [true, false]) {
+    assert.equal(ROBOTS[kind].attackRadius, ROBOT_ATTACK_RADIUS);
     const game = new DefenseSimulation(() => 0);
     game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
     const robot = game.robots[0];
     robot.activeBlock = 'find'; robot.phaseTimer = 0;
-    const gap = ROBOTS[kind].range + (inside ? -0.1 : 0.1);
+    const gap = (ROBOTS[kind].attackRadius + (inside ? -10 : 10)) / 100;
     game.enemies = [{ ...enemy(100, robot.x + Math.sqrt(gap ** 2 - 1)), slowTime: 100, slowFactor: 0 }];
     const shots = [];
     for (let i = 0; i < 12; i++) shots.push(...game.step(0.05));
@@ -151,7 +153,7 @@ test('a selected target leaving attack range is released without taking damage',
   const game = new DefenseSimulation(() => 0);
   game.player = { x: 14, y: 11 };
   summon(game, 'electric'); game.startWave(); game.step(0.05);
-  game.enemies = [enemy(100, 5)];
+  game.enemies = [enemy(100, 3.5)];
   game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
   game.step(0.05);
   assert.equal(game.robots[0].targetId, 100);
@@ -162,14 +164,14 @@ test('a selected target leaving attack range is released without taking damage',
   assert.equal(game.robots[0].targetId, null);
 });
 
-test('only plasma reaches monsters beyond the two nearby robots', () => {
+test('no robot reaches monsters beyond melee range', () => {
   for (const kind of ['fire', 'ice', 'electric'] as const) {
     const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
     game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
     game.enemies = [{ ...enemy(100, 6), slowTime: 100, slowFactor: 0 }];
     advance(game, 0.6);
-    assert.equal(game.enemies[0].health < 1000, kind === 'fire');
+    assert.equal(game.enemies[0].health, 1000, `${kind} must not damage distant monsters`);
   }
 });
 
@@ -177,7 +179,7 @@ test('plasma explosion cannot damage monsters outside its displayed circle', () 
   const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
   summon(game); game.startWave(); game.step(0.05);
   game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
-  game.enemies = [enemy(100, 5.8), enemy(101, 6), enemy(102, 6.3)]
+  game.enemies = [enemy(100, 4.2), enemy(101, 4.6), enemy(102, 4.7)]
     .map(target => ({ ...target, slowTime: 100, slowFactor: 0 }));
   advance(game, 0.6);
   assert.ok(game.enemies[0].health < 1000);
@@ -190,8 +192,9 @@ test('plasma explosions and thermal shockwaves damage only enemies near the targ
     const game = new DefenseSimulation(() => 0);
     game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
-    const x = kind === 'fire' ? 5 : 4;
+    const x = 4;
     game.enemies = [enemy(100, x), enemy(101, x + 0.3), enemy(102, 12)];
+    game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
     advance(game, 0.6);
     assert.ok(game.enemies[0].health < 1000);
     assert.ok(game.enemies[1].health < 1000);
@@ -355,7 +358,7 @@ test('three second countdown shows 3, 2, 1 before combat starts once', () => {
    assert.equal(game.status, 'ready');
    assert.equal(game.wave, 0); assert.equal(game.elapsed, 0);
    assert.equal(game.spawned, 0); assert.equal(game.enemies.length, 0);
-   assert.equal(game.monsterSummonRemaining, game.totalEnemies - 1);
+   assert.equal(game.monsterSummonCountdown, 100);
  }
  advance(game, 0.95); assert.equal(game.status, 'ready'); assert.ok(game.countdown > 0);
  advance(game, 0.05); assert.equal(game.status, 'running'); assert.equal(game.wave, 1); assert.equal(game.robots.length, 0);
@@ -367,7 +370,7 @@ test('later waves reset energy and all robots before the same countdown', () => 
  const game = new DefenseSimulation(() => 0.4);
  game.startWave(); game.player = { x: 14, y: 11 }; summon(game, 'fire');
  for (const nextWave of [2, 3]) {
-   game.spawned = game.totalEnemies - 1; game.enemies = []; game.step(0.05);
+   game.spawned = game.totalEnemies - 1; game.enemies = []; game.elapsed = 99.95; game.step(0.05);
    for (const target of game.enemies) target.health = 0;
    game.step(0.05); assert.equal(game.status, 'cleared');
    game.elementEnergy = { fire: 5, electric: 7, ice: 8 };
@@ -381,7 +384,7 @@ test('later waves reset energy and all robots before the same countdown', () => 
      assert.ok(Math.abs(game.countdown - expected) < 0.000001);
      assert.equal(game.status, 'ready'); assert.equal(game.wave, nextWave);
      assert.equal(game.elapsed, 0); assert.equal(game.spawned, 0); assert.equal(game.enemies.length, 0);
-     assert.equal(game.monsterSummonRemaining, game.totalEnemies - 1);
+     assert.equal(game.monsterSummonCountdown, 100);
      assert.equal(game.movePlayer(4, 7), false);
      assert.equal(game.startWave(), false);
    }
@@ -394,7 +397,7 @@ test('later waves reset energy and all robots before the same countdown', () => 
    assert.equal(game.robots[0].serial, 1); assert.equal(game.robots[0].missionNumber, nextWave);
    advance(game, 0.05); assert.equal(game.spawned, 1);
  }
- game.spawned = game.totalEnemies - 1; game.enemies = []; game.step(0.05);
+ game.spawned = game.totalEnemies - 1; game.enemies = []; game.elapsed = 99.95; game.step(0.05);
  for (const target of game.enemies) target.health = 0;
  game.step(0.05); assert.equal(game.status, 'cleared');
  const finalState = JSON.stringify(game);
@@ -449,6 +452,19 @@ test('player drops place directly on empty floor and rejected drops preserve pos
 });
 test('the player attacks nearby enemies before any robot is summoned', () => {
  const game = new DefenseSimulation(); game.startWave();
+ game.enemies = [{ ...enemy(100, game.player.x), slowTime: 100, slowFactor: 0 }];
  const shots=[]; for(let i=0;i<20;i++) shots.push(...game.step(.05));
- assert.equal(game.robots.length,0); assert.ok(shots.some(s=>s.player)); assert.ok(game.enemies[0].health<WAVE_ONE.health);
+ assert.equal(game.robots.length,0); assert.ok(shots.some(s=>s.player)); assert.ok(game.enemies[0].health<1000);
+});
+
+test('the player shares the robot attack circle and ignores monsters outside it', () => {
+ assert.equal(PLAYER_LASER_RADIUS, ROBOT_ATTACK_RADIUS);
+ for (const [dx, dy, inRange] of [[0, -1.9, true], [1, -1, true], [1.91, 0, false], [1.5, -1.5, false]] as const) {
+   const game = new DefenseSimulation(() => 0); game.startWave();
+   const target = { ...enemy(100, game.player.x + dx, game.player.y + dy), slowTime: 100, slowFactor: 0 };
+   game.enemies = [target];
+   const shots = game.step(0.05);
+   assert.equal(shots.some(shot => shot.player && shot.to.x === target.x && shot.to.y === target.y), inRange);
+   assert.equal(target.health < 1000, inRange, `player target offset ${dx},${dy}`);
+ }
 });

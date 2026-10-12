@@ -1,0 +1,34 @@
+{
+  "originalIndexTree": "295a46872337f0dd168d664b40d4b18522a823b8",
+  "indexUpdates": [
+    {
+      "file": "README.md",
+      "blob": "0d0105754f05d446e4cbd413d43dbd321e1f3d0e"
+    },
+    {
+      "file": "src/app.vue",
+      "blob": "a6334f888cd8cf62ff71d89087a465069dba878c"
+    },
+    {
+      "file": "src/game/wave-one.ts",
+      "blob": "8f58814d4d3b7522ad00c07df73c9fb40c64d8d6"
+    },
+    {
+      "file": "tests/coding-missions.test.ts",
+      "blob": "a631419a1b7347ca65332134794ee022cf5064ca"
+    },
+    {
+      "file": "tests/defense-simulation.test.ts",
+      "blob": "d626ca4c022c35cc318d545b7a3d38d664a0a755"
+    },
+    {
+      "file": "tests/element-energy.test.ts",
+      "blob": "7fd53721daea6007d33fa8891e7ff69230a8934b"
+    },
+    {
+      "file": "tests/monster-summon.test.ts",
+      "blob": "b103a0d8a12d3809fe35743c0fd7f06d09664b48"
+    }
+  ],
+  "oldHead": "dff7337d520386a9ad5aa3ceb8cbbef67216607b"
+}

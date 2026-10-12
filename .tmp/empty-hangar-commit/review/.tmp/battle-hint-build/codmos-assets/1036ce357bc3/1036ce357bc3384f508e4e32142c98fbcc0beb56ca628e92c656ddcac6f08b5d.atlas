@@ -1,0 +1,20 @@
+
+9daf20f9-3b18-4beb-be52-ca86e900effc.png
+size: 276, 140
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+particle
+  rotate: false
+  xy: 2, 2
+  size: 135, 135
+  orig: 136, 136
+  offset: 1, 0
+  index: -1
+twinkle
+  rotate: false
+  xy: 139, 2
+  size: 135, 135
+  orig: 136, 136
+  offset: 1, 0
+  index: -1

@@ -1,0 +1,11 @@
+{
+  "base": "40d7467a1aa131aff52aa5137f6a773035d16fa4",
+  "previousIndexHash": "fb64c6e222e8643e4cc60bb8c8f1db236519461d73f807db69a54186d83e1a3f",
+  "preserved": {
+    "README.md": "052111793f01250f70dad401dfeebb919b10570e",
+    "src/game/wave-one.ts": "7b66a13e6bac379e233670f119863a4c1ad8ac64",
+    "tests/element-energy.test.ts": "1d1a44f1c83a328fa9e40395cefeaee1faf2a340",
+    "tests/defense-simulation.test.ts": "e511a6d7d7e01a5a9e837234b9ca9770d824d60f",
+    "tests/room-walkable.test.ts": "8c5f749a6b7382f0296add2eb77622341ae18e58"
+  }
+}

@@ -11,7 +11,7 @@ test('all three waves spawn exactly 50, 70 and 90 regular enemies at the existin
     assert.equal(game.wave, index + 1);
     assert.equal(game.spawned, 0);
     assert.equal(game.totalEnemies, count + 1);
-    assert.equal(game.monsterSummonRemaining, game.totalEnemies - 1);
+    assert.equal(game.monsterSummonCountdown, 100);
     if (index > 0) {
       for (let frame = 0; frame < 60; frame++) game.step(0.05);
       assert.equal(game.status, 'running');
@@ -44,41 +44,25 @@ test('all three waves spawn exactly 50, 70 and 90 regular enemies at the existin
   assert.equal(game.startWave(), false);
 });
 
-test('wave three waits for all scheduled spawns and the last survivor before spawning the boss', () => {
+test('wave three spawns its boss at 100 seconds and still waits for all regular spawns', () => {
   const game = new DefenseSimulation(() => 0.4);
-  game.wave = 3;
-  game.countdown = 0;
-  game.player = { x: 14, y: 11 };
-  game.startWave();
+  game.wave = 3; game.countdown = 0; game.player = { x: 14, y: 11 }; game.startWave();
   for (let frame = 0; frame < 100 * 20; frame++) {
     game.step(0.05);
     for (const enemy of game.enemies) enemy.health = 0;
   }
+  assert.equal(game.monsterSummonCountdown, null);
+  assert.ok(game.enemies.some(enemy => enemy.kind === 'summoned'));
   game.step(0.05);
-  assert.equal(game.status, 'running');
-  assert.ok(game.spawned < 90);
+  assert.equal(game.status, 'running'); assert.ok(game.spawned < 90);
   assert.equal(game.totalEnemies, 91);
-  assert.ok(game.monsterSummonRemaining! > 0);
-  assert.equal(game.enemies.some(enemy => enemy.kind === 'summoned'), false);
   while (game.spawned < 90) {
     for (const enemy of game.enemies) enemy.health = 0;
     game.step(0.05);
+    assert.equal(game.status, 'running');
   }
-  const survivor = game.enemies.find(enemy => enemy.health > 0)!;
-  assert.ok(survivor);
-  for (let frame = 0; frame < 40; frame++) game.step(0.05);
-  assert.equal(game.spawned, 90);
-  assert.equal(game.status, 'running');
-  assert.equal(game.monsterSummonRemaining, 1);
-  survivor.health = 0;
-  game.step(0.05);
-  assert.equal(game.status, 'running');
-  assert.equal(game.kills, 90);
-  assert.equal(game.enemies.length, 1);
-  assert.equal(game.enemies[0].kind, 'summoned');
-  game.enemies[0].health = 0;
-  game.step(0.05);
-  assert.equal(game.status, 'cleared');
+  for (const enemy of game.enemies) enemy.health = 0;
+  game.step(0.05); assert.equal(game.status, 'cleared');
   assert.equal(game.kills, 91);
 });
 

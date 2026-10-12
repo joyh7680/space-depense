@@ -122,7 +122,7 @@ test('player kills roll exactly one element from three equally sized ranges', ()
   for (const [roll, kind] of [[0, 'fire'], [1 / 3 - 0.001, 'fire'], [1 / 3, 'ice'], [2 / 3 - 0.001, 'ice'], [2 / 3, 'electric'], [0.999, 'electric']] as const) {
     let rolls = 0;
     const game = new DefenseSimulation(() => { rolls++; return roll; }); game.startWave();
-    game.enemies = [monster(100, 14)];
+    game.enemies = [{ ...monster(100, 14), slowTime: 100, slowFactor: 0 }];
     assert.ok(game.step(0.05).some(shot => shot.player));
     assert.equal(game.kills, 1); assert.equal(rolls, 1); assert.equal(game.robotCount, 0);
     assert.equal(game.elementEnergy[kind], 1);
@@ -135,7 +135,7 @@ test('player kills roll exactly one element from three equally sized ranges', ()
 test('nonfatal attacks do not award energy or consume random draws', () => {
   let rolls = 0;
   const game = new DefenseSimulation(() => { rolls++; return 0; }); game.startWave();
-  game.enemies = [monster(100, 1000)]; game.step(0.05);
+  game.enemies = [{ ...monster(100, 1000), slowTime: 100, slowFactor: 0 }]; game.step(0.05);
   assert.equal(game.enemies.find(enemy => enemy.id === 100)!.health, 986);
   assert.equal(game.kills, 0); assert.equal(rolls, 0);
   assert.deepEqual(game.elementEnergy, { fire: 0, ice: 0, electric: 0 });
@@ -230,7 +230,7 @@ test('manual choices and total counts never double spend shared energy and respe
 test('a manually summoned robot cannot attack until its own mission succeeds', () => {
   const game = new DefenseSimulation(() => 0); game.startWave();
   game.elementEnergy = { fire: 4, electric: 3, ice: 1 };
-  game.enemies = [monster(100, 14)]; game.step(0.05);
+  game.enemies = [{ ...monster(100, 14), slowTime: 100, slowFactor: 0 }]; game.step(0.05);
   assert.equal(game.robotCount, 0); assert.equal(game.deployRobotKind('fire'), true);
   const robot = game.robots[0];
   assert.equal(robot.kind, 'fire'); assert.equal(game.lastEnergyRewards.fire, 1);

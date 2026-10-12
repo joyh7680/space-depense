@@ -1,0 +1,16 @@
+{
+  "base": "c2803ef6fd642c075ad097976dc1430959549e32",
+  "previousIndexHash": "ffbd8b07e498c58890f2b3bbf76ece46cd2394e7522975ac08e628e12f04675c",
+  "preserved": {
+    "README.md": "e2e4526192254d5072870f0d67418241de0a272d",
+    "src/app.vue": "40703c3ab443b29ec5287a3cf2d3b82b73a2879a",
+    "src/game/defense-scene.ts": "a24736d7cdb2378c7e372b212dc8d87e828bc8f1",
+    "src/game/defense-simulation.ts": "0fd97d885ea3d41a1f03758c199297f5e493592a",
+    "src/game/types.ts": "f3d4432fd0ce3439d34d27725df8dc5d4ef7a1a7",
+    "src/game/wave-one.ts": "202ed841429e02fa98eaa0c0b26540d06b115807",
+    "tests/coding-missions.test.ts": "b5f163f2dc690621f7272f2aa6ff66d99a94ea8e",
+    "tests/continuous-spawn.test.ts": "6bba9c88ef45f0ff6efafd5febaecf3d54e9ec0b",
+    "tests/defense-simulation.test.ts": "8a2743bc2c4b43dd3297380bc647b48553bbfef4",
+    "tests/monster-summon.test.ts": "347a7538d5131639b22ad4ec1ed2a7370ee85075"
+  }
+}

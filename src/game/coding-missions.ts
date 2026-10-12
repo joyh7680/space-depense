@@ -107,14 +107,14 @@ export function validateRobotCode(kind: RobotKind, wave: number, code: readonly 
 }
 
 export type AttackProfile = {
-  range: number; attackInterval: number;
+  attackRadius: number; attackInterval: number;
   shots: number; damage: number; splash: number; burn: number;
   slowDuration: number; slowFactor: number; chainTargets: number; chainDamage: number; area: boolean;
 };
 // Mission concepts are learning exercises; combat always uses the robot's basic attack.
 export function getBasicRobotAttack(kind: RobotKind): AttackProfile {
   return {
-    range: ROBOTS[kind].range, attackInterval: ROBOTS[kind].attackInterval,
+    attackRadius: ROBOTS[kind].attackRadius, attackInterval: ROBOTS[kind].attackInterval,
     shots: kind === 'electric' ? 2 : 1, damage: 1,
     splash: kind === 'fire' ? 1.6 : kind === 'ice' ? 1.4 : 0, burn: 0,
     slowDuration: kind === 'ice' ? 1.4 : 0, slowFactor: 0.6,

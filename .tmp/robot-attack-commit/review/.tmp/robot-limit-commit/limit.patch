@@ -1,0 +1,61 @@
+diff --git a/src/game/defense-simulation.ts b/src/game/defense-simulation.ts
+index 9447d05..61c5914 100644
+--- a/src/game/defense-simulation.ts
++++ b/src/game/defense-simulation.ts
+@@ -1,6 +1,6 @@
+ import { isWalkable } from './room/walkable.ts';
+ import { createRobotProgram, evaluateRobotAttack, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type RobotProgram, type EnhancementChoices, type AttackProfile } from './coding-missions.ts';
+-import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
++import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
+ import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
+ 
+ export type Robot = RobotState & { cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
+@@ -96,7 +96,7 @@ export class DefenseSimulation {
+   placeRobot(x: number, y: number, kind: RobotKind): string {
+     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 소환할 수 있어요.';
+     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥을 선택해 주세요.';
+-    if (this.robots.length >= 8) return '로봇은 최대 8대까지 소환할 수 있어요.';
++    if (this.robots.length >= MAX_ROBOTS) return `로봇은 최대 ${MAX_ROBOTS}대까지 소환할 수 있어요.`;
+     if (this.deployedRobots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
+     if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 ${ROBOTS[kind].name}이 충전돼요.`;
+     this.createRobot(kind, { x, y });
+@@ -187,7 +187,7 @@ export class DefenseSimulation {
+   }
+   private autoSummon(): void {
+     for (const kind of ROBOT_KINDS) {
+-      while (this.elementEnergy[kind] >= ROBOT_CHARGE_COST && this.robotCount < 8) {
++      while (this.elementEnergy[kind] >= ROBOT_CHARGE_COST && this.robotCount < MAX_ROBOTS) {
+         this.createRobot(kind, null, false);
+         this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
+       }
+@@ -287,7 +287,7 @@ export class DefenseSimulation {
+       for (let reward = 0; reward < rewardCount; reward++) {
+         this.elementEnergy[this.randomKind()]++;
+       }
+-      if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < 8) {
++      if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < MAX_ROBOTS) {
+         this.createRobot(this.randomKind(), null, false);
+       }
+       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
+diff --git a/README.md b/README.md
+index b9ce4ad..1968f24 100644
+--- a/README.md
++++ b/README.md
+@@ -23,7 +23,7 @@ npm run build
+ 
+ - 방 로딩이 끝나면 **3–2–1 카운트다운 후 WAVE 1 전투가 시작**합니다. 카운트다운 중에는 이동·로봇 조작과 적 생성이 시작되지 않습니다. 시작·일시정지 버튼은 없습니다.
+ - 대원 이동: **캐릭터를 마우스 또는 터치로 직접 드래그**해서 길 밖의 빈 바닥에 놓습니다. 놓으면 해당 칸에 배치되고 근처 괴물을 자동 공격합니다. 바닥 클릭으로는 이동하지 않으며 괴물 길·벽·로봇이 있는 자리에 놓으면 원래 위치로 돌아갑니다.
+-- **속성 에너지와 자동 소환**: 일반 몬스터 처치 시 무작위 속성 에너지 1개, 소환 보스 처치 시 무작위 속성 에너지 3개를 얻습니다. 하단 속성 에너지 영역에 보유량을 표시하며, 같은 속성 3개마다 이를 소비하고 해당 로봇을 획득합니다. 획득 즉시 `로봇 소환` 버튼의 보유 수와 모달 카드에 반영되며, 선택하기 전까지 방 안에 캐릭터로 표시되거나 바닥을 차지하지 않습니다. 모달에서 로봇을 선택하면 빈 바닥에 배치됩니다. 해당 종류의 기본 미션을 완료한 상태라면 코딩 없이 바로 공격하고, 아직 완료하지 않았다면 공격을 기다립니다. 최대 8기이며 한도를 넘는 에너지는 보관합니다. 기존 소환 몬스터의 희귀 로봇 보상도 같은 보유 상태로 추가됩니다.
++- **속성 에너지와 자동 소환**: 일반 몬스터 처치 시 무작위 속성 에너지 1개, 소환 보스 처치 시 무작위 속성 에너지 3개를 얻습니다. 하단 속성 에너지 영역에 보유량을 표시하며, 같은 속성 3개마다 이를 소비하고 해당 로봇을 획득합니다. 획득 즉시 `로봇 소환` 버튼의 보유 수와 모달 카드에 반영되며, 선택하기 전까지 방 안에 캐릭터로 표시되거나 바닥을 차지하지 않습니다. 모달에서 로봇을 선택하면 빈 바닥에 배치됩니다. 해당 종류의 기본 미션을 완료한 상태라면 코딩 없이 바로 공격하고, 아직 완료하지 않았다면 공격을 기다립니다. 최대 9기이며 한도를 넘는 에너지는 보관합니다. 기존 소환 몬스터의 희귀 로봇 보상도 같은 보유 상태로 추가됩니다.
+ - **로봇 선택**: 하단 `로봇 소환` 버튼으로 미사일·전기·냉각 로봇의 가로 3칸 카드 모달을 엽니다. 미소환 카드는 회색으로 비활성화되며, 보유 로봇의 카드를 누르면 모달이 닫히고 방 안에 해당 로봇 캐릭터와 자동 공격 상태가 나타나며 오른쪽 미션·블록코딩 패널이 동시에 열립니다. 같은 속성의 카드로 다시 선택하면 다음 로봇으로 순환하며, 이미 배치된 로봇의 위치와 코딩 초안은 유지합니다. 모달은 바깥 클릭이나 Escape로 닫습니다.
+ - **블록코딩**: 명령어 블록을 클릭하면 `내 코드`의 첫 빈칸에 바로 추가됩니다. 키보드/터치로 블록을 눌러도 동일하게 추가되며, 모든 칸이 차면 블록을 제거한 뒤 추가하도록 안내합니다. 내 코드 안에서는 블록을 드래그해 빈칸으로 이동하거나 다른 블록과 자리를 바꿀 수 있습니다. `코드 실행`을 누르면 빈칸이나 잘못된 순서는 오류로 안내합니다. 초안·오류·완료 상태는 종류별로 공유하며 다른 종류를 선택하거나 패널을 닫아도 유지됩니다. 모든 미션은 블록을 연결한 뒤 명시적으로 코드 실행을 눌러 완료합니다.
+ - **기본 미션**: 미사일로봇은 `목표 찾기 → 미사일 발사하기`, 냉각로봇은 `만약 적이 사거리 안에 있다면 → 냉각 공격`, 전기로봇은 `2번 반복하기 → 전기 충격 발사`를 사용합니다. 종류별 최초 1회 완료하면 같은 종류의 모든 로봇과 추가 소환 로봇의 자동 공격을 활성화합니다. 2·3웨이브에서 처음 획득한 종류도 기본 미션을 먼저 풀 수 있습니다.
+@@ -42,7 +42,7 @@ npm run build
+ - 로봇 종류별로 기본 미션과 WAVE 2·3 강화 미션의 프로그램을 각각 보관합니다. 패널에는 기본 완료·각 웨이브 강화 여부와 이번 웨이브에 강화한 종류가 표시됩니다.
+ - 기본 공격은 사거리 안에 살아 있는 적이 1마리라도 있으면 실행합니다. 전기는 2회 발사와 연쇄 피해, 냉기는 감속, 미사일은 범위·지속 피해를 줍니다. 반복 발사 중 목표가 죽으면 다른 살아 있는 목표를 찾습니다.
+ - 속성 충전·소환·배치·선택, 일반 몬스터 처치마다 무작위 속성 에너지 1개와 소환 보스 처치마다 독립적으로 추첨한 속성 에너지 3개, 기존 처치 보상 15·완료 보상 50, 승패와 재시작. 합성 규칙은 컨트롤러에 유지하며 카드 목록에는 별도 합성 버튼을 두지 않습니다.
+-- 최대 8대 / 길 밖 자유 배치 / 최대 3성 / 기본 공격 간격 0.9초
++- 최대 9대 / 길 밖 자유 배치 / 최대 3성 / 기본 공격 간격 0.9초
+ - 보스를 처치하면 새 일반 몬스터 생성을 멈추고, 남아 있는 몬스터까지 모두 처치하면 승리합니다. 12마리 이후와 보스 전투 중의 연속 생성, 다음 웨이브의 생성 초기화, 속성 에너지 획득·충전·소모를 테스트합니다.
+ 
+ 블록 편집은 정해진 조건·변수·공격 슬롯을 채우는 프로토타입입니다. W4–W5와 최종 보스, 로그인·영구 저장·실제 코인 지급·LMS 방 포털 연동은 아직 없습니다. 다음 웨이브나 다시 플레이를 시작하면 보스 자동 등장 시간도 초기화됩니다.

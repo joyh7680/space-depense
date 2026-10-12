@@ -1,0 +1,48 @@
+
+9ae27227-06b4-432c-95e7-305f10efc0e5.png
+size: 220, 276
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+smoke01
+  rotate: true
+  xy: 2, 110
+  size: 162, 152
+  orig: 162, 152
+  offset: 0, 0
+  index: -1
+smoke02
+  rotate: true
+  xy: 2, 2
+  size: 106, 111
+  orig: 106, 111
+  offset: 0, 0
+  index: -1
+smoke03
+  rotate: false
+  xy: 156, 123
+  size: 32, 28
+  orig: 32, 28
+  offset: 0, 0
+  index: -1
+smoke04
+  rotate: false
+  xy: 156, 204
+  size: 59, 68
+  orig: 59, 68
+  offset: 0, 0
+  index: -1
+smoke05
+  rotate: true
+  xy: 156, 153
+  size: 49, 45
+  orig: 49, 45
+  offset: 0, 0
+  index: -1
+smoke06
+  rotate: false
+  xy: 115, 4
+  size: 99, 104
+  orig: 99, 104
+  offset: 0, 0
+  index: -1

@@ -1,0 +1,40 @@
+{
+  "message": "fix: 로봇 에너지 조합을 5·7·9개로 조정",
+  "folder": "energy-final-commit",
+  "replacements": {
+    "README.md": [
+      ["크라이오 볼트는 전기 3개 + 냉기 2개 + 화염 1개(총 6개", "크라이오 볼트는 전기 3개 + 냉기 1개 + 화염 1개(총 5개"],
+      ["써멀 쇼크는 냉기 4개 + 화염 3개 + 전기 2개(총 9개", "써멀 쇼크는 냉기 4개 + 화염 2개 + 전기 1개(총 7개"],
+      ["플라즈마는 화염 5개 + 전기 4개 + 냉기 3개(총 12개", "플라즈마는 화염 5개 + 전기 3개 + 냉기 1개(총 9개"]
+    ],
+    "src/game/wave-one.ts": [
+      ["ROBOT_CHARGE_COST = 6", "ROBOT_CHARGE_COST = 5"],
+      ["recipe: [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 2 }, { kind: 'fire', amount: 1 }]", "recipe: [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }, { kind: 'fire', amount: 1 }]"],
+      ["recipe: [{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 3 }, { kind: 'electric', amount: 2 }]", "recipe: [{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 2 }, { kind: 'electric', amount: 1 }]"],
+      ["recipe: [{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 4 }, { kind: 'ice', amount: 3 }]", "recipe: [{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }]" ]
+    ],
+    "tests/element-energy.test.ts": [
+      ["exact 6, 9 and 12 energy combinations", "exact 5, 7 and 9 energy combinations"],
+      ["[{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 2 }, { kind: 'fire', amount: 1 }]", "[{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }, { kind: 'fire', amount: 1 }]"],
+      ["[{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 3 }, { kind: 'electric', amount: 2 }]", "[{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 2 }, { kind: 'electric', amount: 1 }]"],
+      ["[{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 4 }, { kind: 'ice', amount: 3 }]", "[{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 3 }, { kind: 'ice', amount: 1 }]"],
+      ["assert.deepEqual(game.elementEnergy, { fire: 1, ice: 0, electric: 0 });", "assert.deepEqual(game.elementEnergy, { fire: 1, ice: 2, electric: 1 });"],
+      ["assert.equal(getTotalSummonCount(game.elementEnergy, game.robots), 3);", "assert.equal(getTotalSummonCount(game.elementEnergy, game.robots), 4);"],
+      ["assert.deepEqual(game.elementEnergy, { fire: 2, ice: 3, electric: 8 });", "assert.deepEqual(game.elementEnergy, { fire: 3, ice: 3, electric: 9 });"],
+      ["assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 5 });", "assert.deepEqual(game.elementEnergy, { fire: 2, ice: 2, electric: 6 });"],
+      ["game.elementEnergy = { fire: 4, electric: 4, ice: 3 };", "game.elementEnergy = { fire: 4, electric: 3, ice: 1 };"]
+    ],
+    "tests/defense-simulation.test.ts": [
+      ["assert.equal(ROBOT_CHARGE_COST, 6);", "assert.equal(ROBOT_CHARGE_COST, 5);"],
+      ["game.elementEnergy.fire = 5; game.elementEnergy.electric = 3; game.credits = 9999;", "game.elementEnergy.fire = 5; game.elementEnergy.electric = 2; game.credits = 9999;"],
+      ["game.elementEnergy.ice = 2;", "game.elementEnergy.ice = 0;"],
+      ["game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.ice, 2);", "game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.ice, 0);"],
+      ["game.elementEnergy.ice = 7; game.elementEnergy.fire = 3; game.elementEnergy.electric = 2; game.credits = 0; game.summon('ice');", "game.elementEnergy.ice = 7; game.elementEnergy.fire = 2; game.elementEnergy.electric = 1; game.credits = 0; game.summon('ice');"],
+      ["assert.equal(game.elementEnergy.fire, 50); assert.equal(game.elementEnergy.electric, 40); assert.equal(game.robots.length, 0);", "assert.equal(game.elementEnergy.fire, 50); assert.equal(game.elementEnergy.electric, 30); assert.equal(game.robots.length, 0);"],
+      ["assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 4); assert.equal(game.robots.length, 9);", "assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 3); assert.equal(game.robots.length, 9);"]
+    ],
+    "tests/room-walkable.test.ts": [
+      ["assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 4);", "assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 3);"]
+    ]
+  }
+}

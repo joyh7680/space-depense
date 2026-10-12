@@ -1,0 +1,34 @@
+
+b0079f74-45c7-4c27-a2d8-114c49acaa78.png
+size: 292, 228
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+effect_correct_round
+  rotate: false
+  xy: 2, 2
+  size: 223, 223
+  orig: 223, 223
+  offset: 0, 0
+  index: -1
+effect_correct_t01
+  rotate: false
+  xy: 227, 163
+  size: 62, 62
+  orig: 62, 62
+  offset: 0, 0
+  index: -1
+effect_correct_t02
+  rotate: false
+  xy: 227, 99
+  size: 62, 62
+  orig: 62, 62
+  offset: 0, 0
+  index: -1
+effect_correct_t03
+  rotate: false
+  xy: 227, 35
+  size: 62, 62
+  orig: 62, 62
+  offset: 0, 0
+  index: -1

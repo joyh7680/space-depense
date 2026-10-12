@@ -1,6 +1,6 @@
 import { isWalkable } from './room/walkable.ts';
 import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type MissionProgress, type RobotProgram, type AttackProfile } from './coding-missions.ts';
-import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE, REGULAR_ENEMY_COUNTS } from './wave-one.ts';
+import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE, REGULAR_ENEMY_COUNTS, PLAYER_LASER_RADIUS } from './wave-one.ts';
 import { getRobotEnergyCount, getRobotRecipeLabel, spendRobotEnergy } from './robot-energy.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
@@ -19,6 +19,8 @@ export function isRouteTile(x: number, y: number): boolean {
   });
 }
 const distance = (a: TilePosition, b: TilePosition) => Math.hypot(a.x - b.x, a.y - b.y);
+// Use the same world-space circle as the renderer, independent of grid-cell counts.
+const withinAttackCircle = (a: TilePosition, b: TilePosition, radius: number) => distance(a, b) * 100 <= radius;
 function applyAttackEffects(enemy: Enemy, damage: number, profile: AttackProfile): void {
   if (profile.burn > 0) {
     enemy.burnTime = Math.max(enemy.burnTime, 2);
@@ -66,12 +68,12 @@ export class DefenseSimulation {
   get deployedRobots(): Robot[] { return this.robots.filter(robot => robot.deployed); }
   private get regularEnemyCount(): number { return REGULAR_ENEMY_COUNTS[getMissionNumber(this.wave) - 1]; }
   get totalEnemies(): number { return this.regularEnemyCount + 1; }
-  get monsterSummonRemaining(): number | null {
-    return this.bossSpawned ? null : Math.max(0, this.regularEnemyCount - this.kills);
+  get monsterSummonCountdown(): number | null {
+    return this.bossSpawned ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
   }
 
   private spawnBoss(): void {
-    if (this.bossSpawned || this.spawned < this.regularEnemyCount || this.enemies.some(enemy => enemy.kind !== 'summoned')) return;
+    if (this.bossSpawned || this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001) return;
     this.bossSpawned = true;
     this.enemies.push({ ...ROUTE[0], id: ++this.sequence, kind: 'summoned', health: SUMMONED_MONSTER.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
   }
@@ -303,7 +305,7 @@ export class DefenseSimulation {
     if (this.health <= 0) { this.health = 0; this.status = 'defeat'; return []; }
     const shots = this.executeRobots(dt);
     this.playerCooldown = Math.max(0, this.playerCooldown - dt);
-    const target = this.enemies.filter(e => e.health > 0 && distance(e, this.player) <= 4).sort((a, b) => distance(a, this.player) - distance(b, this.player))[0];
+    const target = this.enemies.filter(e => e.health > 0 && withinAttackCircle(e, this.player, PLAYER_LASER_RADIUS)).sort((a, b) => distance(a, this.player) - distance(b, this.player))[0];
     if (target && this.playerCooldown === 0) {
       target.health -= 14;
       shots.push({ from: { ...this.player }, to: { x: target.x, y: target.y }, kind: 'electric', player: true });
@@ -368,7 +370,7 @@ export class DefenseSimulation {
       if (robot.phaseTimer > 0) continue;
       if (robot.activeBlock === 'wait') { this.phase(robot, 'find', 0.16); continue; }
       const living = this.enemies.filter(e => e.health > 0);
-      const targets = living.filter(e => distance(e, robot) <= basicAttack.range)
+      const targets = living.filter(e => withinAttackCircle(e, robot, basicAttack.attackRadius))
         .sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
       if (robot.activeBlock === 'find') {
         robot.targetId = targets[0]?.id ?? null;
