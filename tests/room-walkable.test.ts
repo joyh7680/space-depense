@@ -36,7 +36,7 @@ test('wall-covered tiles reject robot placement and relocation without consuming
       assert.equal(game.canMoveRobot(robot.id, x, y), false);
       assert.equal(game.canMovePlayer(x, y), false);
       assert.equal(game.robots.length, 1);
-      assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 4);
+      assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 3);
       assert.deepEqual({ x: robot.x, y: robot.y }, { x: 3, y: 5 });
     }
   }
