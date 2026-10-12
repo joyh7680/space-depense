@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { DefenseSimulation, type Enemy } from '../src/game/defense-simulation.ts';
 import { getCodingMission, validateRobotCode, type MissionNumber } from '../src/game/coding-missions.ts';
 import type { RobotKind } from '../src/game/types.ts';
+import { ROBOT_CHARGE_COST } from '../src/game/wave-one.ts';
 
 const kinds = ['fire', 'ice', 'electric'] as const;
 const waves = [1, 2, 3] as const;
 function summon(game: DefenseSimulation, kind: RobotKind) {
-  game.elementEnergy[kind] += 3; game.summon(kind);
+  game.elementEnergy[kind] += ROBOT_CHARGE_COST; game.summon(kind);
   return game.robots.at(-1)!;
 }
 function setup(kind: RobotKind, wave: MissionNumber = 1) {
@@ -231,7 +232,7 @@ test('automatically acquired robots require their own current wave answer after 
   for (const wave of waves) {
     const game = setup('ice', wave), first = game.robots.at(-1)!; complete(game, first.id);
     game.elementEnergy.ice = 0; const owned = game.robotCount;
-    game.enemies = [enemy(100, 14, 0), enemy(101, 14, 0), enemy(102, 14, 0)]; game.step(0.05);
+    game.enemies = Array.from({ length: ROBOT_CHARGE_COST }, (_, index) => enemy(100 + index, 14, 0)); game.step(0.05);
     const stored = game.robots.at(-1)!;
     assert.equal(stored.deployed, false); assert.equal(stored.autoAttackActive, false);
     assert.equal(stored.missionNumber, wave); assert.deepEqual(stored.completedMissions, []);
@@ -246,7 +247,7 @@ test('automatically acquired robots require their own current wave answer after 
 
 test('paused and finished games cannot edit, deploy or spend energy', () => {
   const game = setup('ice'); complete(game);
-  game.enemies = [enemy(100, 14, 0), enemy(101, 14, 0), enemy(102, 14, 0)]; game.step(0.05);
+  game.enemies = Array.from({ length: ROBOT_CHARGE_COST }, (_, index) => enemy(100 + index, 14, 0)); game.step(0.05);
   const stored = game.robots.at(-1)!;
   for (const status of ['paused', 'cleared', 'defeat'] as const) {
     game.status = status; const before = JSON.stringify(game);
@@ -276,7 +277,7 @@ test('rare boss rewards require a new answer even when that kind already complet
 test('merging retains the selected mission and activation; replacements need a new answer', () => {
   const game = setup('electric'), selected = game.robots[0]; complete(game);
   summon(game, 'electric'); game.selectRobot(selected.id);
-  const program = JSON.stringify(selected.program); game.elementEnergy.electric = 3; game.merge();
+  const program = JSON.stringify(selected.program); game.elementEnergy.electric = ROBOT_CHARGE_COST; game.merge();
   assert.equal(selected.grade, 2); assert.equal(JSON.stringify(selected.program), program); assert.equal(selected.autoAttackActive, true);
   const replacement = game.robots.at(-1)!;
   assert.notEqual(replacement.id, selected.id); assert.equal(replacement.autoAttackActive, false); assert.deepEqual(replacement.code, [null, null]);

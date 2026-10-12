@@ -7,7 +7,7 @@ const monster = (id: number, health: number): Enemy => ({
   id, x: 5, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0,
 });
 
-test('three matching elements store a waiting robot without deploying it and consume only that element', () => {
+test('five matching elements store a waiting robot without deploying it and consume only that element', () => {
   let roll = 0;
   const game = new DefenseSimulation(() => roll);
   game.startWave();
@@ -20,7 +20,7 @@ test('three matching elements store a waiting robot without deploying it and con
       game.step(0.05);
       if (kill < ROBOT_CHARGE_COST - 1) {
         assert.equal(game.elementEnergy[kind], kill + 1);
-        assert.equal(game.robotCount, index, 'a robot needs three matching energies');
+        assert.equal(game.robotCount, index, 'a robot needs five matching energies');
       }
     }
     assert.equal(game.elementEnergy[kind], 0);
@@ -76,8 +76,8 @@ test('nonfatal player attacks do not award element energy or consume a random ro
   assert.deepEqual(game.elementEnergy, { fire: 0, ice: 0, electric: 0 });
 });
 
-test('successive kills grant one element each and charge a robot on the third matching energy', () => {
-  const draws = [0.99, 0.99, 0, 0.4, 0, 0];
+test('successive kills grant one element each and charge a robot on the fifth matching energy', () => {
+  const draws = [0.99, 0.99, 0, 0.4, 0, 0, 0, 0];
   let rolls = 0;
   const game = new DefenseSimulation(() => draws[rolls++]);
   game.startWave();
@@ -87,6 +87,8 @@ test('successive kills grant one element each and charge a robot on the third ma
     { fire: 1, ice: 0, electric: 2 },
     { fire: 1, ice: 1, electric: 2 },
     { fire: 2, ice: 1, electric: 2 },
+    { fire: 3, ice: 1, electric: 2 },
+    { fire: 4, ice: 1, electric: 2 },
     { fire: 0, ice: 1, electric: 2 },
   ];
   for (const [index, energy] of expected.entries()) {
@@ -97,7 +99,7 @@ test('successive kills grant one element each and charge a robot on the third ma
     assert.equal(game.robotCount, index === expected.length - 1 ? 1 : 0);
   }
   assert.equal(game.robotCount, 1);
-  assert.equal(game.robots[0].kind, 'fire', 'the three accumulated fire energies charge a robot');
+  assert.equal(game.robots[0].kind, 'fire', 'the five accumulated fire energies charge a robot');
 });
 
 test('simultaneous monster deaths each roll once and preserve energy at the robot limit', () => {

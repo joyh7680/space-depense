@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE, isRouteTile, type Enemy } from '../src/game/defense-simulation.ts';
-import { DEPLOY_SLOTS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
+import { DEPLOY_SLOTS, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
 import type { RobotKind } from '../src/game/types.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 import { getCodingMission } from '../src/game/coding-missions.ts';
 
 const summon = (game: DefenseSimulation, kind: RobotKind = 'fire') => {
-  game.elementEnergy[kind] += 3;
+  game.elementEnergy[kind] += ROBOT_CHARGE_COST;
   const message = game.summon(kind);
   const robot = game.robots.at(-1)!;
   getCodingMission(kind, game.wave).slots.forEach((slot, index) => game.updateCode(robot.id, index, slot.block));
@@ -27,32 +27,35 @@ test('room boundaries and flipped wall tiles cannot be walked on; every deploy s
   }
 });
 
-test('robots need three matching energy; other elements and credits cannot substitute', () => {
+test('robots need five matching energy; other elements and credits cannot substitute', () => {
   const game = new DefenseSimulation();
+  assert.equal(ROBOT_CHARGE_COST, 5);
   assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
-  game.elementEnergy.fire = 2; game.elementEnergy.electric = 3; game.credits = 9999;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 2);
+  game.elementEnergy.fire = 3; game.elementEnergy.electric = 5; game.credits = 9999;
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 3);
+  game.elementEnergy.fire++;
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 4);
   game.elementEnergy.fire++;
   game.summon('fire');
   assert.equal(game.robots.length, 1); assert.equal(game.robots[0].kind, 'fire');
   assert.equal(game.selectedId, game.robots[0].id);
-  assert.equal(game.elementEnergy.fire, 0); assert.equal(game.elementEnergy.electric, 3);
+  assert.equal(game.elementEnergy.fire, 0); assert.equal(game.elementEnergy.electric, 5);
   assert.equal(game.credits, 9999);
   game.summon('fire'); assert.equal(game.robots.length, 1);
   game.summon('electric'); assert.equal(game.robots.length, 2); assert.equal(game.elementEnergy.electric, 0);
-  game.elementEnergy.ice = 4; game.credits = 0; game.summon('ice');
+  game.elementEnergy.ice = 6; game.credits = 0; game.summon('ice');
   assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 1); assert.equal(game.credits, 0);
 });
 
 test('invalid placement, occupied slots and full board preserve matching energy', () => {
-  const game = new DefenseSimulation(); game.elementEnergy.fire = 30;
+  const game = new DefenseSimulation(); game.elementEnergy.fire = 10 * ROBOT_CHARGE_COST;
   for (const [x, y] of [[0, 6], [1, 4], [12, 5], [3, 6], [game.player.x, game.player.y]]) game.placeRobot(x, y, 'fire');
-  assert.equal(game.elementEnergy.fire, 30); assert.equal(game.robots.length, 0);
+  assert.equal(game.elementEnergy.fire, 10 * ROBOT_CHARGE_COST); assert.equal(game.robots.length, 0);
   game.placeRobot(3, 5, 'fire'); game.placeRobot(3, 5, 'fire');
-  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 27);
+  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 9 * ROBOT_CHARGE_COST);
   for (let i = 0; i < 7; i++) game.summon('fire');
-  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 6);
-  game.summon('fire'); assert.equal(game.elementEnergy.fire, 6); assert.equal(game.robots.length, 8);
+  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 2 * ROBOT_CHARGE_COST);
+  game.summon('fire'); assert.equal(game.elementEnergy.fire, 2 * ROBOT_CHARGE_COST); assert.equal(game.robots.length, 8);
 });
 
 test('each killed regular monster grants one random element; living or escaped monsters do not', () => {
@@ -94,14 +97,14 @@ test('different kinds cannot merge', () => {
 test('pause and finished states reject charged robots without spending energy; battle allows deployment', () => {
   const game = new DefenseSimulation();
   assert.equal(game.startWave(), true); assert.equal(game.startWave(), false);
-  summon(game); summon(game); game.elementEnergy.fire = 3;
+  summon(game); summon(game); game.elementEnergy.fire = ROBOT_CHARGE_COST;
   game.step(.05); game.togglePause();
   const snapshot = JSON.stringify(game);
   for (let i = 0; i < 100; i++) game.step(.05);
   game.summon('fire'); game.merge(); assert.equal(JSON.stringify(game), snapshot);
   game.togglePause(); game.summon('fire'); assert.equal(game.robots.length, 3); assert.equal(game.elementEnergy.fire, 0);
   for (const status of ['cleared', 'defeat'] as const) {
-    game.status = status; game.elementEnergy.fire = 3;
+    game.status = status; game.elementEnergy.fire = ROBOT_CHARGE_COST;
     const ended = JSON.stringify(game);
     game.summon('fire'); game.merge(); assert.equal(JSON.stringify(game), ended);
   }
@@ -225,7 +228,7 @@ test('player pathfinding takes a floor-only detour and respects robots placed in
   assert.deepEqual(game.player, target);
   const blocked = new DefenseSimulation(() => 0);
   assert.deepEqual(blocked.nextPlayerStep({ x: 11, y: 5 }), { x: 6, y: 5 });
-  blocked.elementEnergy.fire = 3; blocked.placeRobot(6, 5, 'fire');
+  blocked.elementEnergy.fire = ROBOT_CHARGE_COST; blocked.placeRobot(6, 5, 'fire');
   assert.equal(blocked.canMovePlayer(6, 5), false);
   assert.equal(blocked.nextPlayerStep({ x: 11, y: 5 }), null);
 });
@@ -266,7 +269,7 @@ test('two horizontal lanes connect through the right turn and leave the middle o
  for (let y = 4; y <= 6; y++) assert.equal(isRouteTile(12, y), true);
  for (const [x, y] of [[8, 3], [8, 7], [13, 5]]) assert.equal(isRouteTile(x, y), false);
  const game = new DefenseSimulation(() => 0);
- game.elementEnergy.fire = 3; game.placeRobot(8, 5, 'fire');
+ game.elementEnergy.fire = ROBOT_CHARGE_COST; game.placeRobot(8, 5, 'fire');
  assert.equal(game.robots.length, 1);
  assert.deepEqual([game.robots[0].x, game.robots[0].y], [8, 5]);
 });
@@ -284,7 +287,7 @@ test('player drops place directly on empty floor and rejected drops preserve pos
  assert.equal(game.movePlayer(4, 7), false, 'countdown blocks placement');
  assert.deepEqual(game.player, origin);
  game.startWave();
- game.elementEnergy.fire = 3; game.placeRobot(4, 7, 'fire');
+ game.elementEnergy.fire = ROBOT_CHARGE_COST; game.placeRobot(4, 7, 'fire');
  const balance = game.credits, energy = { ...game.elementEnergy };
  assert.equal(game.movePlayer(13, 7), true);
  assert.deepEqual(game.player, { x: 13, y: 7 });

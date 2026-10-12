@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE } from '../src/game/defense-simulation.ts';
-import { ROBOT_KINDS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
+import { ROBOT_CHARGE_COST, ROBOT_KINDS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
 
 const advance = (game: DefenseSimulation, seconds: number) => {
   // Isolate the boss timer from regular enemies without disabling the spawner.
@@ -114,10 +114,9 @@ test('special kills always award three random elements, with the rare robot roll
     const game = new DefenseSimulation(() => rolls[count++]);
     spawnBoss(game); game.enemies[0].health = 0;
     game.step(0.05);
-    assert.equal(game.elementEnergy[kind], 0);
-    assert.equal(Object.values(game.elementEnergy).reduce((sum, amount) => sum + amount, 0), 0);
-    assert.equal(game.robotCount, 1);
-    assert.equal(game.robots[0].kind, kind);
+    assert.equal(game.elementEnergy[kind], 3);
+    assert.equal(Object.values(game.elementEnergy).reduce((sum, amount) => sum + amount, 0), 3);
+    assert.equal(game.robotCount, 0);
     assert.equal(game.kills, 1);
     assert.equal(count, 4);
     game.step(0.05); assert.equal(count, 4, 'dead monsters cannot reward twice');
@@ -129,7 +128,7 @@ test('rare rewards store every robot kind for free without deploying it and pres
     const rolls = [0, 0.5, 0.99, SUMMONED_MONSTER.robotDropChance - 0.001, (index + 0.5) / 3];
     let count = 0;
     const game = new DefenseSimulation(() => rolls[count++]);
-    game.elementEnergy.fire = 3; game.summon('fire');
+    game.elementEnergy.fire = ROBOT_CHARGE_COST; game.summon('fire');
     const selected = game.selectedId;
     spawnBoss(game); game.enemies[0].health = 0;
     game.step(0.05);
@@ -146,7 +145,7 @@ test('rare rewards store every robot kind for free without deploying it and pres
 
 test('rare rewards respect the eight robot limit while still awarding element energy', () => {
   const game = new DefenseSimulation(() => 0);
-  game.elementEnergy.fire = 24;
+  game.elementEnergy.fire = 8 * ROBOT_CHARGE_COST;
   for (let i = 0; i < 8; i++) game.summon('fire');
   spawnBoss(game); game.enemies[0].health = 0;
   game.step(0.05);
@@ -176,7 +175,7 @@ test('burning special monsters reward once before they can escape; paused reward
   game.togglePause(); game.step(0.05); assert.equal(count, 0);
   game.togglePause(); game.step(0.05);
   assert.equal(game.status, 'cleared'); assert.equal(game.kills, 1);
-  assert.equal(game.health, 100); assert.equal(game.elementEnergy.electric, 0);
-  assert.equal(game.robotCount, 1); assert.equal(game.robots[0].kind, 'electric');
+  assert.equal(game.health, 100); assert.equal(game.elementEnergy.electric, 3);
+  assert.equal(game.robotCount, 0);
   assert.equal(count, 4);
 });

@@ -126,7 +126,7 @@ function dialogKey(event: KeyboardEvent) {
         <b>로봇 소환</b>
       </button>
     </div>
-    <p v-if="ready && canDeploy" class="battle-hint" role="status">{{ state.message || '에너지 3개 → 로봇 자동 소환 → 로봇 버튼에서 코딩' }}</p>
+    <p v-if="ready && canDeploy" class="battle-hint" role="status">{{ state.message || `에너지 ${ROBOT_CHARGE_COST}개 → 로봇 자동 소환 → 로봇 버튼에서 코딩` }}</p>
     </div>
     <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy && !summonOpen" @change="(slot, block, sourceSlot) => room?.updateCode(codingRobot!.id, slot, block, sourceSlot)" />
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
