@@ -2,13 +2,12 @@ import type { RobotKind, TilePosition } from './types.ts';
 
 // First-wave tuning is independent of the renderer.
 const spawnInterval = 1.65;
-const summonDelay = 100;
-// Expected regular spawns before the boss arrives; this is not a spawn limit.
-export const WAVE_ONE = { enemies: Math.ceil(summonDelay / spawnInterval), health: 68, speed: 0.65, spawnInterval, elementEnergyReward: 1, killEnergy: 15, clearEnergy: 50 } as const;
+export const REGULAR_ENEMY_COUNTS = [50, 70, 90] as const;
+export const WAVE_ONE = { enemies: REGULAR_ENEMY_COUNTS[0], health: 68, speed: 0.65, spawnInterval, elementEnergyReward: 1, killEnergy: 15, clearEnergy: 50 } as const;
 // Minimum cost; each robot's actual energy cost is defined by its recipe below.
 export const ROBOT_CHARGE_COST = 5;
 export const MAX_ROBOTS = 9;
-export const SUMMONED_MONSTER = { summonDelay, health: WAVE_ONE.health * 10, size: 150, elementEnergyReward: 3, robotDropChance: 0.02 } as const;
+export const SUMMONED_MONSTER = { health: WAVE_ONE.health * 10, size: 150, elementEnergyReward: 3, robotDropChance: 0.02 } as const;
 export const MAX_GRADE = 3;
 export const ROBOT_KINDS: readonly RobotKind[] = ['fire', 'ice', 'electric'];
 export const ELEMENTS = {

@@ -6,106 +6,121 @@ import { ROBOT_KINDS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts
 import { getRobotDeployCount, getTotalDeployCount } from '../src/game/robot-energy.ts';
 
 const advance = (game: DefenseSimulation, seconds: number) => {
-  // Isolate the boss timer from regular enemies without disabling the spawner.
-  for (let frame = 0; frame < Math.round(seconds * 20); frame++) {
-    if (game.status === 'running') game.enemies = game.enemies.filter(enemy => enemy.kind === 'summoned');
-    game.step(0.05);
-    if (game.status === 'running') game.enemies = game.enemies.filter(enemy => enemy.kind === 'summoned');
-  }
+  for (let frame = 0; frame < Math.round(seconds * 20); frame++) game.step(0.05);
 };
+// Reward tests isolate the boss by completing regular spawning without rewards.
 const spawnBoss = (game: DefenseSimulation) => {
   game.player = { x: 14, y: 11 };
   game.startWave();
-  advance(game, SUMMONED_MONSTER.summonDelay);
+  game.spawned = game.totalEnemies - 1;
+  game.enemies = [];
+  game.step(0.05);
+};
+const reachLastRegular = (game: DefenseSimulation) => {
+  game.player = { x: 14, y: 11 };
+  game.startWave();
+  while (game.spawned < game.totalEnemies - 1) {
+    for (const enemy of game.enemies) enemy.health = 0;
+    game.step(0.05);
+    assert.equal(game.enemies.some(enemy => enemy.kind === 'summoned'), false);
+  }
+  return game.enemies[0];
 };
 
-test('one boss automatically appears exactly 100 seconds after game start without input', () => {
-  const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
-  game.startWave();
-  assert.equal(game.enemies.length, 0);
-  assert.equal(game.totalEnemies, WAVE_ONE.enemies + 1);
-  assert.equal(game.monsterSummonCountdown, 100);
-  advance(game, 99.95);
-  assert.equal(game.enemies.length, 0);
-  assert.equal(game.monsterSummonCountdown, 1);
-  assert.equal(game.status, 'running', 'the wave waits for the automatic boss');
+test('the last regular kill immediately spawns one boss before 100 seconds', () => {
+  const game = new DefenseSimulation();
+  assert.equal(game.monsterSummonRemaining, WAVE_ONE.enemies);
+  const last = reachLastRegular(game);
+  assert.equal(game.monsterSummonRemaining, 1);
+  assert.ok(game.elapsed < 100);
+  last.health = 0;
   game.step(0.05);
+  assert.equal(game.kills, WAVE_ONE.enemies);
   assert.equal(game.enemies.length, 1);
-  assert.equal(game.monsterSummonCountdown, null);
+  assert.equal(game.monsterSummonRemaining, null);
   const boss = game.enemies[0];
   assert.equal(boss.kind, 'summoned');
   assert.equal(boss.health, SUMMONED_MONSTER.health);
-  assert.ok(SUMMONED_MONSTER.health > WAVE_ONE.health);
-  assert.ok(SUMMONED_MONSTER.size > 98);
   assert.equal(boss.waypoint, 1);
-  assert.ok(boss.x >= ROUTE[0].x && boss.x < ROUTE[0].x + 0.1);
+  assert.equal(boss.x, ROUTE[0].x);
   assert.equal(boss.y, ROUTE[0].y);
-  advance(game, 20);
-  assert.equal(game.enemies.length, 1, 'the automatic boss is spawned only once');
+  advance(game, 1);
+  assert.equal(game.enemies.length, 1, 'the boss is spawned only once');
   assert.equal(game.enemies[0].id, boss.id);
-  boss.health = 0; game.step(0.05);
+  boss.health = 0;
+  game.step(0.05);
   assert.equal(game.status, 'cleared');
+  assert.equal(game.kills, game.totalEnemies);
   const cleared = JSON.stringify(game);
   advance(game, 90);
   assert.equal(JSON.stringify(game), cleared);
 });
 
-test('the delay starts with the wave and regular monsters continue to spawn', () => {
-  const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
-  advance(game, 3);
+test('time alone does not spawn a boss while a regular monster remains alive', () => {
+  const game = new DefenseSimulation();
+  const last = reachLastRegular(game);
+  while (game.elapsed < 110) {
+    Object.assign(last, ROUTE[0], { waypoint: 1 });
+    game.step(0.05);
+  }
   assert.equal(game.status, 'running');
-  assert.equal(game.monsterSummonCountdown, 100);
-  game.step(0.05);
-  assert.equal(game.spawned, 1);
-  assert.equal(game.enemies[0].kind, undefined);
-  game.enemies = [];
-  advance(game, 99.9);
-  assert.equal(game.enemies.length, 0);
-  assert.equal(game.monsterSummonCountdown, 1);
+  assert.deepEqual(game.enemies, [last]);
+  assert.equal(game.monsterSummonRemaining, 1);
+  assert.equal(game.startWave(), false);
+  last.health = 0;
   game.step(0.05);
   assert.equal(game.enemies[0].kind, 'summoned');
 });
 
-test('repeated start requests do not restart the automatic boss countdown', () => {
-  const game = new DefenseSimulation(); game.player = { x: 14, y: 11 };
-  game.startWave();
-  advance(game, 20);
-  assert.equal(game.startWave(), false);
-  assert.equal(game.monsterSummonCountdown, 80);
-  advance(game, 80);
+test('burn damage killing the last regular monster spawns the boss in the same step', () => {
+  const game = new DefenseSimulation();
+  const last = reachLastRegular(game);
+  Object.assign(last, { health: 0.01, burnTime: 1, burnDamage: 10 });
+  game.step(0.05);
   assert.equal(game.enemies.length, 1);
-  assert.equal(game.monsterSummonCountdown, null);
+  assert.equal(game.enemies[0].kind, 'summoned');
 });
 
-test('pause freezes automatic spawning, and resuming completes the remaining delay', () => {
+test('the player killing the last regular monster spawns the boss in the same step', () => {
   const game = new DefenseSimulation();
-  game.startWave();
-  advance(game, 15); game.togglePause();
+  const last = reachLastRegular(game);
+  game.player = { x: last.x, y: last.y + 1 };
+  last.health = 1;
+  const shots = game.step(0.05);
+  assert.ok(shots.some(shot => shot.player));
+  assert.equal(game.enemies.length, 1);
+  assert.equal(game.enemies[0].kind, 'summoned');
+});
+
+test('pause defers the last regular kill and boss spawn until resuming', () => {
+  const game = new DefenseSimulation();
+  const last = reachLastRegular(game);
+  last.health = 0;
+  game.togglePause();
   const before = JSON.stringify(game);
   advance(game, 90);
   assert.equal(JSON.stringify(game), before);
-  game.togglePause(); advance(game, 84.95);
-  assert.equal(game.enemies.length, 0);
+  assert.equal(game.monsterSummonRemaining, 1);
+  game.togglePause();
   game.step(0.05);
-  assert.equal(game.enemies.length, 1);
+  assert.equal(game.enemies[0].kind, 'summoned');
 });
 
-test('defeat stops automatic spawning and a new game starts a fresh 100 second countdown', () => {
+test('defeat prevents boss spawning and a new game resets required regular kills', () => {
   const game = new DefenseSimulation();
-  game.startWave();
+  const last = reachLastRegular(game);
   const end = ROUTE.at(-1)!;
-  game.enemies.push({ ...end, x: end.x + 0.001, id: 100, waypoint: ROUTE.length - 1, health: 100, burnTime: 0, burnDamage: 0, slowTime: 0 });
+  Object.assign(last, { x: end.x + 0.001, y: end.y, waypoint: ROUTE.length - 1 });
   game.step(0.05);
   assert.equal(game.status, 'defeat');
+  assert.equal(game.enemies.some(enemy => enemy.kind === 'summoned'), false);
   const before = JSON.stringify(game);
   advance(game, 60);
   assert.equal(JSON.stringify(game), before);
   const reset = new DefenseSimulation();
   reset.startWave();
-  assert.equal(reset.monsterSummonCountdown, 100);
+  assert.equal(reset.monsterSummonRemaining, WAVE_ONE.enemies);
   assert.equal(reset.totalEnemies, WAVE_ONE.enemies + 1);
-  advance(reset, 100);
-  assert.equal(reset.enemies.length, 1);
 });
 
 test('special kills always award three random elements, with the rare robot roll independent', () => {

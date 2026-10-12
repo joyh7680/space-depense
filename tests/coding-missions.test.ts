@@ -36,7 +36,7 @@ function complete(game: DefenseSimulation, id = game.robots[0].id) {
   return robot.program[number].message;
 }
 function nextWave(game: DefenseSimulation) {
-  game.enemies = []; game.elapsed = 100; game.step(0.05);
+  game.spawned = game.totalEnemies - 1; game.enemies = []; game.step(0.05);
   for (const target of game.enemies) target.health = 0;
   game.step(0.05); assert.equal(game.status, 'cleared');
   const canStart = game.wave < 3;
@@ -172,7 +172,7 @@ test('wave transitions remove completed robots and drafts; new robots need the c
     nextWave(game);
     assert.equal(game.wave, wave); assert.equal(game.robotCount, 0);
     assert.equal(game.selectedId, null); assert.equal(game.elapsed, 0); assert.equal(game.kills, 0);
-    assert.equal(game.monsterSummonCountdown, 100);
+    assert.equal(game.monsterSummonRemaining, game.totalEnemies - 1);
     for (const id of oldIds) assert.equal(game.updateCode(id, 0, 'find'), null);
     const fresh = summon(game, 'fire');
     assert.equal(fresh.serial, 1); assert.equal(fresh.missionNumber, wave);

@@ -1,6 +1,6 @@
 import { isWalkable } from './room/walkable.ts';
 import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type MissionProgress, type RobotProgram, type AttackProfile } from './coding-missions.ts';
-import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
+import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE, REGULAR_ENEMY_COUNTS } from './wave-one.ts';
 import { getRobotEnergyCount, getRobotRecipeLabel, spendRobotEnergy } from './robot-energy.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
@@ -64,16 +64,14 @@ export class DefenseSimulation {
   get robotCount(): number { return this.robots.length; }
   get storedRobotCount(): number { return this.robots.filter(robot => !robot.deployed).length; }
   get deployedRobots(): Robot[] { return this.robots.filter(robot => robot.deployed); }
-  get totalEnemies(): number {
-    if (this.bossDefeated || this.status === 'defeat') return this.spawned + Number(this.bossSpawned);
-    return Math.max(WAVE_ONE.enemies, this.spawned) + 1;
-  }
-  get monsterSummonCountdown(): number | null {
-    return this.bossSpawned ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
+  private get regularEnemyCount(): number { return REGULAR_ENEMY_COUNTS[getMissionNumber(this.wave) - 1]; }
+  get totalEnemies(): number { return this.regularEnemyCount + 1; }
+  get monsterSummonRemaining(): number | null {
+    return this.bossSpawned ? null : Math.max(0, this.regularEnemyCount - this.kills);
   }
 
   private spawnBoss(): void {
-    if (this.bossSpawned || this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001) return;
+    if (this.bossSpawned || this.spawned < this.regularEnemyCount || this.enemies.some(enemy => enemy.kind !== 'summoned')) return;
     this.bossSpawned = true;
     this.enemies.push({ ...ROUTE[0], id: ++this.sequence, kind: 'summoned', health: SUMMONED_MONSTER.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
   }
@@ -291,14 +289,13 @@ export class DefenseSimulation {
     if (this.status !== 'running') return [];
     this.lastEnergyRewards = { fire: 0, electric: 0, ice: 0 };
     this.elapsed += dt; this.spawnTimer -= dt;
-    this.spawnBoss();
     for (const enemy of this.enemies) {
       if (enemy.burnTime > 0) enemy.health -= enemy.burnDamage * Math.min(dt, enemy.burnTime);
       enemy.burnTime = Math.max(0, enemy.burnTime - dt);
       enemy.slowTime = Math.max(0, enemy.slowTime - dt);
     }
     this.collectKills();
-    if (!this.bossDefeated && this.spawnTimer <= 0) {
+    if (this.spawned < this.regularEnemyCount && this.spawnTimer <= 0) {
       this.enemies.push({ ...ROUTE[0], id: ++this.sequence, health: WAVE_ONE.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
       this.spawned++; this.spawnTimer += WAVE_ONE.spawnInterval;
     }
@@ -313,7 +310,8 @@ export class DefenseSimulation {
       this.playerCooldown = 0.8;
     }
     this.collectKills();
-    if (this.bossDefeated && this.enemies.length === 0) {
+    this.spawnBoss();
+    if (this.bossDefeated && this.spawned === this.regularEnemyCount && this.enemies.length === 0) {
       this.status = 'cleared'; this.credits += WAVE_ONE.clearEnergy;
     }
     return shots;

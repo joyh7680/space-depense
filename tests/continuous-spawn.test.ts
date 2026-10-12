@@ -1,74 +1,85 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DefenseSimulation } from '../src/game/defense-simulation.ts';
-import { SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
+import { DefenseSimulation, ROUTE } from '../src/game/defense-simulation.ts';
+import { WAVE_ONE } from '../src/game/wave-one.ts';
 
-test('regular enemies keep spawning at the same interval beyond twelve kills and during the boss fight', () => {
+test('all three waves spawn exactly 50, 70 and 90 regular enemies at the existing interval', () => {
   const game = new DefenseSimulation(() => 0.4);
   game.player = { x: 14, y: 11 };
-  game.startWave();
-  const spawnTimes: number[] = [];
-  for (let frame = 0; frame < 120 * 20; frame++) {
-    const before = game.spawned;
-    game.step(0.05);
-    if (game.spawned > before) spawnTimes.push(game.elapsed);
-    // Kill regular enemies so this exercises a defended wave with no escape.
-    for (const enemy of game.enemies) if (enemy.kind !== 'summoned' && game.elapsed < 118) enemy.health = 0;
-  }
-  assert.equal(game.status, 'running');
-  assert.equal(game.spawned, Math.ceil(120 / WAVE_ONE.spawnInterval));
-  assert.ok(spawnTimes.some(time => time > 20 && time < 99));
-  assert.ok(spawnTimes.some(time => time > SUMMONED_MONSTER.summonDelay));
-  for (let i = 1; i < spawnTimes.length; i++) {
-    assert.ok(Math.abs(spawnTimes[i] - spawnTimes[i - 1] - WAVE_ONE.spawnInterval) <= 0.050001);
-  }
-  assert.equal(game.enemies.filter(enemy => enemy.kind === 'summoned').length, 1);
-  assert.equal(game.totalEnemies, game.spawned + 1);
-
-  const boss = game.enemies.find(enemy => enemy.kind === 'summoned')!;
-  const survivor = game.enemies.find(enemy => enemy.kind !== 'summoned')!;
-  for (const enemy of game.enemies) if (enemy !== survivor) enemy.health = 0;
-  survivor.health = 1000;
-  boss.health = 0;
-  const spawned = game.spawned;
-  game.step(0.05);
-  assert.equal(game.status, 'running', 'remaining regular enemies must still be defeated');
-  assert.equal(game.totalEnemies, spawned + 1);
-  for (let frame = 0; frame < 40; frame++) game.step(0.05);
-  assert.equal(game.spawned, spawned, 'boss defeat stops further regular spawning');
-  assert.equal(game.enemies.length, 1);
-  survivor.health = 0;
-  game.step(0.05);
-  assert.equal(game.status, 'cleared');
-  assert.equal(game.kills, game.totalEnemies);
-  assert.equal(game.credits, 300 + game.kills * WAVE_ONE.killEnergy + WAVE_ONE.clearEnergy);
-});
-
-test('each next wave resets continuous spawning, boss defeat, and the boss countdown', () => {
-  const game = new DefenseSimulation(() => 0.4);
-  game.player = { x: 14, y: 11 };
-  for (const wave of [1, 2, 3]) {
+  for (const [index, count] of [50, 70, 90].entries()) {
     assert.equal(game.startWave(), true);
-    assert.equal(game.wave, wave);
+    assert.equal(game.wave, index + 1);
     assert.equal(game.spawned, 0);
-    assert.equal(game.monsterSummonCountdown, SUMMONED_MONSTER.summonDelay);
-    if (wave > 1) {
-      assert.equal(game.status, 'ready');
+    assert.equal(game.totalEnemies, count + 1);
+    assert.equal(game.monsterSummonRemaining, game.totalEnemies - 1);
+    if (index > 0) {
       for (let frame = 0; frame < 60; frame++) game.step(0.05);
       assert.equal(game.status, 'running');
     }
-    for (let frame = 0; frame < 100 * 20; frame++) {
+    const spawnTimes: number[] = [];
+    for (let frame = 0; frame < 160 * 20; frame++) {
+      const before = game.spawned;
       game.step(0.05);
-      for (const enemy of game.enemies) if (enemy.kind !== 'summoned') enemy.health = 0;
+      if (game.spawned > before) spawnTimes.push(game.elapsed);
+      for (const enemy of game.enemies) {
+        if (enemy.kind !== 'summoned') enemy.health = 0;
+        else Object.assign(enemy, ROUTE[0], { waypoint: 1 });
+      }
     }
-    assert.equal(game.spawned, WAVE_ONE.enemies);
-    assert.equal(game.enemies.filter(enemy => enemy.kind === 'summoned').length, 1);
-    for (const enemy of game.enemies) enemy.health = 0;
+    assert.equal(game.status, 'running', 'the wave still waits for the boss');
+    assert.equal(game.spawned, count);
+    assert.equal(spawnTimes.length, count);
+    for (let i = 1; i < spawnTimes.length; i++) {
+      assert.ok(Math.abs(spawnTimes[i] - spawnTimes[i - 1] - WAVE_ONE.spawnInterval) <= 0.050001);
+    }
+    assert.equal(game.enemies.length, 1);
+    assert.equal(game.enemies[0].kind, 'summoned');
+    game.enemies[0].health = 0;
     game.step(0.05);
     assert.equal(game.status, 'cleared');
-    assert.equal(game.kills, game.totalEnemies);
+    assert.equal(game.kills, count + 1);
+    assert.equal(game.totalEnemies, count + 1);
+    assert.equal(game.credits, 300 + game.kills * WAVE_ONE.killEnergy + WAVE_ONE.clearEnergy);
   }
   assert.equal(game.startWave(), false);
+});
+
+test('wave three waits for all scheduled spawns and the last survivor before spawning the boss', () => {
+  const game = new DefenseSimulation(() => 0.4);
+  game.wave = 3;
+  game.countdown = 0;
+  game.player = { x: 14, y: 11 };
+  game.startWave();
+  for (let frame = 0; frame < 100 * 20; frame++) {
+    game.step(0.05);
+    for (const enemy of game.enemies) enemy.health = 0;
+  }
+  game.step(0.05);
+  assert.equal(game.status, 'running');
+  assert.ok(game.spawned < 90);
+  assert.equal(game.totalEnemies, 91);
+  assert.ok(game.monsterSummonRemaining! > 0);
+  assert.equal(game.enemies.some(enemy => enemy.kind === 'summoned'), false);
+  while (game.spawned < 90) {
+    for (const enemy of game.enemies) enemy.health = 0;
+    game.step(0.05);
+  }
+  const survivor = game.enemies.find(enemy => enemy.health > 0)!;
+  assert.ok(survivor);
+  for (let frame = 0; frame < 40; frame++) game.step(0.05);
+  assert.equal(game.spawned, 90);
+  assert.equal(game.status, 'running');
+  assert.equal(game.monsterSummonRemaining, 1);
+  survivor.health = 0;
+  game.step(0.05);
+  assert.equal(game.status, 'running');
+  assert.equal(game.kills, 90);
+  assert.equal(game.enemies.length, 1);
+  assert.equal(game.enemies[0].kind, 'summoned');
+  game.enemies[0].health = 0;
+  game.step(0.05);
+  assert.equal(game.status, 'cleared');
+  assert.equal(game.kills, 91);
 });
 
 test('pause freezes regular spawning and resumes with the remaining interval', () => {

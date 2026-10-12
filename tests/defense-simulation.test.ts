@@ -2,7 +2,7 @@ import { fundRobot, setRobotEnergy } from './robot-energy-helpers.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE, isRouteTile, type Enemy } from '../src/game/defense-simulation.ts';
-import { DEPLOY_SLOTS, ROBOTS, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
+import { DEPLOY_SLOTS, ROBOTS, ROBOT_CHARGE_COST, WAVE_ONE } from '../src/game/wave-one.ts';
 import type { RobotKind } from '../src/game/types.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 import { getCodingMission } from '../src/game/coding-missions.ts';
@@ -270,10 +270,9 @@ test('a burning enemy killed before reaching the base awards energy without dest
 test('clearing regular monsters waits for the automatic boss before awarding victory', () => {
   for (const kind of ['fire', 'ice', 'electric'] as const) {
     const game = new DefenseSimulation(); summon(game, kind); summon(game, kind); summon(game, kind); game.startWave();
-    advance(game, 99.95);
-    assert.equal(game.status, 'running'); assert.ok(game.kills > 12); assert.equal(game.spawned, WAVE_ONE.enemies); assert.equal(game.health, 100); assert.equal(game.wave, 1);
+    for (let frame = 0; frame < 100 * 20 && !game.enemies.some(enemy => enemy.kind === 'summoned'); frame++) game.step(0.05);
+    assert.equal(game.status, 'running'); assert.equal(game.kills, WAVE_ONE.enemies); assert.equal(game.spawned, WAVE_ONE.enemies); assert.equal(game.health, 100); assert.equal(game.wave, 1);
     assert.equal(game.credits, 300 + game.kills * WAVE_ONE.killEnergy);
-    game.step(0.05);
     assert.equal(game.enemies.filter(enemy => enemy.kind === 'summoned').length, 1);
     for (const enemy of game.enemies) enemy.health = 0;
     game.step(0.05);
@@ -356,7 +355,7 @@ test('three second countdown shows 3, 2, 1 before combat starts once', () => {
    assert.equal(game.status, 'ready');
    assert.equal(game.wave, 0); assert.equal(game.elapsed, 0);
    assert.equal(game.spawned, 0); assert.equal(game.enemies.length, 0);
-   assert.equal(game.monsterSummonCountdown, SUMMONED_MONSTER.summonDelay);
+   assert.equal(game.monsterSummonRemaining, game.totalEnemies - 1);
  }
  advance(game, 0.95); assert.equal(game.status, 'ready'); assert.ok(game.countdown > 0);
  advance(game, 0.05); assert.equal(game.status, 'running'); assert.equal(game.wave, 1); assert.equal(game.robots.length, 0);
@@ -368,7 +367,7 @@ test('later waves reset energy and all robots before the same countdown', () => 
  const game = new DefenseSimulation(() => 0.4);
  game.startWave(); game.player = { x: 14, y: 11 }; summon(game, 'fire');
  for (const nextWave of [2, 3]) {
-   game.enemies = []; game.elapsed = SUMMONED_MONSTER.summonDelay; game.step(0.05);
+   game.spawned = game.totalEnemies - 1; game.enemies = []; game.step(0.05);
    for (const target of game.enemies) target.health = 0;
    game.step(0.05); assert.equal(game.status, 'cleared');
    game.elementEnergy = { fire: 5, electric: 7, ice: 8 };
@@ -382,7 +381,7 @@ test('later waves reset energy and all robots before the same countdown', () => 
      assert.ok(Math.abs(game.countdown - expected) < 0.000001);
      assert.equal(game.status, 'ready'); assert.equal(game.wave, nextWave);
      assert.equal(game.elapsed, 0); assert.equal(game.spawned, 0); assert.equal(game.enemies.length, 0);
-     assert.equal(game.monsterSummonCountdown, SUMMONED_MONSTER.summonDelay);
+     assert.equal(game.monsterSummonRemaining, game.totalEnemies - 1);
      assert.equal(game.movePlayer(4, 7), false);
      assert.equal(game.startWave(), false);
    }
@@ -395,7 +394,7 @@ test('later waves reset energy and all robots before the same countdown', () => 
    assert.equal(game.robots[0].serial, 1); assert.equal(game.robots[0].missionNumber, nextWave);
    advance(game, 0.05); assert.equal(game.spawned, 1);
  }
- game.enemies = []; game.elapsed = SUMMONED_MONSTER.summonDelay; game.step(0.05);
+ game.spawned = game.totalEnemies - 1; game.enemies = []; game.step(0.05);
  for (const target of game.enemies) target.health = 0;
  game.step(0.05); assert.equal(game.status, 'cleared');
  const finalState = JSON.stringify(game);
