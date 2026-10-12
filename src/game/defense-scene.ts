@@ -5,7 +5,7 @@ import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
 import { ELEMENTS, ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one';
 import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
-import type { CodingBlockId } from './coding-missions';
+import { getBasicRobotAttack, type CodingBlockId } from './coding-missions';
 import { getRegularMonster, MONSTER_ASSET_PATH, REGULAR_MONSTERS } from './regular-monsters';
 import { SPINE_EFFECTS, type SpineEffectKind } from './effects';
 
@@ -33,6 +33,7 @@ export class DefenseScene extends Phaser.Scene {
   private robotArt = new Map<number, SpineActor>();
   private robotSpawnTimes = new Map<number, number>();
   private units!: Phaser.GameObjects.Graphics;
+  private ranges!: Phaser.GameObjects.Graphics;
   private route!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Graphics;
   private core!: Phaser.GameObjects.Graphics;
@@ -96,6 +97,7 @@ export class DefenseScene extends Phaser.Scene {
       this.route.fillStyle(0xa68b58, 0.7); this.route.fillCircle(center(x), center(y), 3);
     }
     this.units = this.add.graphics().setDepth(12);
+    this.ranges = this.add.graphics().setDepth(4);
     this.hover = this.add.graphics().setDepth(4);
     this.stationDamage = this.add.graphics().setDepth(23);
     this.stationEffects = this.add.container(0, 0).setDepth(24);
@@ -342,6 +344,18 @@ export class DefenseScene extends Phaser.Scene {
     if (this.simulation.storedRobotCount > previousStored) this.notice = '로봇을 획득했어요! 로봇 배치 카드에서 선택해 소환하세요.';
     for (const shot of shots) {
       const color = shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color;
+      if (!shot.player && !shot.chain && shot.kind !== 'electric') {
+        const x = center(shot.to.x), y = center(shot.to.y) - 20;
+        const radius = getBasicRobotAttack(shot.kind).splash * 100;
+        const pulse = this.add.circle(x, y, radius, color, 0.15).setStrokeStyle(5, color, 0.9).setScale(0.15);
+        this.combatEffects.add(pulse);
+        this.tweens.add({ targets: pulse, scale: 1, alpha: 0, duration: 350, onComplete: () => pulse.destroy() });
+        if (shot.kind === 'ice') {
+          const coldPulse = this.add.circle(x, y, radius, 0x88d9ff, 0.08).setStrokeStyle(4, 0x88d9ff, 0.9).setScale(0.1);
+          this.combatEffects.add(coldPulse);
+          this.tweens.add({ targets: coldPulse, scale: 1, alpha: 0, duration: 450, onComplete: () => coldPulse.destroy() });
+        }
+      }
       for (const glow of [true, false]) {
         const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, color)
           .setOrigin(0).setLineWidth((shot.chain ? 3 : 6) * (glow ? 2.5 : 1)).setAlpha(glow ? 0.2 : 1);
@@ -415,6 +429,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private drawUnits(): void {
     this.units.clear();
+    this.ranges.clear();
     const s = this.simulation;
     const deployedRobots = s.deployedRobots;
     const labelBounds: { left: number; right: number; top: number; bottom: number }[] = [];
@@ -424,6 +439,11 @@ export class DefenseScene extends Phaser.Scene {
       const x = dragging ? this.unitDrag!.position.x : center(robot.x);
       const y = dragging ? this.unitDrag!.position.y : center(robot.y), color = ROBOTS[robot.kind].color;
       if (robot.id === s.selectedId) {
+        if (robot.kind === 'fire') {
+          const radius = ROBOTS.fire.range * 100;
+          this.ranges.fillStyle(color, 0.06); this.ranges.fillCircle(x, y, radius);
+          this.ranges.lineStyle(2, color, 0.4); this.ranges.strokeCircle(x, y, radius);
+        }
         this.units.lineStyle(4, color, 1); this.units.strokeEllipse(x, y + 12, 88, 40);
         const target = s.enemies.find(e => e.id === robot.targetId);
         if (target) { this.units.lineStyle(3, color, 0.85); this.units.strokeCircle(center(target.x), center(target.y) - 25, 45); }

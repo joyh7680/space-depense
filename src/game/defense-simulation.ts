@@ -364,11 +364,13 @@ export class DefenseSimulation {
     for (const robot of this.deployedRobots) {
       // Each newly acquired robot waits for its own current-wave mission.
       if (!robot.autoAttackActive) continue;
+      const basicAttack = getBasicRobotAttack(robot.kind);
       robot.cooldown = Math.max(0, robot.cooldown - dt);
       robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
       if (robot.phaseTimer > 0) continue;
       if (robot.activeBlock === 'wait') { this.phase(robot, 'find', 0.16); continue; }
-      const targets = this.enemies.filter(e => e.health > 0)
+      const living = this.enemies.filter(e => e.health > 0);
+      const targets = living.filter(e => distance(e, robot) <= basicAttack.range)
         .sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
       if (robot.activeBlock === 'find') {
         robot.targetId = targets[0]?.id ?? null;
@@ -384,7 +386,7 @@ export class DefenseSimulation {
       if (robot.cooldown > 0) { this.phase(robot, 'wait', robot.cooldown); continue; }
       robot.targetId = target.id;
       if (robot.burstRemaining === 0 || !robot.burstProfile) {
-        robot.burstProfile = getBasicRobotAttack(robot.kind);
+        robot.burstProfile = basicAttack;
         robot.burstRemaining = robot.burstProfile.shots;
       }
       const profile = robot.burstProfile;
@@ -404,8 +406,8 @@ export class DefenseSimulation {
       robot.attacks++;
       robot.burstRemaining--;
       if (robot.burstRemaining > 0) { this.phase(robot, 'attack', 0.12); continue; }
-      robot.burstProfile = null; robot.cooldown = 0.9;
-      this.phase(robot, 'wait', 0.58);
+      robot.burstProfile = null; robot.cooldown = profile.attackInterval;
+      this.phase(robot, 'wait', Math.max(0, profile.attackInterval - 0.32));
     }
     return shots;
   }

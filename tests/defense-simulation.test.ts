@@ -2,7 +2,7 @@ import { fundRobot, setRobotEnergy } from './robot-energy-helpers.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE, isRouteTile, type Enemy } from '../src/game/defense-simulation.ts';
-import { DEPLOY_SLOTS, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
+import { DEPLOY_SLOTS, ROBOTS, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
 import type { RobotKind } from '../src/game/types.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 import { getCodingMission } from '../src/game/coding-missions.ts';
@@ -128,25 +128,26 @@ test('sequential code selects the nearest living target, then attacks, then wait
   assert.ok(game.enemies.find(e => e.id === 101)!.health < 1000);
 });
 
-test('every robot kind attacks distant enemies without a deployment radius', () => {
-  for (const kind of ['fire', 'ice', 'electric'] as const) {
+test('nearby robots and plasma attack only within their configured reach', () => {
+  for (const kind of ['fire', 'ice', 'electric'] as const) for (const inside of [true, false]) {
     const game = new DefenseSimulation(() => 0);
     game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
     const robot = game.robots[0];
-    game.enemies = [enemy(100, 12)];
+    robot.activeBlock = 'find'; robot.phaseTimer = 0;
+    const gap = ROBOTS[kind].range + (inside ? -0.1 : 0.1);
+    game.enemies = [{ ...enemy(100, robot.x + Math.sqrt(gap ** 2 - 1)), slowTime: 100, slowFactor: 0 }];
     const shots = [];
     for (let i = 0; i < 12; i++) shots.push(...game.step(0.05));
-    assert.ok(shots.some(shot => shot.from.x === robot.x && shot.from.y === robot.y));
-    assert.equal(robot.targetId, 100);
-    assert.ok(game.enemies[0].health < 1000, `${kind} should damage an enemy across the room`);
+    assert.equal(shots.some(shot => shot.from.x === robot.x && shot.from.y === robot.y), inside);
+    assert.equal(game.enemies[0].health < 1000, inside, `${kind} range boundary`);
   }
 });
 
-test('a selected target remains attackable after moving beyond the former radius', () => {
+test('a selected target leaving attack range is released without taking damage', () => {
   const game = new DefenseSimulation(() => 0);
   game.player = { x: 14, y: 11 };
-  summon(game); game.startWave(); game.step(0.05);
+  summon(game, 'electric'); game.startWave(); game.step(0.05);
   game.enemies = [enemy(100, 5)];
   game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
   game.step(0.05);
@@ -154,15 +155,40 @@ test('a selected target remains attackable after moving beyond the former radius
   assert.equal(game.robots[0].activeBlock, 'attack');
   game.enemies[0].x = 10;
   advance(game, 0.2);
-  assert.ok(game.enemies[0].health < 1000);
+  assert.equal(game.enemies[0].health, 1000);
+  assert.equal(game.robots[0].targetId, null);
 });
 
-test('distant explosion attacks keep splash damage local to the target', () => {
+test('only plasma reaches monsters beyond the two nearby robots', () => {
+  for (const kind of ['fire', 'ice', 'electric'] as const) {
+    const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
+    summon(game, kind); game.startWave(); game.step(0.05);
+    game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
+    game.enemies = [{ ...enemy(100, 6), slowTime: 100, slowFactor: 0 }];
+    advance(game, 0.6);
+    assert.equal(game.enemies[0].health < 1000, kind === 'fire');
+  }
+});
+
+test('plasma explosion cannot damage monsters outside its displayed circle', () => {
+  const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
+  summon(game); game.startWave(); game.step(0.05);
+  game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
+  game.enemies = [enemy(100, 5.8), enemy(101, 6), enemy(102, 6.3)]
+    .map(target => ({ ...target, slowTime: 100, slowFactor: 0 }));
+  advance(game, 0.6);
+  assert.ok(game.enemies[0].health < 1000);
+  assert.ok(game.enemies[1].health < 1000);
+  assert.equal(game.enemies[2].health, 1000);
+});
+
+test('plasma explosions and thermal shockwaves damage only enemies near the target', () => {
   for (const kind of ['fire', 'ice'] as const) {
     const game = new DefenseSimulation(() => 0);
     game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
-    game.enemies = [enemy(100, 9), enemy(101, 9.3), enemy(102, 12)];
+    const x = kind === 'fire' ? 5 : 4;
+    game.enemies = [enemy(100, x), enemy(101, x + 0.3), enemy(102, 12)];
     advance(game, 0.6);
     assert.ok(game.enemies[0].health < 1000);
     assert.ok(game.enemies[1].health < 1000);
@@ -172,7 +198,8 @@ test('distant explosion attacks keep splash damage local to the target', () => {
 
 test('repeated code respects attack cooldown and reacquires dead targets', () => {
   const game = new DefenseSimulation(() => 0.4);
-  game.player = { x: 14, y: 11 }; summon(game, 'ice'); game.startWave(); game.enemies = [enemy(100, 3)];
+  game.player = { x: 14, y: 11 }; summon(game, 'ice'); game.startWave();
+  game.enemies = [{ ...enemy(100, 3), slowTime: 100, slowFactor: 0 }];
   const times: number[] = [];
   for (let i = 0; i < 160; i++) {
     const before = game.robots[0].attacks;
@@ -185,20 +212,48 @@ test('repeated code respects attack cooldown and reacquires dead targets', () =>
   game.step(0.05); assert.equal(game.robots[0].activeBlock, 'find'); assert.equal(game.robots[0].targetId, null);
 });
 
-test('plasma burns, thermal shock cools and heats nearby enemies, and cryo bolt chains and slows', () => {
-  for (const [roll, effect] of [[0, 'burnTime'], [0.4, 'slowTime']] as const) {
-    const game = new DefenseSimulation(() => roll); game.player = { x: 14, y: 11 }; summon(game, effect === 'burnTime' ? 'fire' : 'ice'); game.startWave(); game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 3.6)];
-    advance(game, 0.25); assert.ok(game.enemies[0][effect] > 0);
-    assert.ok(game.enemies[1].health < 1000, 'both explosion attacks damage nearby enemies');
-    if (effect === 'slowTime') assert.ok(game.enemies[1].burnTime > 0 && game.enemies[1].slowTime > 0);
-    if (effect === 'burnTime') { const health = game.enemies[0].health; advance(game, 0.2); assert.ok(game.enemies[0].health < health); }
+test('only thermal shock slows enemies; plasma and cryo deal direct damage without burning', () => {
+  for (const kind of ['fire', 'ice', 'electric'] as const) {
+    const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
+    summon(game, kind); game.startWave(); game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 14)];
+    advance(game, 0.25);
+    for (const target of game.enemies.slice(0, 2)) {
+      assert.ok(target.health < 1000);
+      assert.equal(target.burnTime, 0);
+      assert.equal(target.slowTime > 0, kind === 'ice');
+      if (kind === 'ice') assert.equal(target.slowFactor, 0.6);
+    }
+    assert.equal(game.enemies.find(e => e.id === 102)!.health, 1000);
   }
-  const game = new DefenseSimulation(() => 0.99); game.player = { x: 14, y: 11 }; summon(game, 'electric'); game.startWave(); game.enemies = [enemy(100, 3), enemy(101, 3.5)];
-  const shots = [];
-  for (let i = 0; i < 5; i++) shots.push(...game.step(0.05));
-  assert.equal(shots.length, 2); assert.equal(shots[1].chain, true); assert.ok(game.enemies[1].health < 1000);
-  assert.ok(game.enemies[0].slowTime > 0);
-  assert.ok(game.enemies[1].slowTime > 0, 'cryo bolt also slows chained targets');
+});
+
+test('cryo bolt attacks nearby monsters faster than thermal shock and plasma', () => {
+  const counts = new Map<RobotKind, number>();
+  for (const kind of ['fire', 'ice', 'electric'] as const) {
+    const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
+    summon(game, kind); game.startWave();
+    game.enemies = [{ ...enemy(100, 3), slowTime: 100, slowFactor: 0 }];
+    for (let frame = 0; frame < 80; frame++) {
+      game.step(0.05); game.enemies = game.enemies.filter(e => e.id === 100);
+    }
+    counts.set(kind, game.robots[0].attacks);
+  }
+  assert.ok(counts.get('electric')! > counts.get('ice')! * 2);
+  assert.ok(counts.get('electric')! > counts.get('fire')! * 2);
+});
+
+test('thermal shock slows actual movement and the monster recovers after the effect expires', () => {
+  const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
+  summon(game, 'ice'); game.startWave(); game.enemies = [enemy(100, 3)];
+  advance(game, 0.25);
+  const target = game.enemies[0]; game.robots[0].autoAttackActive = false;
+  const slowedX = target.x;
+  game.step(0.05);
+  assert.ok(Math.abs(target.x - slowedX - WAVE_ONE.speed * 0.6 * 0.05) < 1e-8);
+  advance(game, 1.5);
+  assert.equal(target.slowTime, 0);
+  const recoveredX = target.x; game.step(0.05);
+  assert.ok(Math.abs(target.x - recoveredX - WAVE_ONE.speed * 0.05) < 1e-8);
 });
 
 test('a burning enemy killed before reaching the base awards energy without destroying the station', () => {

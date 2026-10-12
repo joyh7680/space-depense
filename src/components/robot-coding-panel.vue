@@ -64,7 +64,7 @@ function removeBlock(slot: number) {
       <div class="coding-progress" aria-label="코딩 완료 상태">
         <span v-for="number in ([1, 2, 3] as const)" :key="number" :class="{ learned: robot.completedMissions.includes(number) }">{{ robot.completedMissions.includes(number) ? '✓' : '○' }} W{{ number }} {{ getCodingMission(robot.kind, number, robot.missionVariant).title }}</span>
       </div>
-      <p class="coding-choice" role="status">모든 종류의 로봇이 각자 미션을 풀 수 있어요. 성공하면 이 로봇의 기본 자동 공격이 활성화돼요.</p>
+      <p class="coding-choice" role="status">{{ ROBOTS[robot.kind].description }}. 이번 웨이브 미션을 완료하면 자동 공격을 시작해요.</p>
       <section class="coding-mission" @keydown.esc="missionDetailsOpen = false">
         <div class="coding-mission-header">
           <small>WAVE {{ mission.number }} {{ mission.title }} · {{ robot.deploymentOrder }}번째 배치</small>

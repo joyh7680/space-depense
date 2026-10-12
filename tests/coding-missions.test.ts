@@ -265,7 +265,7 @@ test('basic electricity fires twice and retargets after killing its first target
     game.enemies = [enemy(100, 3), enemy(101, 14)];
     assert.equal(advance(game).filter(shot => !shot.chain).length, 2);
     assert.equal(game.enemies[0].health, 1000 - robot.damage * 2);
-    assert.equal(game.enemies[1].health, 1000 - robot.damage, 'both shots chain to the distant enemy');
+    assert.equal(game.enemies[1].health, 1000, 'near-range shots cannot chain to distant enemies');
     const retarget = setup('electric', wave), retargetRobot = retarget.robots.at(-1)!;
     complete(retarget, retargetRobot.id);
     retarget.enemies = [enemy(100, 3, 1), enemy(101, 3.4)];
@@ -274,14 +274,14 @@ test('basic electricity fires twice and retargets after killing its first target
   }
 });
 
-test('every mission attacks a lone boss and distant living enemies while ignoring dead targets', () => {
+test('every mission attacks a lone boss and living enemies in range while ignoring dead targets', () => {
   for (const kind of kinds) for (const wave of waves) {
     const game = setup(kind, wave), robot = game.robots.at(-1)!; complete(game, robot.id);
     game.enemies = [{ ...enemy(100, 3), kind: 'summoned' }];
     assert.ok(advance(game).some(shot => !shot.player && shot.kind === kind));
     assert.ok(game.enemies[0].health < 1000);
     const distant = setup(kind, wave); distant.step(0.05); complete(distant, distant.robots.at(-1)!.id);
-    distant.enemies = [enemy(100, 14), enemy(101, 3, 0)];
+    distant.enemies = [enemy(100, 3.5), enemy(101, 3, 0)];
     assert.ok(advance(distant).length > 0); assert.ok(distant.enemies[0].health < 1000);
     assert.equal(distant.robots.at(-1)!.targetId, 100);
   }
