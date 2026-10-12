@@ -324,7 +324,7 @@ export class DefenseScene extends Phaser.Scene {
       }
       const attackEnabled = robot.basicCompleted;
       art.setAlpha(attackEnabled ? 1 : 0.55);
-      label.setPosition(x, y + 38).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n${attackEnabled ? '공격 중' : '공격 대기'}`);
+      label.setPosition(x, y + 38).setVisible(!attackEnabled).setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n공격 대기`);
     }
     for (const [id, label] of this.unitLabels) { if (!deployedRobots.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
     for (const [id, art] of this.robotArt) if (!deployedRobots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); }
