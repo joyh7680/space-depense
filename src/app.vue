@@ -105,7 +105,7 @@ function nextWave() {
       <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? '보스급 몬스터 출현' : `보스급 몬스터 자동 출현까지 ${state.monsterSummonCountdown}초`">
         <span v-if="state.monsterSummonCountdown !== null" class="robot-button-count monster-summon-timer" aria-hidden="true">{{ state.monsterSummonCountdown }}s</span>
         <img class="monster-portrait" :src="monsterArt" alt="" draggable="false" />
-        <b>몬스터 출현</b>
+        <b>보스몹 출현</b>
       </div>
       <div class="robot-elements" aria-label="속성 에너지 보유 수량">
         <span v-for="kind in kindOrder" :key="kind" :class="kind" :title="`${ELEMENTS[kind].name} 에너지`" :aria-label="ELEMENTS[kind].name + ' 에너지 ' + state.elementEnergy[kind] + '개'">
