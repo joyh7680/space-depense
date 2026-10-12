@@ -458,7 +458,7 @@ export class DefenseScene extends Phaser.Scene {
         for (let sparkle = 0; sparkle < 3; sparkle++) {
           const angle = s.elapsed * 1.4 + sparkle * Math.PI * 2 / 3 + robot.id;
           const sx = x + Math.cos(angle) * 57, sy = y - 73 + Math.sin(angle) * 43;
-          const size = 5 + pulse * 4;
+          const size = (5 + pulse * 4) * 1.4;
           this.units.fillStyle(0xfff2a0, 0.6 + pulse * 0.4);
           this.units.fillTriangle(sx, sy - size, sx + size * 0.5, sy, sx, sy + size);
           this.units.fillTriangle(sx, sy - size, sx - size * 0.5, sy, sx, sy + size);
