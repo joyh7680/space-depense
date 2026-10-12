@@ -120,7 +120,7 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <p v-if="ready && canDeploy" class="battle-hint" role="status">{{ state.message || '에너지 3개 → 로봇 자동 소환 → 로봇 버튼에서 코딩' }}</p>
     </div>
-    <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy && !summonOpen" @change="(slot, block) => room?.updateCode(codingRobot!.id, slot, block)" @run="room?.runCode(codingRobot.id)" @close="codingRobotId = null" />
+    <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy && !summonOpen" @change="(slot, block) => room?.updateCode(codingRobot!.id, slot, block)" @run="room?.runCode(codingRobot.id)" />
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
     <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
       <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="true" aria-label="로봇 선택" tabindex="-1" @keydown="dialogKey">

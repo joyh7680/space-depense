@@ -6,7 +6,7 @@ import type { RobotState } from '../game/types';
 import EnergyIcon from './energy-icon.vue';
 
 const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean }>();
-const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null]; run: []; close: [] }>();
+const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null]; run: [] }>();
 const mission = computed(() => getCodingMission(props.robot.kind, props.wave));
 const completed = computed(() => props.robot.missionStatus === 'completed');
 const draggingBlock = ref<CodingBlockId | null>(null);
@@ -51,7 +51,7 @@ function removeBlock(slot: number) {
 
 <template>
   <aside class="coding-panel" :class="robot.kind" aria-labelledby="coding-title">
-    <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(mission.number).padStart(2, '0') }}</small><h2 id="coding-title">로봇에게 명령하기</h2></div><button class="coding-close" aria-label="코딩 패널 닫기" @click="emit('close')">×</button></header>
+    <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(mission.number).padStart(2, '0') }}</small><h2 id="coding-title">로봇에게 명령하기</h2></div></header>
     <div class="coding-scroll">
       <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} #{{ robot.serial }}</h3><span :class="{ complete: completed }">{{ completed ? '● 공격 중' : '● 공격 대기 · 코딩 미션' }}</span></div><i class="robot-portrait" :class="'portrait-' + robot.kind" aria-hidden="true" /></div>
       <section class="coding-mission"><small>MISSION {{ mission.number }} <b>{{ mission.concept }}</b></small><p>{{ mission.description }}</p><span>{{ mission.effect }}</span></section>
@@ -83,8 +83,7 @@ function removeBlock(slot: number) {
       </section>
     </div>
     <footer class="coding-footer">
-      <button v-if="completed" class="run-code coding-success-close" @click="emit('close')">전투로 돌아가기</button>
-      <template v-else>
+      <template v-if="!completed">
         <p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ robot.missionMessage }}</p>
         <button v-if="!mission.autoRun" class="run-code" :disabled="!interactive" @click="emit('run')">▶ 코드 실행</button>
       </template>
