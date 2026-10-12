@@ -233,6 +233,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .robot-card.selected{border-color:#fff3b4;box-shadow:0 0 0 2px #849856,0 2px 0 #7e866c,inset 0 0 0 1px #ffffff40}
 .robot-card .robot-portrait{transform:scale(.65);margin:0}
 .robot-card .robot-energy{position:absolute;left:4px;top:4px;width:18px;height:18px}
+.robot-card .robot-card-count{right:4px;top:4px}
 @keyframes hangar-arrive{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .countdown-hud{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;background:#13182bdc;border:2px solid #87e5e0;border-radius:24px;padding:18px 30px;box-shadow:0 8px 30px #0004}.countdown-hud small{font-size:15px;color:#b9f4ef}.countdown-hud strong{font-size:65px;line-height:1.2;color:#fff2a0}.countdown-hud span{font-size:12px;color:#c4d5e4}
 @media(max-width:760px){.bottom-controls{bottom:18px;width:var(--robot-controls-width);max-width:none}.summon-backdrop{padding-bottom:122px}.countdown-hud{padding:12px 15px;top:45%}.countdown-hud strong{font-size:48px}.countdown-hud small{font-size:12px}.countdown-hud span{font-size:9px}}
