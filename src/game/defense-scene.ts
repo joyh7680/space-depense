@@ -6,6 +6,7 @@ import type { SpineActor } from './spine';
 import { ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one';
 import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
 import type { CodingBlockId } from './coding-missions';
+import { getRegularMonster, MONSTER_ASSET_PATH, REGULAR_MONSTERS } from './regular-monsters';
 
 const center = (value: number) => value * 100 + 50;
 
@@ -44,7 +45,9 @@ export class DefenseScene extends Phaser.Scene {
   preload(): void {
     const base = this.options.assetBase ?? `${import.meta.env.BASE_URL}games/space/`;
     this.load.image('room-tiles', `${base}SPACE_MAP_TILESET.png`);
-    this.load.image('monster-mint', `${import.meta.env.BASE_URL}codmos-assets/monster/759c20f0e742/monster-mint.png`);
+    for (const monster of REGULAR_MONSTERS) {
+      this.load.image(monster.texture, `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${monster.file}`);
+    }
     this.load.spine('monster-summoned', `${import.meta.env.BASE_URL}codmos-assets/acef8de87e1f/acef8de87e1f2fe72202365bc0c517f690041bd8ab24a55f592a2b2a3c1df8b5.json`, [`${import.meta.env.BASE_URL}codmos-assets/monster/1bae1e1a9bf8/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas`], true);
     const smokeBase = `${import.meta.env.BASE_URL}codmos-assets/game-over/5e04ca1208c8/`;
     this.load.atlas('station-smoke', `${smokeBase}9ae27227-06b4-432c-95e7-305f10efc0e5.png`, `${smokeBase}smoke-frames.json`);
@@ -53,7 +56,7 @@ export class DefenseScene extends Phaser.Scene {
   }
 
   create(): void {
-    if (!this.textures.exists('room-tiles') || !this.textures.exists('monster-mint')) return;
+    if (!this.textures.exists('room-tiles') || REGULAR_MONSTERS.some(monster => !this.textures.exists(monster.texture))) return;
     this.cameras.main.setBackgroundColor('#15092e');
     this.createStars();
     this.room = new Room(this);
@@ -333,7 +336,7 @@ export class DefenseScene extends Phaser.Scene {
       if (!actor) {
         actor = enemy.kind === 'summoned'
           ? this.add.spine(x, y + 12, 'monster-summoned', 'idle', true).setDepth(13)
-          : this.add.image(x, y - 22, 'monster-mint').setDisplaySize(78, 78).setDepth(13);
+          : this.add.image(x, y - 22, getRegularMonster(s.wave).texture).setDisplaySize(78, 78).setDepth(13);
         if (enemy.kind === 'summoned') {
           const spine = actor as SpineActor;
           // Invisible effect attachments otherwise inflate Spine's bounds and shrink the body.
