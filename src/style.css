@@ -231,7 +231,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 
 .summon-backdrop{position:absolute;inset:0;z-index:10;display:flex;justify-content:center;align-items:flex-end;padding:16px 16px 126px;pointer-events:auto}
 .robot-status-hud{width:280px;max-width:100%;min-width:0;padding:8px;border:1px solid #a9ad8f;border-radius:8px;background:#d9dcc1;box-shadow:0 3px 8px #0004;pointer-events:auto;outline:none}
-.robot-status-hud.empty{opacity:.4}
+.robot-status-hud.empty{filter:grayscale(1)}
 .robot-status-hud.empty .robot-status-unit:disabled{opacity:1}
 .robot-status-roster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .robot-card-slot{position:relative;min-width:0}
