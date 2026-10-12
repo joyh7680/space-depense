@@ -55,7 +55,13 @@ function removeBlock(slot: number) {
     <div class="coding-scroll">
       <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} #{{ robot.serial }}</h3><span :class="{ complete: completed }">{{ completed ? '● 공격 중' : '● 공격 대기 · 코딩 미션' }}</span></div><i class="robot-portrait" :class="'portrait-' + robot.kind" aria-hidden="true" /></div>
       <section class="coding-mission"><small>MISSION {{ mission.number }} <b>{{ mission.concept }}</b></small><p>{{ mission.description }}</p><span>{{ mission.effect }}</span></section>
-      <section class="coding-workspace" aria-label="블록코딩 작업 영역">
+      <section v-if="completed" class="coding-success" role="status" aria-live="polite" aria-atomic="true">
+        <div class="coding-success-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="m12 24 8 8 16-16" /></svg></div>
+        <span class="coding-success-badge">공격 활성화</span>
+        <h3>공격하기 성공!</h3>
+        <p>블록을 올바르게 연결했어요.<br />로봇이 명령에 따라 외계인을 공격해요.</p>
+      </section>
+      <section v-else class="coding-workspace" aria-label="블록코딩 작업 영역">
         <div class="coding-section-title"><h3>내 코드</h3><span>{{ robot.code.filter(Boolean).length }} / {{ mission.slots.length }} 블록</span></div>
         <p v-if="!completed" class="coding-help">{{ mission.autoRun ? '공격 블록을 한 번 클릭해 봐요.' : '블록을 클릭하거나 드래그해서 순서대로 넣어 봐요.' }}</p>
         <div class="code-start">▶ 로봇이 작동하는 동안</div>
@@ -76,6 +82,13 @@ function removeBlock(slot: number) {
         <p class="coding-edit-message" role="status" aria-live="polite">{{ editMessage }}</p>
       </section>
     </div>
-    <footer class="coding-footer"><p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ robot.missionMessage }}</p><button v-if="!mission.autoRun || completed" class="run-code" :disabled="!interactive || completed" @click="emit('run')">{{ completed ? '✓ 코딩 완료 · 공격 활성화' : '▶ 코드 실행' }}</button><small>코딩하는 동안에도 전투는 계속돼요.</small></footer>
+    <footer class="coding-footer">
+      <button v-if="completed" class="run-code coding-success-close" @click="emit('close')">전투로 돌아가기</button>
+      <template v-else>
+        <p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ robot.missionMessage }}</p>
+        <button v-if="!mission.autoRun" class="run-code" :disabled="!interactive" @click="emit('run')">▶ 코드 실행</button>
+      </template>
+      <small>{{ completed ? '로봇은 명령에 따라 계속 공격해요.' : '코딩하는 동안에도 전투는 계속돼요.' }}</small>
+    </footer>
   </aside>
 </template>

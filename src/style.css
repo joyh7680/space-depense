@@ -280,6 +280,12 @@ button:not(:disabled):active{transform:translateY(3px)}
 .coding-section-title h3{font-size:12px;margin:0}
 .coding-section-title>span{font-size:9px;color:#8ba3c1}
 .coding-workspace{margin-bottom:23px}
+.coding-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:30px 16px;border:1px solid #417d72;border-radius:16px;background:radial-gradient(ellipse at top,#244c4680,transparent 75%),#14283a}
+.coding-success-icon{display:grid;place-items:center;width:72px;height:72px;border:1px solid #68cbb4;border-radius:50%;color:#a4f3d8;background:#244c46;box-shadow:0 0 28px #68cbb41a;margin-bottom:18px}
+.coding-success-icon svg{width:44px;height:44px;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.coding-success-badge{font-size:10px;font-weight:700;color:#91d9c8;background:#244c46;border-radius:20px;padding:5px 10px}
+.coding-success h3{font-size:24px;letter-spacing:-.7px;color:#a4f3d8;margin:12px 0}
+.coding-success p{font-size:12px;line-height:1.8;color:#a6bad4;margin:0}
 .code-start,.code-end{font-size:10px;background:#273e57;border:1px solid #45607e;padding:10px 12px;border-radius:9px;color:#b9d9f6}
 .code-start{border-bottom-left-radius:0}
 .code-end{border-top-left-radius:0;font-size:9px;color:#829fbe;background:#1c2d43}
@@ -312,6 +318,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .coding-feedback.completed{color:#8ce4c7}
 .run-code{width:100%;padding:13px 10px;border-radius:10px;border:1px solid #a7a2fa;background:linear-gradient(#8b7eeb,#6d5bcd);color:#fff;font-weight:800;font-size:14px;box-shadow:0 3px 0 #3d3377}
 .run-code:hover:not(:disabled){filter:brightness(1.1)}
+.run-code.coding-success-close{background:#244c46;border-color:#68cbb4;color:#a4f3d8;box-shadow:0 3px 0 #0c302b}
 .run-code:disabled{opacity:1;background:#244c46;border-color:#417d72;color:#91d9c8;box-shadow:none}
 .coding-footer>small{display:block;text-align:center;font-size:9px;color:#748cae;margin-top:12px}
 @container(max-width:680px){.battle-area .profile-hud{display:none}.battle-area .wave-hud{left:50%;right:auto;transform:translateX(-50%);width:calc(100% - 28px);max-width:340px;min-width:0;top:24px}}
