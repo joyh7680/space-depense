@@ -40,6 +40,7 @@ export class DefenseSimulation {
   health = 100;
   credits = 300;
   elementEnergy: ElementEnergy = { fire: 0, electric: 0, ice: 0 };
+  lastEnergyRewards: ElementEnergy = { fire: 0, electric: 0, ice: 0 };
   kills = 0;
   escaped = 0;
   spawned = 0;
@@ -53,7 +54,7 @@ export class DefenseSimulation {
   robots: Robot[] = [];
   enemies: Enemy[] = [];
   private sequence = 0;
-  private missionSequence = 0;
+  private deploymentSequence = 0;
   private spawnTimer = 0;
   private robotSerial: Record<RobotKind, number> = { fire: 0, ice: 0, electric: 0 };
   private random: () => number;
@@ -120,10 +121,11 @@ export class DefenseSimulation {
   }
   private createRobot(kind: RobotKind, position: TilePosition | null, select = true): void {
     const config = ROBOTS[kind];
-    const missionVariant = this.missionSequence++;
-    // Stored robots have no room tile until the player selects them from the hangar.
+    const deploymentOrder = position ? ++this.deploymentSequence : 0;
+    const missionVariant = Math.max(0, deploymentOrder - 1);
+    // Stored rewards wait until an automatic deployment can find a free floor tile.
     const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null,
-      serial: ++this.robotSerial[kind], missionVariant, program: createRobotProgram(kind, missionVariant), code: [], missionNumber: getMissionNumber(this.wave), autoAttackActive: false, completedMissions: [], missionStatus: 'waiting', missionMessage: '' };
+      serial: ++this.robotSerial[kind], deploymentOrder, missionVariant, program: createRobotProgram(kind, missionVariant), code: [], missionNumber: getMissionNumber(this.wave), autoAttackActive: false, completedMissions: [], missionStatus: 'waiting', missionMessage: '' };
     this.robots.push(robot);
     this.syncPrograms();
     if (select) this.selectedId = robot.id;
@@ -138,11 +140,11 @@ export class DefenseSimulation {
     for (const robot of this.robots) {
       robot.missionNumber = this.currentMission();
       const progress = this.missionProgress(robot, robot.missionNumber);
-      robot.code = [...progress.code];
+      robot.code = robot.deployed ? [...progress.code] : [];
       robot.missionStatus = progress.status;
       robot.missionMessage = progress.message;
       robot.completedMissions = ([1, 2, 3] as const).filter(number => robot.program[number].status === 'completed');
-      robot.autoAttackActive = robot.completedMissions.length > 0;
+      robot.autoAttackActive = robot.deployed && progress.status === 'completed';
     }
   }
   private findRobotSlot(randomPlacement = false): TilePosition | undefined {
@@ -164,26 +166,22 @@ export class DefenseSimulation {
   deployRobot(id: number): boolean {
     const robot = this.robots.find(robot => robot.id === id);
     if (!this.canDeploy || !robot || robot.deployed) return false;
-    if (getRobotEnergyCount(this.elementEnergy, robot.kind) < 1) return false;
     const slot = this.findRobotSlot(true);
     if (!slot) {
       robot.missionMessage = '배치할 빈 바닥이 없어요. 자리를 비운 뒤 다시 선택해 주세요.';
       return false;
     }
     robot.x = slot.x; robot.y = slot.y; robot.deployed = true;
-    spendRobotEnergy(this.elementEnergy, robot.kind);
+    robot.deploymentOrder = ++this.deploymentSequence;
+    robot.missionVariant = robot.deploymentOrder - 1;
+    robot.program = createRobotProgram(robot.kind, robot.missionVariant);
+    this.syncPrograms();
     this.selectedId = robot.id;
     return true;
   }
   deployRobotKind(kind: RobotKind): boolean {
-    if (!this.canDeploy || getRobotEnergyCount(this.elementEnergy, kind) < 1) return false;
     const stored = this.robots.find(robot => robot.kind === kind && !robot.deployed);
-    if (stored) return this.deployRobot(stored.id);
-    if (this.robotCount >= MAX_ROBOTS) return false;
-    const slot = this.findRobotSlot(true);
-    if (!slot) return false;
-    this.placeRobot(slot.x, slot.y, kind);
-    return true;
+    return stored ? this.deployRobot(stored.id) : false;
   }
   selectRobot(id: number): void {
     const robot = this.robots.find(robot => robot.id === id);
@@ -263,7 +261,9 @@ export class DefenseSimulation {
       this.bossSpawned = false; this.bossDefeated = false; this.playerCooldown = 0; this.selectedId = null;
       this.credits = 300;
       this.elementEnergy = { fire: 0, electric: 0, ice: 0 };
+      this.lastEnergyRewards = { fire: 0, electric: 0, ice: 0 };
       this.robots = [];
+      this.deploymentSequence = 0;
       this.robotSerial = { fire: 0, electric: 0, ice: 0 };
     }
     this.syncPrograms();
@@ -285,6 +285,7 @@ export class DefenseSimulation {
       return [];
     }
     if (this.status !== 'running') return [];
+    this.lastEnergyRewards = { fire: 0, electric: 0, ice: 0 };
     this.elapsed += dt; this.spawnTimer -= dt;
     this.spawnBoss();
     for (const enemy of this.enemies) {
@@ -319,13 +320,32 @@ export class DefenseSimulation {
       if (e.kind === 'summoned') this.bossDefeated = true;
       const rewardCount = e.kind === 'summoned' ? SUMMONED_MONSTER.elementEnergyReward : WAVE_ONE.elementEnergyReward;
       for (let reward = 0; reward < rewardCount; reward++) {
-        this.elementEnergy[this.randomKind()]++;
+        const kind = this.randomKind();
+        this.elementEnergy[kind]++;
+        this.lastEnergyRewards[kind]++;
       }
       if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < MAX_ROBOTS) {
         this.createRobot(this.randomKind(), null, false);
       }
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
     });
+    this.deployAvailableRobots();
+  }
+  private deployAvailableRobots(): void {
+    // Rare rewards also enter the battlefield automatically; preserve the mission being edited.
+    for (const robot of this.robots.filter(robot => !robot.deployed)) {
+      const selected = this.selectedId;
+      if (!this.deployRobot(robot.id)) return;
+      this.selectedId = selected;
+    }
+    while (this.robotCount < MAX_ROBOTS) {
+      const kind = ROBOT_KINDS.find(kind => getRobotEnergyCount(this.elementEnergy, kind) > 0);
+      if (!kind) return;
+      const slot = this.findRobotSlot(true);
+      if (!slot) return;
+      this.createRobot(kind, slot, false);
+      spendRobotEnergy(this.elementEnergy, kind);
+    }
   }
   private randomKind(): RobotKind {
     return ROBOT_KINDS[Math.min(ROBOT_KINDS.length - 1, Math.max(0, Math.floor(this.random() * ROBOT_KINDS.length)))];

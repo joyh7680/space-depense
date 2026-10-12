@@ -125,11 +125,11 @@ test('special kills always award three random elements, with the rare robot roll
   }
 });
 
-test('rare rewards store every robot kind for free without deploying it and preserve selection', () => {
+test('rare rewards automatically deploy every robot kind for free and preserve selection', () => {
   for (const [index, kind] of ROBOT_KINDS.entries()) {
     const rolls = [0, 0.5, 0.99, SUMMONED_MONSTER.robotDropChance - 0.001, (index + 0.5) / 3];
     let count = 0;
-    const game = new DefenseSimulation(() => rolls[count++]);
+    const game = new DefenseSimulation(() => rolls[count++] ?? 0.5);
     setRobotEnergy(game, 'fire'); game.summon('fire');
     const selected = game.selectedId;
     spawnBoss(game); game.enemies[0].health = 0;
@@ -139,9 +139,10 @@ test('rare rewards store every robot kind for free without deploying it and pres
     assert.equal(game.selectedId, selected);
     assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
     assert.equal(game.credits, 300 + WAVE_ONE.killEnergy + WAVE_ONE.clearEnergy);
-    assert.equal(game.robots[1].deployed, false);
-    assert.deepEqual(game.deployedRobots.map(robot => robot.id), [game.robots[0].id]);
-    assert.equal(count, 5);
+    assert.equal(game.robots[1].deployed, true);
+    assert.equal(game.robots[1].autoAttackActive, false);
+    assert.equal(game.deployedRobots.length, 2);
+    assert.equal(count, 6);
   }
 });
 
@@ -155,7 +156,7 @@ test('rare rewards respect the nine robot limit while still awarding element ene
   assert.equal(game.elementEnergy.fire, 3);
 });
 
-test('a rare stored robot still requires its hybrid recipe and can deploy at the ownership limit', () => {
+test('a rare reward automatically deploys without energy as the ninth robot', () => {
   const draws = [0, 0.5, 0.99, 0, 0.99]; let draw = 0;
   const game = new DefenseSimulation(() => draws[draw++] ?? 0.5);
   fundRobot(game, 'fire', 8);
@@ -164,29 +165,26 @@ test('a rare stored robot still requires its hybrid recipe and can deploy at the
   game.enemies.push({ id: 1000, x: 14, y: 4, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
   game.step(0.05);
   const stored = game.robots.at(-1)!;
-  assert.equal(game.robotCount, 9); assert.equal(stored.kind, 'electric'); assert.equal(stored.deployed, false);
-  const before = JSON.stringify(game);
-  assert.equal(game.deployRobot(stored.id), false); assert.equal(JSON.stringify(game), before);
-  assert.equal(getRobotDeployCount(game.elementEnergy, game.robots, 'electric'), 0);
-  setRobotEnergy(game, 'electric');
-  assert.equal(getRobotDeployCount(game.elementEnergy, game.robots, 'electric'), 1);
-  assert.equal(getTotalDeployCount(game.elementEnergy, game.robots), 1);
-  assert.equal(game.deployRobotKind('electric'), true);
-  assert.equal(game.robotCount, 9); assert.equal(stored.deployed, true); assert.equal(game.selectedId, stored.id);
-  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 0, electric: 0 });
+  assert.equal(game.robotCount, 9); assert.equal(stored.kind, 'electric'); assert.equal(stored.deployed, true);
+  const energy = { ...game.elementEnergy };
+  assert.equal(getRobotDeployCount(game.robots, 'electric'), 0);
+  assert.equal(getTotalDeployCount(game.robots), 0);
+  assert.equal(game.deployRobotKind('electric'), false);
+  assert.equal(game.robotCount, 9); assert.notEqual(game.selectedId, stored.id);
+  assert.deepEqual(game.elementEnergy, energy);
   assert.equal(stored.autoAttackActive, false);
 });
 
 test('rare rewards can add the ninth robot', () => {
   const draws = [0, 0.5, 0.99, 0, 0];
   let count = 0;
-  const game = new DefenseSimulation(() => draws[count++]);
+  const game = new DefenseSimulation(() => draws[count++] ?? 0.5);
   setRobotEnergy(game, 'fire', 8);
   for (let i = 0; i < 8; i++) game.summon('fire');
   spawnBoss(game); game.enemies[0].health = 0;
   game.step(0.05);
   assert.equal(game.robotCount, 9);
-  assert.equal(game.robots.at(-1)!.deployed, false);
+  assert.equal(game.robots.at(-1)!.deployed, true);
   assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
 });
 
@@ -205,7 +203,7 @@ test('special monsters award nothing on escape and prevent clearing until defeat
 
 test('burning special monsters reward once before they can escape; paused rewards wait', () => {
   const rolls = [0.99, 0.99, 0.99, 0.99]; let count = 0;
-  const game = new DefenseSimulation(() => rolls[count++]);
+    const game = new DefenseSimulation(() => rolls[count++] ?? 0.5);
   spawnBoss(game);
   const end = ROUTE.at(-1)!;
   Object.assign(game.enemies[0], { x: end.x + 0.001, y: end.y, waypoint: ROUTE.length - 1, health: 0.01, burnTime: 1, burnDamage: 10 });

@@ -9,7 +9,7 @@ export type RobotState = TilePosition & {
   id: number; kind: RobotKind; grade: number; range: number; damage: number; deployed: boolean;
   activeBlock: CodeBlock; attacks: number; targetId: number | null;
   serial: number; code: RobotCode; missionStatus: 'waiting' | 'error' | 'completed'; missionMessage: string;
-  missionNumber: MissionNumber; missionVariant: number; autoAttackActive: boolean; completedMissions: MissionNumber[];
+  missionNumber: MissionNumber; missionVariant: number; deploymentOrder: number; autoAttackActive: boolean; completedMissions: MissionNumber[];
 };
 export type DefenseState = {
   status: GameStatus; wave: number; health: number; credits: number; kills: number;

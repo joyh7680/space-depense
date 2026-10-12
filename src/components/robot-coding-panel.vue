@@ -55,14 +55,14 @@ function removeBlock(slot: number) {
   <aside class="coding-panel" :class="robot.kind" aria-labelledby="coding-title">
     <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(Math.max(1, wave)).padStart(2, '0') }}</small><h2 id="coding-title">로봇에게 명령하기</h2></div><button class="coding-close" type="button" aria-label="코딩 패널 닫기" @click="emit('close')">×</button></header>
     <div class="coding-scroll">
-      <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} #{{ robot.serial }}</h3><span :class="{ complete: robot.autoAttackActive }">{{ robot.autoAttackActive ? '● 기본 자동 공격 중 · 코딩 중에도 유지' : '● 공격 대기 · 이번 웨이브 미션' }}</span></div><i class="robot-portrait" :class="'portrait-' + robot.kind" aria-hidden="true" /></div>
+      <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} #{{ robot.serial }}</h3><span :class="{ complete: robot.autoAttackActive }">{{ robot.autoAttackActive ? '● 기본 자동 공격 중 · 미션 완료' : '● 공격 대기 · 이번 웨이브 미션' }}</span></div><i class="robot-portrait" :class="'portrait-' + robot.kind" aria-hidden="true" /></div>
       <div class="coding-progress" aria-label="코딩 완료 상태">
         <span v-for="number in ([1, 2, 3] as const)" :key="number" :class="{ learned: robot.completedMissions.includes(number) }">{{ robot.completedMissions.includes(number) ? '✓' : '○' }} W{{ number }} {{ getCodingMission(robot.kind, number, robot.missionVariant).title }}</span>
       </div>
       <p class="coding-choice" role="status">모든 종류의 로봇이 각자 미션을 풀 수 있어요. 성공하면 이 로봇의 기본 자동 공격이 활성화돼요.</p>
       <section class="coding-mission" @keydown.esc="missionDetailsOpen = false">
         <div class="coding-mission-header">
-          <small>WAVE {{ mission.number }} {{ mission.title }} · 로봇 #{{ robot.serial }}</small>
+          <small>WAVE {{ mission.number }} {{ mission.title }} · {{ robot.deploymentOrder }}번째 배치</small>
           <b class="coding-mission-concept">{{ mission.concept }}</b>
           <button class="coding-mission-help" type="button" :aria-label="missionDetailsOpen ? '미션 세부 설명 닫기' : '미션 세부 설명 열기'" :aria-expanded="missionDetailsOpen" :aria-controls="missionDetailsId" @click="missionDetailsOpen = !missionDetailsOpen">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5" /><circle class="question-dot" cx="12" cy="16" r=".75" /></svg>
@@ -72,6 +72,7 @@ function removeBlock(slot: number) {
         <div v-show="missionDetailsOpen" :id="missionDetailsId" class="coding-mission-details">
           <p>{{ mission.description }}</p>
           <p>{{ mission.effect }}</p>
+          <p>이번 미션 {{ mission.slots.length }}개 · Wave 최대 {{ mission.maxBlocks }}개 (제어 블록 포함)</p>
         </div>
       </section>
       <section v-if="completed" :key="`${robot.id}-${mission.number}`" class="coding-success" role="status" aria-live="polite" aria-atomic="true">

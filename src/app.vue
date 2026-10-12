@@ -4,16 +4,14 @@ import SpaceDefenseRoom from './components/space-defense-room.vue';
 import EnergyIcon from './components/energy-icon.vue';
 import VictoryResult from './components/victory-result.vue';
 import RobotCodingPanel from './components/robot-coding-panel.vue';
-import { ELEMENTS, ROBOTS, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './game/wave-one';
-import { getRobotDeployCount, getRobotRecipeLabel, getTotalDeployCount } from './game/robot-energy';
+import { ELEMENTS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './game/wave-one';
 import type { DefenseState, RobotKind } from './game/types';
 import { getRegularMonster, MONSTER_ASSET_PATH } from './game/regular-monsters';
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
 const ready = ref(false);
 const error = ref('');
-const summonRequested = ref(false);
-const summonDialog = ref<HTMLElement>();
 const codingRobotId = ref<number | null>(null);
+const openRecipe = ref<RobotKind | null>(null);
 const codingRobot = computed(() => state.value.robots.find(robot => robot.id === codingRobotId.value));
 const portraitAssetUrl = new URL(`${import.meta.env.BASE_URL}codmos-assets/player/int-front.png`, document.baseURI).href;
 const portraitUrl = `url("${portraitAssetUrl}")`;
@@ -22,17 +20,14 @@ const monsterArt = `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${getRegular
 const retryButton = ref<HTMLButtonElement>();
 const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, robots: [], robotCount: 0, storedRobotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false, victoryAnimationComplete: false });
 const remainingHearts = computed(() => Math.max(0, Math.min(10, Math.ceil(state.value.health / 10))));
-const summonOpen = computed(() => summonRequested.value);
 const canDeploy = computed(() => ready.value && state.value.status === 'running');
 const finished = computed(() => (state.value.status === 'cleared' && (state.value.wave < 3 || state.value.victoryAnimationComplete)) || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
 watch(() => state.value.status, status => {
-  if (summonOpen.value && (status === 'defeat' || status === 'cleared')) closeSummon();
   if (status === 'defeat' || status === 'cleared') codingRobotId.value = null;
 });
 watch(() => state.value.robots.length, count => {
   if (count === 0) {
     codingRobotId.value = null;
-    closeSummon();
   }
 });
 watch(finished, async visible => {
@@ -47,47 +42,26 @@ watch([finished, () => state.value.wave], ([visible, wave], _previous, onCleanup
   onCleanup(() => window.clearTimeout(timer));
 });
 const kindOrder = ['electric', 'ice', 'fire'] as const;
-const robotCards = computed(() => (['electric', 'ice', 'fire'] as const).map(kind => ({
-  kind, count: getRobotDeployCount(state.value.elementEnergy, state.value.robots, kind),
+const robotStatus = computed(() => (['electric', 'ice', 'fire'] as const).map(kind => ({
+  kind, count: state.value.robots.filter(robot => robot.kind === kind && robot.deployed).length,
+  waiting: state.value.robots.filter(robot => robot.kind === kind && robot.deployed && !robot.autoAttackActive).length,
 })));
-const deployableCount = computed(() => getTotalDeployCount(state.value.elementEnergy, state.value.robots));
-function cardLabel(kind: RobotKind, count: number): string {
-  return `${ROBOTS[kind].name}, ${getRobotRecipeLabel(kind)}, 출격 가능 ${count}대, ${count ? '클릭해 출격 후 코딩 미션 시작' : state.value.robotCount >= MAX_ROBOTS ? '로봇 최대 수량 도달 또는 에너지 부족' : '에너지 부족'}`;
-}
 const robotArt = {
  fire: { backgroundPosition: '-169.8px -435.3px', clipPath: 'inset(0 0 14px 0)' },
  ice: { backgroundPosition: '-95.4px -402.9px' },
  electric: { backgroundPosition: '-453px -428.4px' },
 };
-async function openSummon() {
-  if (!canDeploy.value) return;
-  summonRequested.value = true;
-  await nextTick();
-  summonDialog.value?.focus({ preventScroll: true });
-}
-function closeSummon() {
-  summonRequested.value = false;
-}
 function selectCodingRobot(id: number) {
   if (!canDeploy.value || !state.value.robots.some(robot => robot.id === id && robot.deployed)) return;
-  closeSummon();
   codingRobotId.value = id;
 }
-function deployRobotKind(kind: RobotKind) {
-  if (!canDeploy.value) return;
-  if (room.value?.deployRobotKind(kind)) closeSummon();
-}
 function replay() {
-  closeSummon();
   codingRobotId.value = null;
   room.value?.reset();
 }
 function nextWave() {
   codingRobotId.value = null;
   room.value?.startWave();
-}
-function dialogKey(event: KeyboardEvent) {
-  if (event.key === 'Escape') { event.preventDefault(); closeSummon(); }
 }
 </script>
 <template>
@@ -121,11 +95,24 @@ function dialogKey(event: KeyboardEvent) {
           <EnergyIcon :kind="kind" /><b>{{ state.elementEnergy[kind] }}</b>
         </span>
       </div>
-      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇 출격, 출격 가능 ' + deployableCount + '대'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
-        <span v-if="deployableCount > 0" class="robot-button-count" role="status" aria-live="polite" aria-atomic="true">{{ deployableCount }}</span>
-        <i class="robot-portrait" :style="robotArt.fire" aria-hidden="true" />
-        <b>로봇 출격</b>
-      </button>
+      <section class="robot-status-hud" aria-label="자동 배치 로봇 현황" @keydown.esc="openRecipe = null">
+        <div class="robot-status-roster">
+          <div v-for="card in robotStatus" :key="card.kind" class="robot-button robot-status-unit" :class="[card.kind, { waiting: card.waiting > 0 }]" :aria-label="`${ROBOTS[card.kind].name} ${card.count}대, 공격 대기 ${card.waiting}대`">
+            <span class="robot-button-count robot-status-count">{{ card.count }}</span>
+            <i class="robot-portrait" :style="robotArt[card.kind]" aria-hidden="true" />
+            <b>{{ ROBOTS[card.kind].name }}</b>
+            <div class="robot-info" :class="{ open: openRecipe === card.kind }">
+              <button class="robot-info-button" type="button" :aria-label="`${ROBOTS[card.kind].name} 에너지 조합 보기`" :aria-describedby="`robot-recipe-${card.kind}`" :aria-expanded="openRecipe === card.kind" @click="openRecipe = openRecipe === card.kind ? null : card.kind">?</button>
+              <div :id="`robot-recipe-${card.kind}`" class="robot-recipe-tooltip" role="tooltip">
+                <template v-for="(part, index) in ROBOTS[card.kind].recipe" :key="part.kind">
+                  <span v-if="index" class="recipe-plus" aria-hidden="true">+</span>
+                  <span class="recipe-part" :aria-label="`${ELEMENTS[part.kind].name} ${part.amount}개`"><EnergyIcon :kind="part.kind" /><b>{{ part.amount }}</b></span>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <Transition name="battle-hint">
         <p v-if="canDeploy && state.message" class="battle-hint" role="status" aria-atomic="true">{{ state.message }}</p>
       </Transition>
@@ -133,23 +120,6 @@ function dialogKey(event: KeyboardEvent) {
     </div>
     <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy" @close="codingRobotId = null" @change="(slot, block, sourceSlot) => room?.updateCode(codingRobot!.id, slot, block, sourceSlot)" />
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
-    <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
-      <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="false" aria-label="로봇 선택" tabindex="-1" @keydown="dialogKey">
-        <div class="robot-roster">
-          <button v-for="card in robotCards" :key="card.kind" :class="['robot-card', card.kind]" :disabled="!canDeploy || !card.count" :aria-label="cardLabel(card.kind, card.count)" :title="`${cardLabel(card.kind, card.count)} · ${ROBOTS[card.kind].description}`" @click="deployRobotKind(card.kind)">
-            <span v-if="card.count > 0" class="robot-button-count robot-card-count" aria-hidden="true">{{ card.count }}</span>
-            <i class="robot-portrait" :style="robotArt[card.kind]" aria-hidden="true" />
-            <b class="robot-card-name">{{ ROBOTS[card.kind].name }}</b>
-            <span class="robot-recipe" aria-hidden="true">
-              <template v-for="(part, index) in ROBOTS[card.kind].recipe" :key="part.kind">
-                <span v-if="index" class="recipe-plus">+</span>
-                <span class="recipe-part" :class="{ short: state.elementEnergy[part.kind] < part.amount }"><EnergyIcon :kind="part.kind" /><b>{{ part.amount }}</b></span>
-              </template>
-            </span>
-          </button>
-        </div>
-      </section>
-    </div>
     <div v-if="finished" class="screen-overlay result-overlay" :class="{ 'defeat-overlay': state.status === 'defeat', 'victory-overlay': state.status === 'cleared' }">
       <section v-if="state.status === 'defeat'" class="defeat-result" role="dialog" aria-modal="true" aria-labelledby="game-over-title" aria-describedby="game-over-description" @keydown.tab.prevent="retryButton?.focus()">
         <div class="result-wave"><i aria-hidden="true" />WAVE {{ String(Math.max(1, state.wave)).padStart(2, '0') }} <span>전투 종료</span></div>

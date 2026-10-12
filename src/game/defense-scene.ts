@@ -4,14 +4,13 @@ import { Room } from './room/room';
 import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
 import { ELEMENTS, ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one';
-import { getTotalDeployCount } from './robot-energy';
 import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
 import type { CodingBlockId } from './coding-missions';
 import { getRegularMonster, MONSTER_ASSET_PATH, REGULAR_MONSTERS } from './regular-monsters';
 import { SPINE_EFFECTS, type SpineEffectKind } from './effects';
 
 const center = (value: number) => value * 100 + 50;
-const DRAG_NOTICE = '캐릭터·로봇을 직접 드래그해서 빈 바닥에 배치하세요.';
+const DRAG_NOTICE = '에너지 조합이 완성되면 로봇이 자동 소환돼요. 반짝이는 로봇을 클릭해 미션을 풀어 주세요.';
 const NOTICE_DURATION_MS = 4000;
 type UnitDrag = {
   robotId: number | null;
@@ -32,6 +31,7 @@ export class DefenseScene extends Phaser.Scene {
   private player!: SpineActor;
   private aliens = new Map<number, Phaser.GameObjects.Image | SpineActor>();
   private robotArt = new Map<number, SpineActor>();
+  private robotSpawnTimes = new Map<number, number>();
   private inspectRange = false;
   private units!: Phaser.GameObjects.Graphics;
   private route!: Phaser.GameObjects.Graphics;
@@ -328,8 +328,7 @@ export class DefenseScene extends Phaser.Scene {
     if (!this.room) return;
     const previousHealth = this.simulation.health;
     const previousStatus = this.simulation.status;
-    const previousEnergy = { ...this.simulation.elementEnergy };
-    const previousDeployable = getTotalDeployCount(previousEnergy, this.simulation.robots);
+    const previousRobots = new Set(this.simulation.deployedRobots.map(robot => robot.id));
     const previousBosses = new Set(this.simulation.enemies.filter(enemy => enemy.kind === 'summoned').map(enemy => enemy.id));
     const shots = this.simulation.step(delta / 1000);
     if (previousStatus === 'ready' && this.simulation.status === 'running') this.notice = this.noticeText;
@@ -340,10 +339,10 @@ export class DefenseScene extends Phaser.Scene {
     this.drawUnits();
     let rewardIndex = 0;
     for (const kind of ROBOT_KINDS) {
-      const amount = this.simulation.elementEnergy[kind] - previousEnergy[kind];
+      const amount = previousStatus === 'running' ? this.simulation.lastEnergyRewards[kind] : 0;
       if (amount > 0) this.showEnergyReward(kind, amount, rewardIndex++);
     }
-    if (getTotalDeployCount(this.simulation.elementEnergy, this.simulation.robots) > previousDeployable) this.notice = '에너지 조합 완성! 로봇 출격 버튼에서 선택하세요.';
+    if (this.simulation.deployedRobots.some(robot => !previousRobots.has(robot.id))) this.notice = '로봇 자동 소환! 반짝이는 공격 대기 로봇을 클릭해 코딩 미션을 풀어 주세요.';
     for (const shot of shots) {
       const color = shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color;
       for (const glow of [true, false]) {
@@ -407,6 +406,16 @@ export class DefenseScene extends Phaser.Scene {
       onComplete: () => glow.destroy() });
   }
 
+  private showRobotSummon(x: number, y: number, color: number): void {
+    const ring = this.add.ellipse(x, y + 10, 100, 42, color, 0.22).setStrokeStyle(4, 0xfff2a0, 0.9);
+    const beam = this.add.rectangle(x, y - 95, 74, 220, color, 0.35);
+    this.combatEffects.add([ring, beam]);
+    this.tweens.add({ targets: ring, scaleX: 1.9, scaleY: 1.9, alpha: 0, duration: 700,
+      onComplete: () => ring.destroy() });
+    this.tweens.add({ targets: beam, scaleX: 0.2, alpha: 0, duration: 550,
+      onComplete: () => beam.destroy() });
+  }
+
   private drawUnits(): void {
     this.units.clear();
     this.ranges.clear();
@@ -435,6 +444,8 @@ export class DefenseScene extends Phaser.Scene {
         art.skeleton.setSlotsToSetupPose();
         art.updateSize();
         this.robotArt.set(robot.id, art);
+        this.robotSpawnTimes.set(robot.id, s.elapsed);
+        this.showRobotSummon(x, y, color);
       }
       art.setPosition(x, y + 24).setDepth(dragging ? 110 : 14);
       let label = this.unitLabels.get(robot.id);
@@ -443,11 +454,26 @@ export class DefenseScene extends Phaser.Scene {
         this.unitLabels.set(robot.id, label);
       }
       const attackEnabled = robot.autoAttackActive;
-      art.setAlpha(attackEnabled ? 1 : 0.75);
+      const arrival = Math.min(1, Math.max(0, (s.elapsed - (this.robotSpawnTimes.get(robot.id) ?? s.elapsed)) / 0.55));
+      art.setScale(0.17 * (0.35 + 0.65 * Math.sin(arrival * Math.PI / 2)));
+      art.setAlpha((0.4 + arrival * 0.6) * (attackEnabled ? 1 : 0.9));
+      if (!attackEnabled && s.status !== 'cleared' && s.status !== 'defeat') {
+        const pulse = (Math.sin(s.elapsed * 4 + robot.id) + 1) / 2;
+        this.units.lineStyle(3, 0xfff2a0, 0.4 + pulse * 0.5);
+        this.units.strokeEllipse(x, y + 10, 84 + pulse * 12, 34 + pulse * 6);
+        for (let sparkle = 0; sparkle < 3; sparkle++) {
+          const angle = s.elapsed * 1.4 + sparkle * Math.PI * 2 / 3 + robot.id;
+          const sx = x + Math.cos(angle) * 57, sy = y - 73 + Math.sin(angle) * 43;
+          const size = 5 + pulse * 4;
+          this.units.fillStyle(0xfff2a0, 0.6 + pulse * 0.4);
+          this.units.fillTriangle(sx, sy - size, sx + size * 0.5, sy, sx, sy + size);
+          this.units.fillTriangle(sx, sy - size, sx - size * 0.5, sy, sx, sy + size);
+        }
+      }
       label.setFontSize(Math.max(18, 11 / this.cameras.main.zoom)).setDepth(dragging ? 111 : 102)
         .setColor(attackEnabled ? '#a4f3d8' : '#ffe39b')
         .setBackgroundColor(attackEnabled ? '#173c38' : '#443522')
-        .setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n${attackEnabled ? '공격 중' : '공격 대기'}`);
+        .setText(`${ROBOTS[robot.kind].name} #${robot.serial}\n${attackEnabled ? '공격 중' : '✦ 공격 대기 · 클릭'}`);
       const left = x - label.width / 2, right = x + label.width / 2;
       const overlaps = (top: number) => labelBounds.filter(bounds => left < bounds.right + labelGap
         && right > bounds.left - labelGap && top < bounds.bottom + labelGap && top + label.height > bounds.top - labelGap);
@@ -470,7 +496,7 @@ export class DefenseScene extends Phaser.Scene {
       }
     }
     for (const [id, label] of this.unitLabels) { if (!deployedRobots.some(d => d.id === id)) { label.destroy(); this.unitLabels.delete(id); } }
-    for (const [id, art] of this.robotArt) if (!deployedRobots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); }
+    for (const [id, art] of this.robotArt) if (!deployedRobots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); this.robotSpawnTimes.delete(id); }
     for (const enemy of s.enemies) {
       const x = center(enemy.x); const y = center(enemy.y);
       this.units.fillStyle(0x112331, 0.35); this.units.fillEllipse(x, y + 12, 65, 24);
@@ -532,20 +558,17 @@ export class DefenseScene extends Phaser.Scene {
     const deployed = this.simulation.deployRobot(id);
     const robot = this.simulation.robots.find(robot => robot.id === id);
     this.notice = deployed && robot
-      ? `${ROBOTS[robot.kind].name} #${robot.serial} 배치 완료! 이 로봇의 코딩 미션을 완료하세요.`
+      ? `${ROBOTS[robot.kind].name} #${robot.serial} 배치 완료! 공격 대기 로봇을 클릭해 코딩 미션을 시작하세요.`
       : robot?.missionMessage || '배치할 보관 로봇을 선택해 주세요.';
     if (deployed) { this.cancelDrag(); this.inspectRange = true; this.mode = 'relocate'; }
     this.drawUnits(); this.publish();
-    if (deployed) this.options.onInspect?.(id);
     return deployed;
   }
   deployRobotKind(kind: RobotKind): boolean {
     const deployed = this.simulation.deployRobotKind(kind);
-    const id = this.simulation.selectedId;
-    this.notice = deployed ? `${ROBOTS[kind].name} 출격 완료! 이 로봇의 코딩 미션을 완료하세요.` : '에너지 조합과 빈 배치 칸을 확인해 주세요.';
+    this.notice = deployed ? `${ROBOTS[kind].name} 배치 완료! 공격 대기 로봇을 클릭해 코딩 미션을 시작하세요.` : '보관함 수량과 빈 배치 칸을 확인해 주세요.';
     if (deployed) { this.cancelDrag(); this.inspectRange = true; this.mode = 'relocate'; }
     this.drawUnits(); this.publish();
-    if (deployed && id !== null) this.options.onInspect?.(id);
     return deployed;
   }
   selectRobot(id: number): void {
@@ -595,7 +618,7 @@ export class DefenseScene extends Phaser.Scene {
     for (const actor of this.aliens.values()) actor.destroy();
     for (const art of this.robotArt.values()) art.destroy();
     for (const label of this.unitLabels.values()) label.destroy();
-    this.aliens.clear(); this.robotArt.clear(); this.unitLabels.clear();
+    this.aliens.clear(); this.robotArt.clear(); this.unitLabels.clear(); this.robotSpawnTimes.clear();
     this.inspectRange = false;
     this.simulation = new DefenseSimulation(); this.mode = 'move';
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };

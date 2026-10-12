@@ -26,16 +26,13 @@ export type MissionProgress = { code: RobotCode; status: 'waiting' | 'error' | '
 export type RobotProgram = Record<MissionNumber, MissionProgress>;
 export type CodingMission = {
   number: MissionNumber; title: string;
+  deploymentOrder: number; maxBlocks: number;
   concept: string; summary: string; description: string; effect: string;
   slots: { block: CodingBlockId; depth: number; hint: string }[];
   palette: CodingBlockId[];
 };
 const BASIC_ACTIONS: Record<RobotKind, CodingBlockId> = { fire: 'missile', ice: 'cool', electric: 'shock' };
-const SEQUENCE_STEPS: readonly (readonly CodingBlockId[])[] = [
-  ['find', 'aim'], ['charge', 'find'], ['scan', 'find'],
-  ['shield', 'find', 'aim'], ['find', 'charge', 'aim'], ['scan', 'shield', 'find'],
-  ['find', 'aim', 'shield'], ['charge', 'scan', 'find'], ['scan', 'find', 'aim'],
-];
+const BLOCK_COUNTS = { 1: [1, 2, 3, 3, 3], 2: [2, 2, 3, 4, 4], 3: [2, 3, 3, 4, 5] } as const;
 
 export function getMissionNumber(wave: number): MissionNumber {
   return Math.min(3, Math.max(1, Math.trunc(wave))) as MissionNumber;
@@ -43,56 +40,47 @@ export function getMissionNumber(wave: number): MissionNumber {
 
 export function getCodingMission(kind: RobotKind, wave: number, variant = 0): CodingMission {
   const number = getMissionNumber(wave);
+  const deploymentOrder = Math.max(1, Math.trunc(variant) + 1);
+  const count = BLOCK_COUNTS[number][Math.min(deploymentOrder, 5) - 1];
   const action = BASIC_ACTIONS[kind];
-  const command = getCodingBlock(action).label;
-  const control = ({ 1: 'find', 2: 'repeat-two', 3: 'in-range' } as const)[number];
-  const blocks: CodingBlockId[] = [control, action];
-  const mission: CodingMission = {
+  const target: CodingBlockId = `target-${deploymentOrder}`;
+  const preparation = (['aim', 'charge', 'scan', 'shield'] as const)[(deploymentOrder - 1) % 4];
+  const nextPreparation = (['aim', 'charge', 'scan', 'shield'] as const)[deploymentOrder % 4];
+  let answer: CodingBlockId[];
+  let depths: number[];
+  let summary: string;
+  let description: string;
+  if (number === 1) {
+    answer = count === 1 ? [action] : count === 2 ? [target, action] : [target, preparation, action];
+    depths = answer.map(() => 0);
+    summary = `${answer.map(block => getCodingBlock(block).label).join(' → ')} 순서로 실행하세요.`;
+    description = '명령을 위에서 아래로 연결해 순서대로 실행해요.';
+  } else if (number === 2) {
+    const repeat: CodingBlockId = deploymentOrder === 1 ? 'repeat-two' : `repeat-${deploymentOrder + 1}`;
+    const body = count === 2 ? [action] : count === 3 ? [preparation, action] : [target, preparation, action];
+    answer = [repeat, ...body];
+    depths = [0, ...body.map(() => 1)];
+    summary = `${body.map(block => getCodingBlock(block).label).join(' → ')} 동작을 ${deploymentOrder + 1}번 반복하세요.`;
+    description = '반복 블록 안에 명령을 순서대로 넣어요. 반복하기 블록도 1개로 세어요.';
+  } else {
+    const condition = (['in-range', 'enemy-fast', 'enemy-armored'] as const)[(deploymentOrder - 1) % 3];
+    const prefix = count === 2 ? [] : [target];
+    const body = count <= 3 ? [action] : count === 4 ? [preparation, action] : [preparation, nextPreparation, action];
+    answer = [...prefix, condition, ...body];
+    depths = [...prefix.map(() => 0), 0, ...body.map(() => 1)];
+    summary = `${prefix.length ? getCodingBlock(target).label + ' 후, ' : ''}${getCodingBlock(condition).label} ${body.map(block => getCodingBlock(block).label).join(' → ')} 순서로 실행하세요.`;
+    description = '조건이 맞을 때 실행할 명령을 조건 블록 안에 넣어요. 만약 블록도 1개로 세어요.';
+  }
+  return {
     number,
+    deploymentOrder, maxBlocks: BLOCK_COUNTS[number][4],
     title: ({ 1: '기본 미션', 2: '중간 미션', 3: '강화 미션' } as const)[number],
     concept: ({ 1: '순차 실행', 2: '반복문', 3: '조건문' } as const)[number],
-    summary: ({
-      1: `목표를 찾고 ${command} 명령을 실행하세요.`,
-      2: `${command} 명령을 2번 반복하세요.`,
-      3: `적이 사거리 안에 있다면 ${command} 명령을 실행하세요.`,
-    } as const)[number],
-    description: ({
-      1: '목표 찾기 다음에 공격 명령을 연결해 순서대로 실행해요.',
-      2: '반복 블록 안에 공격 명령을 넣어 반복문을 완성해요.',
-      3: '조건 블록 안에 공격 명령을 넣어 조건문을 완성해요.',
-    } as const)[number],
+    summary, description,
     effect: '성공하면 이번 웨이브에서 이 로봇의 기본 자동 공격이 활성화돼요.',
-    slots: blocks.map((block, index) => ({ block, depth: number > 1 && index === 1 ? 1 : 0, hint: getCodingBlock(block).label })),
-    palette: [action, control],
+    slots: answer.map((block, index) => ({ block, depth: depths[index], hint: getCodingBlock(block).label })),
+    palette: [...answer].reverse(),
   };
-  if (variant === 0) return mission;
-
-  const target: CodingBlockId = `target-${variant + 1}`;
-  const preparation = (['aim', 'charge', 'scan', 'shield'] as const)[(variant - 1) % 4];
-  let answer: CodingBlockId[];
-  if (number === 1) {
-    const steps = SEQUENCE_STEPS[(variant - 1) % SEQUENCE_STEPS.length];
-    answer = [...steps.map(block => block === 'find' ? target : block), action];
-    mission.summary = `${answer.map(block => getCodingBlock(block).label).join(' → ')} 순서로 실행하세요.`;
-    mission.description = '지정된 목표와 준비 명령의 순서를 확인하고 마지막에 공격 명령을 연결해요.';
-  } else if (number === 2) {
-    const repeat: CodingBlockId = `repeat-${variant + 2}`;
-    answer = [repeat, preparation, action];
-    mission.summary = `${getCodingBlock(preparation).label} 다음 ${command} 명령을 실행하는 동작을 ${variant + 2}번 반복하세요.`;
-    mission.description = '지정된 횟수의 반복 블록 안에 준비 명령과 공격 명령을 순서대로 넣어요.';
-  } else {
-    const condition = (['in-range', 'enemy-fast', 'enemy-armored'] as const)[(variant - 1) % 3];
-    answer = [target, condition, preparation, action];
-    mission.summary = `${getCodingBlock(target).label} 후, ${getCodingBlock(condition).label.replace('만약 ', '')} ${getCodingBlock(preparation).label} 다음 ${command} 명령을 실행하세요.`;
-    mission.description = '목표 찾기 다음에 조건 블록을 연결하고, 조건 안에 준비 명령과 공격 명령을 넣어요.';
-  }
-  mission.slots = answer.map((block, index) => ({ block,
-    depth: (number === 2 && index > 0) || (number === 3 && index > 1) ? 1 : 0,
-    hint: getCodingBlock(block).label,
-  }));
-  // The available answer blocks belong to this specific question.
-  mission.palette = [...answer.slice(1), answer[0]].reverse();
-  return mission;
 }
 
 export function createMissionProgress(kind: RobotKind, number: MissionNumber, variant = 0): MissionProgress {

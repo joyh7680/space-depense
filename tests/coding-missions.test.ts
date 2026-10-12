@@ -1,4 +1,4 @@
-import { fundRobot, setRobotEnergy } from './robot-energy-helpers.ts';
+import { addStoredRobot, fundRobot, setRobotEnergy } from './robot-energy-helpers.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, type Enemy } from '../src/game/defense-simulation.ts';
@@ -56,13 +56,13 @@ test('the first question teaches the wave concept with the matching robot attack
   const messages = new Set<string>();
   for (const wave of waves) for (const kind of kinds) {
     const mission = getCodingMission(kind, wave), code = mission.slots.map(slot => slot.block);
-    assert.deepEqual(code, [controls[wave], actions[kind]]);
+    assert.deepEqual(code, wave === 1 ? [actions[kind]] : [controls[wave], actions[kind]]);
     assert.equal(mission.concept, concepts[wave]); assert.equal(mission.title, titles[wave]);
-    assert.deepEqual(mission.slots.map(slot => slot.depth), [0, wave === 1 ? 0 : 1]);
+    assert.deepEqual(mission.slots.map(slot => slot.depth), wave === 1 ? [0] : [0, 1]);
     const result = validateRobotCode(kind, wave, code);
     assert.equal(result.success, true); messages.add(result.message);
-    assert.equal(validateRobotCode(kind, wave, code.toReversed()).success, false);
-    assert.equal(validateRobotCode(kind, wave, [null, code[1]]).success, false);
+    if (code.length > 1) assert.equal(validateRobotCode(kind, wave, code.toReversed()).success, false);
+    assert.equal(validateRobotCode(kind, wave, code.map(() => null)).success, false);
     assert.equal(validateRobotCode(kind, wave, [...code, code[1]]).success, false);
     assert.match(mission.effect, /기본 자동 공격/);
   }
@@ -83,7 +83,7 @@ test('nine robots of the same kind receive distinct questions, answers and palet
       const answer = mission.slots.map(slot => slot.block);
       assert.ok(mission.palette.every(block => isCodingBlock(block) && getCodingBlock(block).label.length > 0));
       assert.equal(validateRobotCode(kind, wave, answer, robot.missionVariant).success, true);
-      assert.equal(validateRobotCode(kind, wave, answer.toReversed(), robot.missionVariant).success, false);
+      if (answer.length > 1) assert.equal(validateRobotCode(kind, wave, answer.toReversed(), robot.missionVariant).success, false);
       const previousAnswer = missions[(index + 8) % 9].slots.map(slot => slot.block);
       assert.equal(validateRobotCode(kind, wave, previousAnswer, robot.missionVariant).success, false);
       game.selectRobot(robot.id);
@@ -106,7 +106,7 @@ test('a foreign question block cannot enter a robot answer and a merged replacem
     const oldVariants = game.robots.map(robot => robot.missionVariant);
     setRobotEnergy(game, 'fire'); game.selectRobot(first.id); game.merge();
     assert.equal(game.robotCount, 1, 'merging does not automatically spend energy');
-    assert.equal(game.deployRobotKind('fire'), true);
+    addStoredRobot(game, 'fire'); assert.equal(game.deployRobotKind('fire'), true);
     const replacement = game.robots.at(-1)!;
     assert.ok(!oldVariants.includes(replacement.missionVariant));
     assert.equal(replacement.deployed, true);
@@ -150,14 +150,15 @@ test('mission completion enables only the selected robot, including robots obtai
 
 test('drafts and errors stay with each robot when selecting the same or a different kind', () => {
   for (const wave of waves) {
-    const game = setup('ice', wave), first = game.robots.at(-1)!, second = summon(game, 'ice'), fire = summon(game, 'fire');
-    const control = getCodingMission('ice', wave).slots[0].block;
+    const game = setup('ice', wave), second = game.robots.at(-1)!, first = summon(game, 'ice'), fire = summon(game, 'fire');
+    const control = getCodingMission('ice', wave, first.missionVariant).slots[0].block;
     game.updateCode(first.id, 0, 'cool'); game.selectRobot(second.id);
     assert.ok(second.code.every(block => block === null));
     game.updateCode(first.id, 1, control);
+    if (wave === 3) game.updateCode(first.id, 2, 'cool');
     assert.equal(first.missionStatus, 'error'); assert.equal(second.missionStatus, 'waiting');
     const fireControl = getCodingMission(fire.kind, wave, fire.missionVariant).slots[0].block; game.updateCode(fire.id, 0, fireControl); game.selectRobot(first.id);
-    assert.deepEqual(first.code, ['cool', control]);
+    assert.deepEqual(first.code, wave === 3 ? ['cool', control, 'cool'] : ['cool', control]);
     game.updateCode(first.id, 0, null);
     assert.ok(second.code.every(block => block === null)); assert.equal(fire.code[0], fireControl); assert.ok(fire.code.slice(1).every(block => block === null));
   }
@@ -213,8 +214,9 @@ test('the final correct block automatically activates attacks and completed answ
 
 test('failed missions never activate a waiting robot; swapping the blocks completes it', () => {
   for (const kind of kinds) for (const wave of waves) {
-    const game = setup(kind, wave), robot = game.robots.at(-1)!;
-    const [first, second] = getCodingMission(kind, wave).slots;
+    const game = setup(kind, wave), robot = wave === 1 ? summon(game, kind) : game.robots.at(-1)!;
+    const [first, second] = getCodingMission(kind, wave, robot.missionVariant).slots;
+    robot.x = 3; robot.y = 5;
     game.updateCode(robot.id, 0, second.block); game.updateCode(robot.id, 1, first.block);
     assert.equal(robot.missionStatus, 'error'); assert.match(robot.missionMessage, /1번째/);
     game.enemies = [enemy(100, 3)]; assert.deepEqual(advance(game), []);
@@ -224,12 +226,13 @@ test('failed missions never activate a waiting robot; swapping the blocks comple
 });
 
 test('dragging to an empty slot moves a block and rejects invalid sources', () => {
-  const game = setup('ice'), robot = game.robots[0];
+  const game = setup('ice'), robot = summon(game, 'ice');
+  const control = getCodingMission('ice', 1, robot.missionVariant).slots[0].block;
   game.updateCode(robot.id, 0, 'cool'); const before = JSON.stringify(robot.program);
   game.updateCode(robot.id, 1, 'cool', -1); game.updateCode(robot.id, 1, 'find', 0); game.updateCode(robot.id, 1, 'cool', 0.5);
   assert.equal(JSON.stringify(robot.program), before);
   assert.equal(game.updateCode(robot.id, 1, 'cool', 0), null); assert.deepEqual(robot.code, [null, 'cool']);
-  assert.equal(robot.autoAttackActive, false); assert.equal(game.updateCode(robot.id, 0, 'find'), 1);
+  assert.equal(robot.autoAttackActive, false); assert.equal(game.updateCode(robot.id, 0, control), 1);
 });
 
 function combatSnapshot(kind: RobotKind, wave: MissionNumber) {
@@ -290,7 +293,7 @@ test('hangar deployment opens an independent current wave mission', () => {
     assert.equal(game.robotCount, owned, 'kills accumulate energy without creating robots');
     assert.equal(game.selectedId, first.id);
     fundRobot(game, 'ice');
-    assert.equal(game.deployRobotKind('ice'), true);
+    addStoredRobot(game, 'ice'); assert.equal(game.deployRobotKind('ice'), true);
     const added = game.robots.at(-1)!;
     assert.equal(added.deployed, true); assert.equal(added.autoAttackActive, false);
     assert.equal(added.missionNumber, wave); assert.deepEqual(added.completedMissions, []);
@@ -323,8 +326,8 @@ test('rare boss rewards require a new answer even when that kind already complet
     const learned = summon(game, kind); complete(game, learned.id);
     game.enemies = [{ ...enemy(100, 14, 0), kind: 'summoned' }, enemy(101, 14)]; game.step(0.05);
     const added = game.robots.at(-1)!;
-    assert.equal(added.kind, kind); assert.equal(added.deployed, false); assert.equal(added.autoAttackActive, false);
-    assert.ok(added.code.every(block => block === null)); fundRobot(game, kind); assert.equal(game.deployRobot(added.id), true); game.selectRobot(added.id);
+    assert.equal(added.kind, kind); assert.equal(added.deployed, true); assert.equal(added.autoAttackActive, false);
+    assert.ok(added.code.every(block => block === null)); game.selectRobot(added.id);
     for (const robot of game.robots) { robot.x = 3; robot.y = 5; }
     game.enemies = [enemy(200, 3)]; advance(game, 30);
     assert.ok(learned.attacks > 0); assert.equal(added.attacks, 0);
@@ -337,7 +340,7 @@ test('merging retains the selected mission and activation; replacements need a n
   summon(game, 'electric'); game.selectRobot(selected.id);
   const program = JSON.stringify(selected.program); setRobotEnergy(game, 'electric'); game.merge();
   assert.equal(selected.grade, 2); assert.equal(JSON.stringify(selected.program), program); assert.equal(selected.autoAttackActive, true);
-  assert.equal(game.robotCount, 1); assert.equal(game.deployRobotKind('electric'), true);
+  assert.equal(game.robotCount, 1); addStoredRobot(game, 'electric'); assert.equal(game.deployRobotKind('electric'), true);
   const replacement = game.robots.at(-1)!;
   assert.notEqual(replacement.id, selected.id); assert.equal(replacement.autoAttackActive, false); assert.ok(replacement.code.every(block => block === null));
 });
@@ -351,4 +354,52 @@ test('invalid blocks cannot mutate a mission and restarting resets all activatio
   const fresh = new DefenseSimulation(); assert.equal(fresh.robotCount, 0);
   const added = summon(fresh, 'ice'); assert.equal(added.missionNumber, 1); assert.equal(added.autoAttackActive, false);
   assert.deepEqual(added.completedMissions, []); assert.ok(added.code.every(block => block === null)); assert.notEqual(added.program, robot.program);
+});
+
+test('deployment order sets the requested block counts and includes control blocks in the caps', () => {
+  const counts = { 1: [1, 2, 3, 3, 3], 2: [2, 2, 3, 4, 4], 3: [2, 3, 3, 4, 5] };
+  for (const wave of waves) for (const kind of kinds) for (let order = 1; order <= 20; order++) {
+    const mission = getCodingMission(kind, wave, order - 1);
+    assert.equal(mission.slots.length, counts[wave][Math.min(order, 5) - 1]);
+    assert.equal(mission.maxBlocks, counts[wave][4]);
+    assert.ok(mission.slots.length <= mission.maxBlocks);
+    assert.equal(mission.deploymentOrder, order);
+    const controls = mission.slots.filter(slot => getCodingBlock(slot.block).category !== 'action');
+    assert.equal(controls.length, wave === 1 ? 0 : 1);
+    if (wave > 1) {
+      assert.equal(getCodingBlock(controls[0].block).category, wave === 2 ? 'loop' : 'condition');
+      const controlIndex = mission.slots.indexOf(controls[0]);
+      assert.ok(mission.slots.slice(controlIndex + 1).every(slot => slot.depth === 1));
+    }
+  }
+});
+
+test('storage and acquisition order never consume a deployment difficulty step', () => {
+  const game = new DefenseSimulation(); game.startWave();
+  for (const kind of kinds) addStoredRobot(game, kind);
+  assert.equal(game.selectedId, null);
+  assert.ok(game.robots.every(robot => robot.deploymentOrder === 0 && robot.code.length === 0));
+  const [fire, ice, electric] = game.robots;
+  for (const [index, robot] of [electric, fire, ice].entries()) {
+    assert.equal(game.deployRobot(robot.id), true);
+    assert.equal(robot.deploymentOrder, index + 1);
+    assert.equal(robot.code.length, index + 1);
+    game.selectRobot(robot.id);
+    const before = JSON.stringify(robot.program);
+    game.selectRobot(robot.id); game.moveRobot(robot.id, robot.x, robot.y);
+    assert.equal(JSON.stringify(robot.program), before);
+  }
+  complete(game, fire.id); game.selectRobot(electric.id); game.merge();
+  nextWave(game);
+  const fresh = summon(game, 'ice');
+  assert.equal(fresh.deploymentOrder, 1); assert.equal(fresh.code.length, 2);
+});
+
+test('merging never reuses a deployment order or changes existing robot difficulty', () => {
+  const game = setup('fire'), first = game.robots[0];
+  summon(game, 'fire'); const third = summon(game, 'ice');
+  game.selectRobot(first.id); game.merge();
+  const next = summon(game, 'electric');
+  assert.equal(first.deploymentOrder, 1); assert.equal(third.deploymentOrder, 3);
+  assert.equal(next.deploymentOrder, 4); assert.equal(next.code.length, 3);
 });
