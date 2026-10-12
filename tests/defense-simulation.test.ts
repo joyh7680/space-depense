@@ -218,7 +218,7 @@ test('every road tile rejects player destinations, robot summons, and robot relo
 test('player pathfinding takes a floor-only detour and respects robots placed in the way', () => {
   const game = new DefenseSimulation(() => 0);
   assert.equal(isRouteTile(game.player.x, game.player.y), false);
-  const target = { x: 14, y: 8 };
+  const target = { x: 14, y: 7 };
   for (let i = 0; i < 100 && (game.player.x !== target.x || game.player.y !== target.y); i++) {
     const next = game.nextPlayerStep(target); assert.ok(next);
     assert.equal(Math.abs(next.x - game.player.x) + Math.abs(next.y - game.player.y), 1);
