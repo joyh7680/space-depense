@@ -17,6 +17,11 @@ const missionDetailsId = useId();
 const overSlot = ref<number | null>(null);
 let dragSource: number | null = null;
 watch(() => `${props.robot.id}-${props.robot.missionNumber}`, () => { endDrag(); editMessage.value = ''; missionDetailsOpen.value = false; });
+watch([() => props.robot.id, () => props.robot.missionNumber, completed], ([_id, _missionNumber, done], _previous, onCleanup) => {
+  if (!done) return;
+  const timer = window.setTimeout(() => emit('close'), 1800);
+  onCleanup(() => window.clearTimeout(timer));
+}, { immediate: true, flush: 'post' });
 function addBlock(block: CodingBlockId) {
   if (!props.interactive || completed.value) return;
   const slot = props.robot.code.findIndex(block => block === null);

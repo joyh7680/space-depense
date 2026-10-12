@@ -16,7 +16,7 @@ export function addStoredRobot(game: DefenseSimulation, kind: RobotKind): Robot 
   const config = ROBOTS[kind];
   const robot: Robot = {
     id: Math.min(0, ...game.robots.map(robot => robot.id)) - 1,
-    x: -1, y: -1, deployed: false, kind, grade: 1, range: config.range, damage: config.damage,
+    x: -1, y: -1, deployed: false, kind, grade: 1, damage: config.damage,
     cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null,
     activeBlock: 'find', attacks: 0, targetId: null,
     serial: game.robots.filter(robot => robot.kind === kind).length + 1,

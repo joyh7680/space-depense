@@ -123,8 +123,8 @@ export class DefenseSimulation {
     const config = ROBOTS[kind];
     const deploymentOrder = position ? ++this.deploymentSequence : 0;
     const missionVariant = Math.max(0, deploymentOrder - 1);
-    // Stored rewards wait until an automatic deployment can find a free floor tile.
-    const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null,
+    // Stored rewards wait until the player selects them from the robot modal.
+    const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null,
       serial: ++this.robotSerial[kind], deploymentOrder, missionVariant, program: createRobotProgram(kind, missionVariant), code: [], missionNumber: getMissionNumber(this.wave), autoAttackActive: false, completedMissions: [], missionStatus: 'waiting', missionMessage: '' };
     this.robots.push(robot);
     this.syncPrograms();
@@ -181,7 +181,12 @@ export class DefenseSimulation {
   }
   deployRobotKind(kind: RobotKind): boolean {
     const stored = this.robots.find(robot => robot.kind === kind && !robot.deployed);
-    return stored ? this.deployRobot(stored.id) : false;
+    if (stored) return this.deployRobot(stored.id);
+    if (!this.canDeploy || this.robotCount >= MAX_ROBOTS || getRobotEnergyCount(this.elementEnergy, kind) < 1) return false;
+    const slot = this.findRobotSlot(true);
+    if (!slot) return false;
+    this.placeRobot(slot.x, slot.y, kind);
+    return true;
   }
   selectRobot(id: number): void {
     const robot = this.robots.find(robot => robot.id === id);
@@ -245,10 +250,9 @@ export class DefenseSimulation {
     this.robots = this.robots.filter(d => d.id !== partner.id);
     robot.grade++;
     robot.damage = Math.round(ROBOTS[robot.kind].damage * 2.4 ** (robot.grade - 1));
-    robot.range = ROBOTS[robot.kind].range + (robot.grade - 1) * 0.4;
     robot.attacks += partner.attacks;
     // Keep the selected robot's identity, code and cooldown.
-    return `${ROBOTS[robot.kind].name} ${robot.grade}성으로 합성! 공격력과 사거리가 늘었어요.`;
+    return `${ROBOTS[robot.kind].name} ${robot.grade}성으로 합성! 공격력이 늘었어요.`;
   }
   startWave(): boolean {
     const nextWave = this.status === 'cleared';
@@ -329,23 +333,6 @@ export class DefenseSimulation {
       }
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
     });
-    this.deployAvailableRobots();
-  }
-  private deployAvailableRobots(): void {
-    // Rare rewards also enter the battlefield automatically; preserve the mission being edited.
-    for (const robot of this.robots.filter(robot => !robot.deployed)) {
-      const selected = this.selectedId;
-      if (!this.deployRobot(robot.id)) return;
-      this.selectedId = selected;
-    }
-    while (this.robotCount < MAX_ROBOTS) {
-      const kind = ROBOT_KINDS.find(kind => getRobotEnergyCount(this.elementEnergy, kind) > 0);
-      if (!kind) return;
-      const slot = this.findRobotSlot(true);
-      if (!slot) return;
-      this.createRobot(kind, slot, false);
-      spendRobotEnergy(this.elementEnergy, kind);
-    }
   }
   private randomKind(): RobotKind {
     return ROBOT_KINDS[Math.min(ROBOT_KINDS.length - 1, Math.max(0, Math.floor(this.random() * ROBOT_KINDS.length)))];
@@ -381,15 +368,15 @@ export class DefenseSimulation {
       robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
       if (robot.phaseTimer > 0) continue;
       if (robot.activeBlock === 'wait') { this.phase(robot, 'find', 0.16); continue; }
-      const nearby = this.enemies.filter(e => e.health > 0 && distance(e, robot) <= robot.range)
+      const targets = this.enemies.filter(e => e.health > 0)
         .sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
       if (robot.activeBlock === 'find') {
-        robot.targetId = nearby[0]?.id ?? null;
-        this.phase(robot, nearby.length ? 'attack' : 'wait', nearby.length ? 0.16 : 0.25);
+        robot.targetId = targets[0]?.id ?? null;
+        this.phase(robot, targets.length ? 'attack' : 'wait', targets.length ? 0.16 : 0.25);
         continue;
       }
       // A repeated shot can find another target if the first shot killed its target.
-      const target = nearby.find(e => e.id === robot.targetId) ?? (robot.burstRemaining > 0 ? nearby[0] : undefined);
+      const target = targets.find(e => e.id === robot.targetId) ?? (robot.burstRemaining > 0 ? targets[0] : undefined);
       if (!target) {
         robot.targetId = null; robot.burstRemaining = 0; robot.burstProfile = null;
         this.phase(robot, 'find', 0.16); continue;
@@ -402,13 +389,13 @@ export class DefenseSimulation {
       }
       const profile = robot.burstProfile;
       const damage = robot.damage * profile.damage;
-      const affected = nearby.filter(enemy => enemy === target || profile.area || (profile.splash > 0 && distance(enemy, target) <= profile.splash));
+      const affected = targets.filter(enemy => enemy === target || profile.area || (profile.splash > 0 && distance(enemy, target) <= profile.splash));
       for (const enemy of affected) {
         enemy.health -= damage;
         shots.push({ from: enemy === target ? { x: robot.x, y: robot.y } : { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: robot.kind, ...(enemy === target ? {} : { chain: true }) });
         applyAttackEffects(enemy, damage, profile);
       }
-      const chained = nearby.filter(enemy => enemy !== target && enemy.health > 0).slice(0, profile.chainTargets);
+      const chained = targets.filter(enemy => enemy !== target && enemy.health > 0).slice(0, profile.chainTargets);
       for (const enemy of chained) {
         enemy.health -= damage * profile.chainDamage;
         applyAttackEffects(enemy, damage * profile.chainDamage, profile);

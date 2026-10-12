@@ -32,10 +32,10 @@ test('hybrid combinations require both ingredients and never spend credits', () 
   const game = new DefenseSimulation();
   assert.equal(ROBOT_CHARGE_COST, 5);
   assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
-  game.elementEnergy.fire = 3; game.elementEnergy.electric = 1; game.credits = 9999;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 3);
+  game.elementEnergy.fire = 5; game.elementEnergy.electric = 3; game.credits = 9999;
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 5);
   game.elementEnergy.fire++;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 4);
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 6);
   game.elementEnergy.electric++;
   game.summon('fire');
   assert.equal(game.robots.length, 1); assert.equal(game.robots[0].kind, 'fire');
@@ -44,21 +44,21 @@ test('hybrid combinations require both ingredients and never spend credits', () 
   assert.equal(game.credits, 9999);
   game.summon('fire'); assert.equal(game.robots.length, 1);
   fundRobot(game, 'electric'); game.summon('electric'); assert.equal(game.robots.length, 2); assert.equal(game.elementEnergy.electric, 0);
-  game.elementEnergy.ice = 6; game.elementEnergy.fire = 2; game.credits = 0; game.summon('ice');
+  game.elementEnergy.ice = 7; game.elementEnergy.fire = 3; game.credits = 0; game.summon('ice');
   assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 3); assert.equal(game.credits, 0);
 });
 
 test('invalid placement, occupied slots and full board preserve matching energy', () => {
   const game = new DefenseSimulation(); setRobotEnergy(game, 'fire', 10);
   for (const [x, y] of [[0, 6], [1, 4], [12, 5], [3, 6], [game.player.x, game.player.y]]) game.placeRobot(x, y, 'fire');
-  assert.equal(game.elementEnergy.fire, 30); assert.equal(game.elementEnergy.electric, 20); assert.equal(game.robots.length, 0);
+  assert.equal(game.elementEnergy.fire, 50); assert.equal(game.elementEnergy.electric, 40); assert.equal(game.robots.length, 0);
   game.placeRobot(3, 5, 'fire'); game.placeRobot(3, 5, 'fire');
-  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 27);
+  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 45);
   for (let i = 0; i < 7; i++) game.summon('fire');
-  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 6);
-  game.summon('fire'); assert.equal(game.elementEnergy.fire, 3); assert.equal(game.robots.length, 9);
+  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 10);
+  game.summon('fire'); assert.equal(game.elementEnergy.fire, 5); assert.equal(game.robots.length, 9);
   assert.equal(game.summon('fire'), '로봇은 최대 9대까지 소환할 수 있어요.');
-  assert.equal(game.elementEnergy.fire, 3); assert.equal(game.elementEnergy.electric, 2); assert.equal(game.robots.length, 9);
+  assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 4); assert.equal(game.robots.length, 9);
   assert.equal(new Set(game.deployedRobots.map(robot => `${robot.x},${robot.y}`)).size, 9);
 });
 
@@ -85,7 +85,7 @@ test('merge requires matching kind and grade, preserves selected identity and co
   const energy = { ...game.elementEnergy };
   game.merge(); assert.equal(game.robots.length, 1); assert.equal(selected.grade, 2);
   assert.equal(game.selectedId, selected.id); assert.equal(selected.cooldown, .65); assert.deepEqual(game.elementEnergy, energy);
-  assert.ok(selected.damage > 19 * 2); assert.ok(selected.range > 3.2);
+  assert.ok(selected.damage > 19 * 2);
   summon(game); game.selectRobot(selected.id); game.merge(); assert.equal(game.robots.length, 2);
   summon(game); game.selectRobot(game.robots.at(-1)!.id); game.merge();
   assert.equal(game.robots.length, 2); assert.equal(game.robots[1].grade, 2);
@@ -114,7 +114,7 @@ test('pause and finished states reject charged robots without spending energy; b
   }
 });
 
-test('sequential code selects the nearest living in-range target, then attacks, then waits', () => {
+test('sequential code selects the nearest living target, then attacks, then waits', () => {
   const game = new DefenseSimulation(() => 0);
   game.player = { x: 14, y: 11 };
   summon(game, 'ice'); game.startWave();
@@ -126,6 +126,48 @@ test('sequential code selects the nearest living in-range target, then attacks, 
   assert.equal(shots.length, 1); assert.equal(game.robots[0].activeBlock, 'wait');
   assert.equal(game.enemies.find(e => e.id === 100)!.health, 1000);
   assert.ok(game.enemies.find(e => e.id === 101)!.health < 1000);
+});
+
+test('every robot kind attacks distant enemies without a deployment radius', () => {
+  for (const kind of ['fire', 'ice', 'electric'] as const) {
+    const game = new DefenseSimulation(() => 0);
+    game.player = { x: 14, y: 11 };
+    summon(game, kind); game.startWave(); game.step(0.05);
+    const robot = game.robots[0];
+    game.enemies = [enemy(100, 12)];
+    const shots = [];
+    for (let i = 0; i < 12; i++) shots.push(...game.step(0.05));
+    assert.ok(shots.some(shot => shot.from.x === robot.x && shot.from.y === robot.y));
+    assert.equal(robot.targetId, 100);
+    assert.ok(game.enemies[0].health < 1000, `${kind} should damage an enemy across the room`);
+  }
+});
+
+test('a selected target remains attackable after moving beyond the former radius', () => {
+  const game = new DefenseSimulation(() => 0);
+  game.player = { x: 14, y: 11 };
+  summon(game); game.startWave(); game.step(0.05);
+  game.enemies = [enemy(100, 5)];
+  game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
+  game.step(0.05);
+  assert.equal(game.robots[0].targetId, 100);
+  assert.equal(game.robots[0].activeBlock, 'attack');
+  game.enemies[0].x = 10;
+  advance(game, 0.2);
+  assert.ok(game.enemies[0].health < 1000);
+});
+
+test('distant explosion attacks keep splash damage local to the target', () => {
+  for (const kind of ['fire', 'ice'] as const) {
+    const game = new DefenseSimulation(() => 0);
+    game.player = { x: 14, y: 11 };
+    summon(game, kind); game.startWave(); game.step(0.05);
+    game.enemies = [enemy(100, 9), enemy(101, 9.3), enemy(102, 12)];
+    advance(game, 0.6);
+    assert.ok(game.enemies[0].health < 1000);
+    assert.ok(game.enemies[1].health < 1000);
+    assert.equal(game.enemies[2].health, 1000);
+  }
 });
 
 test('repeated code respects attack cooldown and reacquires dead targets', () => {

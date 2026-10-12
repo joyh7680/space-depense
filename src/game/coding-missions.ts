@@ -6,7 +6,7 @@ export const CODING_BLOCKS = {
   cool: { label: '써멀 쇼크 광역 공격', category: 'action' },
   shock: { label: '크라이오 볼트 발사', category: 'action' },
   'repeat-two': { label: '2번 반복하기', category: 'loop' },
-  'in-range': { label: '만약 적이 사거리 안에 있다면', category: 'condition' },
+  'enemy-present': { label: '만약 적이 있다면', category: 'condition' },
   aim: { label: '조준하기', category: 'action' },
   charge: { label: '공격 에너지 충전하기', category: 'action' },
   scan: { label: '주변 탐색하기', category: 'action' },
@@ -63,7 +63,7 @@ export function getCodingMission(kind: RobotKind, wave: number, variant = 0): Co
     summary = `${body.map(block => getCodingBlock(block).label).join(' → ')} 동작을 ${deploymentOrder + 1}번 반복하세요.`;
     description = '반복 블록 안에 명령을 순서대로 넣어요. 반복하기 블록도 1개로 세어요.';
   } else {
-    const condition = (['in-range', 'enemy-fast', 'enemy-armored'] as const)[(deploymentOrder - 1) % 3];
+    const condition = (['enemy-present', 'enemy-fast', 'enemy-armored'] as const)[(deploymentOrder - 1) % 3];
     const prefix = count === 2 ? [] : [target];
     const body = count <= 3 ? [action] : count === 4 ? [preparation, action] : [preparation, nextPreparation, action];
     answer = [...prefix, condition, ...body];

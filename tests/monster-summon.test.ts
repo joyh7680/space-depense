@@ -125,7 +125,7 @@ test('special kills always award three random elements, with the rare robot roll
   }
 });
 
-test('rare rewards automatically deploy every robot kind for free and preserve selection', () => {
+test('rare rewards store every robot kind for later manual deployment and preserve selection', () => {
   for (const [index, kind] of ROBOT_KINDS.entries()) {
     const rolls = [0, 0.5, 0.99, SUMMONED_MONSTER.robotDropChance - 0.001, (index + 0.5) / 3];
     let count = 0;
@@ -139,10 +139,10 @@ test('rare rewards automatically deploy every robot kind for free and preserve s
     assert.equal(game.selectedId, selected);
     assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
     assert.equal(game.credits, 300 + WAVE_ONE.killEnergy + WAVE_ONE.clearEnergy);
-    assert.equal(game.robots[1].deployed, true);
+    assert.equal(game.robots[1].deployed, false);
     assert.equal(game.robots[1].autoAttackActive, false);
-    assert.equal(game.deployedRobots.length, 2);
-    assert.equal(count, 6);
+    assert.equal(game.deployedRobots.length, 1);
+    assert.equal(count, 5);
   }
 });
 
@@ -156,7 +156,7 @@ test('rare rewards respect the nine robot limit while still awarding element ene
   assert.equal(game.elementEnergy.fire, 3);
 });
 
-test('a rare reward automatically deploys without energy as the ninth robot', () => {
+test('a rare reward manually deploys without energy as the ninth robot', () => {
   const draws = [0, 0.5, 0.99, 0, 0.99]; let draw = 0;
   const game = new DefenseSimulation(() => draws[draw++] ?? 0.5);
   fundRobot(game, 'fire', 8);
@@ -165,12 +165,12 @@ test('a rare reward automatically deploys without energy as the ninth robot', ()
   game.enemies.push({ id: 1000, x: 14, y: 4, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
   game.step(0.05);
   const stored = game.robots.at(-1)!;
-  assert.equal(game.robotCount, 9); assert.equal(stored.kind, 'electric'); assert.equal(stored.deployed, true);
+  assert.equal(game.robotCount, 9); assert.equal(stored.kind, 'electric'); assert.equal(stored.deployed, false);
   const energy = { ...game.elementEnergy };
-  assert.equal(getRobotDeployCount(game.robots, 'electric'), 0);
-  assert.equal(getTotalDeployCount(game.robots), 0);
-  assert.equal(game.deployRobotKind('electric'), false);
-  assert.equal(game.robotCount, 9); assert.notEqual(game.selectedId, stored.id);
+  assert.equal(getRobotDeployCount(game.robots, 'electric'), 1);
+  assert.equal(getTotalDeployCount(game.robots), 1);
+  assert.equal(game.deployRobotKind('electric'), true);
+  assert.equal(game.robotCount, 9); assert.equal(game.selectedId, stored.id);
   assert.deepEqual(game.elementEnergy, energy);
   assert.equal(stored.autoAttackActive, false);
 });
@@ -184,7 +184,7 @@ test('rare rewards can add the ninth robot', () => {
   spawnBoss(game); game.enemies[0].health = 0;
   game.step(0.05);
   assert.equal(game.robotCount, 9);
-  assert.equal(game.robots.at(-1)!.deployed, true);
+  assert.equal(game.robots.at(-1)!.deployed, false);
   assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
 });
 
