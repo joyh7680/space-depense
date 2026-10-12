@@ -40,7 +40,8 @@ onMounted(() => dialog.value?.focus({ preventScroll: true }));
       <strong>+{{ reward }}<span>에너지</span></strong>
     </div>
     <button ref="replayButton" class="victory-replay" @click="wave < 3 ? $emit('next') : $emit('replay')"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg>{{ wave < 3 ? `웨이브 ${wave + 1} 시작` : '다시 플레이' }}<svg class="victory-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
-    <p class="victory-footnote">{{ wave < 3 ? `다음 웨이브: ${getCodingMission('fire', wave + 1).title} · ${getCodingMission('fire', wave + 1).concept} · 기존 자동 공격 유지` : '웨이브 3까지 모두 완료했어요' }}</p>
+    <p v-if="wave < 3" class="victory-auto-next" role="status">잠시 후 3초 카운트다운과 함께 다음 웨이브로 자동 진행해요.</p>
+    <p class="victory-footnote">{{ wave < 3 ? `다음 웨이브: ${getCodingMission('fire', wave + 1).title} · ${getCodingMission('fire', wave + 1).concept} · 에너지와 로봇 초기화` : '웨이브 3까지 모두 완료했어요' }}</p>
   </section>
 </template>
 
@@ -75,6 +76,7 @@ onMounted(() => dialog.value?.focus({ preventScroll: true }));
 .victory-replay:not(:disabled):active{transform:translateY(1px)}
 .victory-replay:focus-visible{outline:2px solid #dec8ff;outline-offset:4px}
 .victory-footnote{margin:17px 0 0;color:#888395;font-size:10px;font-weight:500;line-height:1.6;letter-spacing:-.2px}
+.victory-auto-next{margin:12px 0 0;color:#c6b5e8;font-size:11px;line-height:1.6}
 @keyframes victory-arrive{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:480px){.victory-card{padding:22px 23px;border-radius:24px}.victory-emblem{margin-top:18px}.victory-card h1{font-size:32px}}
 @media(max-width:350px){.victory-card{padding:20px 17px}.victory-meta{font-size:9px;letter-spacing:1px}.victory-reward{padding:12px 10px}.victory-reward-label{gap:5px;font-size:10px}}

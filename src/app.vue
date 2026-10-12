@@ -10,35 +10,45 @@ import { getRegularMonster, MONSTER_ASSET_PATH } from './game/regular-monsters';
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
 const ready = ref(false);
 const error = ref('');
-const summonOpen = ref(false);
+const summonRequested = ref(false);
 const summonDialog = ref<HTMLElement>();
 const codingRobotId = ref<number | null>(null);
 const codingRobot = computed(() => state.value.robots.find(robot => robot.id === codingRobotId.value));
-let returnFocus: HTMLElement | null = null;
 const portraitAssetUrl = new URL(`${import.meta.env.BASE_URL}codmos-assets/player/int-front.png`, document.baseURI).href;
 const portraitUrl = `url("${portraitAssetUrl}")`;
 const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
 const monsterArt = `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${getRegularMonster(1).file}`;
 const retryButton = ref<HTMLButtonElement>();
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, robots: [], robotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false });
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, robots: [], robotCount: 0, storedRobotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false, victoryAnimationComplete: false });
 const remainingHearts = computed(() => Math.max(0, Math.min(10, Math.ceil(state.value.health / 10))));
+const summonOpen = computed(() => summonRequested.value);
 const canDeploy = computed(() => ready.value && state.value.status === 'running');
-const finished = computed(() => state.value.status === 'cleared' || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
+const finished = computed(() => (state.value.status === 'cleared' && (state.value.wave < 3 || state.value.victoryAnimationComplete)) || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
 watch(() => state.value.status, status => {
   if (summonOpen.value && (status === 'defeat' || status === 'cleared')) closeSummon();
   if (status === 'defeat' || status === 'cleared') codingRobotId.value = null;
 });
-watch(() => state.value.robots.length, count => { if (count === 0) codingRobotId.value = null; });
+watch(() => state.value.robots.length, count => {
+  if (count === 0) {
+    codingRobotId.value = null;
+    closeSummon();
+  }
+});
 watch(finished, async visible => {
   if (visible && state.value.status === 'defeat') {
     await nextTick();
     retryButton.value?.focus({ preventScroll: true });
   }
 });
+watch([finished, () => state.value.wave], ([visible, wave], _previous, onCleanup) => {
+  if (!visible || state.value.status !== 'cleared' || wave >= 3) return;
+  const timer = window.setTimeout(nextWave, 1000);
+  onCleanup(() => window.clearTimeout(timer));
+});
 const kindOrder = ['electric', 'ice', 'fire'] as const;
 const robotCards = computed(() => (['fire', 'electric', 'ice'] as const).map(kind => {
-  const robots = state.value.robots.filter(robot => robot.kind === kind);
-  return { kind, count: robots.length, selected: robots.some(robot => robot.id === state.value.selectedId) };
+  const robots = state.value.robots.filter(robot => robot.kind === kind && !robot.deployed);
+  return { kind, count: robots.length };
 }));
 const robotArt = {
  fire: { backgroundPosition: '-169.8px -435.3px', clipPath: 'inset(0 0 14px 0)' },
@@ -47,30 +57,25 @@ const robotArt = {
 };
 async function openSummon() {
   if (!canDeploy.value) return;
-  returnFocus = document.activeElement as HTMLElement;
-  room.value?.setInteractionLocked(true);
-  summonOpen.value = true;
+  summonRequested.value = true;
   await nextTick();
   summonDialog.value?.focus({ preventScroll: true });
 }
 function closeSummon() {
-  summonOpen.value = false;
-  room.value?.setInteractionLocked(false);
-  returnFocus?.focus();
+  summonRequested.value = false;
 }
 function selectCodingRobot(id: number) {
-  if (!canDeploy.value) return;
+  if (!canDeploy.value || !state.value.robots.some(robot => robot.id === id && robot.deployed)) return;
   closeSummon();
-  room.value?.selectRobot(id);
   codingRobotId.value = id;
 }
-function selectRobotKind(kind: RobotKind) {
-  const robots = state.value.robots.filter(robot => robot.kind === kind);
-  if (!robots.length) return;
-  const current = robots.findIndex(robot => robot.id === state.value.selectedId);
-  selectCodingRobot(robots[(current + 1) % robots.length].id);
+function deployRobotKind(kind: RobotKind) {
+  if (!canDeploy.value) return;
+  const robot = state.value.robots.find(robot => robot.kind === kind && !robot.deployed);
+  if (robot && room.value?.deployRobot(robot.id)) closeSummon();
 }
 function replay() {
+  closeSummon();
   codingRobotId.value = null;
   room.value?.reset();
 }
@@ -80,21 +85,14 @@ function nextWave() {
 }
 function dialogKey(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); closeSummon(); }
-  if (event.key !== 'Tab') return;
-  const buttons = Array.from(summonDialog.value?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
-  const first = buttons[0], last = buttons.at(-1);
-  if (!first) { event.preventDefault(); summonDialog.value?.focus(); }
-  else if (document.activeElement === summonDialog.value) { event.preventDefault(); (event.shiftKey ? last : first)?.focus(); }
-  else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 }
 </script>
 <template>
   <main class="game-screen" aria-label="코드모스 우주 디펜스" :style="{ '--portrait-url': portraitUrl }" :data-player-x="state.player.x" :data-player-y="state.player.y">
     <div class="battle-area">
-    <SpaceDefenseRoom ref="room" @state="state = $event" @ready="ready = true" @error="error = $event" />
+    <SpaceDefenseRoom ref="room" @state="state = $event" @ready="ready = true" @error="error = $event" @inspect="selectCodingRobot" />
     <div v-if="ready && !error && state.status === 'ready'" class="countdown-hud" role="status" aria-live="polite" aria-atomic="true">
-      <small>게임 시작까지</small>
+      <small>{{ state.wave > 1 ? `웨이브 ${state.wave} 시작까지` : '게임 시작까지' }}</small>
       <strong>{{ state.countdown }}</strong>
       <span>잠시 후 전투가 시작돼요!</span>
     </div>
@@ -113,29 +111,31 @@ function dialogKey(event: KeyboardEvent) {
       <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? '보스급 몬스터 출현' : `보스급 몬스터 자동 출현까지 ${state.monsterSummonCountdown}초`">
         <span v-if="state.monsterSummonCountdown !== null" class="robot-button-count monster-summon-timer" aria-hidden="true">{{ state.monsterSummonCountdown }}s</span>
         <img class="monster-portrait" :src="monsterArt" alt="" draggable="false" />
-        <b>몬스터 소환</b>
+        <b>몬스터 출현</b>
       </div>
       <div class="robot-elements" aria-label="속성 에너지 보유 수량">
-        <span v-for="kind in kindOrder" :key="kind" :class="kind" :title="ROBOTS[kind].energyName + ' 에너지'" :aria-label="ROBOTS[kind].energyName + ' 에너지 ' + state.elementEnergy[kind] + '개'">
+        <span v-for="kind in kindOrder" :key="kind" :class="kind" :title="`${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개마다 ${ROBOTS[kind].name} 자동 랜덤 배치`" :aria-label="ROBOTS[kind].energyName + ' 에너지 ' + state.elementEnergy[kind] + '개'">
           <EnergyIcon :kind="kind" /><b>{{ state.elementEnergy[kind] }}</b>
         </span>
       </div>
-      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇 소환, ' + state.robotCount + '대 보유'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
-        <span class="robot-button-count" role="status" aria-live="polite" aria-atomic="true">{{ state.robotCount }}</span>
+      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="'로봇 출격, 미배치 보관 로봇 ' + state.storedRobotCount + '대'" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
+        <span v-if="state.storedRobotCount > 0" class="robot-button-count" role="status" aria-live="polite" aria-atomic="true">{{ state.storedRobotCount }}</span>
         <i class="robot-portrait" :style="robotArt.fire" aria-hidden="true" />
-        <b>로봇 소환</b>
+        <b>로봇 출격</b>
       </button>
     </div>
-    <p v-if="ready && canDeploy" class="battle-hint" role="status">{{ state.message || `에너지 ${ROBOT_CHARGE_COST}개 → 로봇 자동 소환 → 로봇 버튼에서 코딩` }}</p>
+    <Transition name="battle-hint">
+      <p v-if="canDeploy && state.message" class="battle-hint" role="status" aria-atomic="true">{{ state.message }}</p>
+    </Transition>
     </div>
-    <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy && !summonOpen" @change="(slot, block, sourceSlot) => room?.updateCode(codingRobot!.id, slot, block, sourceSlot)" />
+    <RobotCodingPanel v-if="codingRobot" :key="`${state.wave}-${codingRobot.id}`" :robot="codingRobot" :wave="state.wave" :interactive="canDeploy" @close="codingRobotId = null" @change="(slot, block, sourceSlot) => room?.updateCode(codingRobot!.id, slot, block, sourceSlot)" />
     <div v-if="!ready || error" class="screen-overlay loading-overlay"><div class="loading-orbit">✦</div><p>{{ error || '우주정거장에 도착하는 중…' }}</p></div>
     <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
-      <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="true" aria-label="로봇 선택" tabindex="-1" @keydown="dialogKey">
+      <section id="robot-hangar" ref="summonDialog" class="robot-hangar" role="dialog" aria-modal="false" aria-label="로봇 선택" tabindex="-1" @keydown="dialogKey">
         <div class="robot-roster">
-          <button v-for="card in robotCards" :key="card.kind" :class="['robot-card', card.kind, { selected: card.selected }]" :disabled="!canDeploy || !card.count" :aria-label="`${ROBOTS[card.kind].name}, ${card.count}기 보유, ${card.count ? '선택해 코딩하기' : `미소환, 에너지 ${state.elementEnergy[card.kind]}/${ROBOT_CHARGE_COST}`}`" :title="`${ROBOTS[card.kind].name}: ${card.count ? `${card.count}기 보유 · 누를 때마다 다음 로봇 선택` : `에너지 ${state.elementEnergy[card.kind]}/${ROBOT_CHARGE_COST}`}`" @click="selectRobotKind(card.kind)">
+          <button v-for="card in robotCards" :key="card.kind" :class="['robot-card', card.kind]" :disabled="!canDeploy || !card.count" :aria-label="`${ROBOTS[card.kind].name}, 미배치 보관 로봇 ${card.count}대, ${card.count ? '클릭해 전장에 랜덤 배치' : `에너지 ${ROBOT_CHARGE_COST}개마다 자동 배치, 현재 ${state.elementEnergy[card.kind]}개`}`" :title="`${ROBOTS[card.kind].name}: ${card.count ? `보관 ${card.count}대 · 클릭하면 1대 랜덤 배치` : `에너지 ${ROBOT_CHARGE_COST}개마다 자동 배치 · 현재 ${state.elementEnergy[card.kind]}개`}`" @click="deployRobotKind(card.kind)">
             <EnergyIcon class="robot-energy" :kind="card.kind" />
-            <span class="robot-button-count robot-card-count" aria-hidden="true">{{ card.count }}</span>
+            <span v-if="card.count > 0" class="robot-button-count robot-card-count" aria-hidden="true">{{ card.count }}</span>
             <i class="robot-portrait" :style="robotArt[card.kind]" aria-hidden="true" />
           </button>
         </div>

@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { DefenseState, GameController, GameMode, RobotKind } from '../game/types';
 import type { CodingBlockId } from '../game/coding-missions';
 
-const emit = defineEmits<{ state: [state: DefenseState]; ready: []; error: [message: string]; inspect: [] }>();
+const emit = defineEmits<{ state: [state: DefenseState]; ready: []; error: [message: string]; inspect: [id: number] }>();
 const host = ref<HTMLElement>();
 let controller: GameController | undefined;
 let disposed = false;
@@ -20,7 +20,7 @@ onMounted(async () => {
         if (!didReady) { didReady = true; emit('ready'); }
       },
       onError: message => emit('error', message),
-      onInspect: () => emit('inspect'),
+      onInspect: id => emit('inspect', id),
     });
     if (disposed) controller.destroy();
   } catch { emit('error', '게임을 시작하지 못했습니다. 새로고침해 주세요.'); }
@@ -31,6 +31,7 @@ defineExpose({
   setInteractionLocked: (locked: boolean) => controller?.setInteractionLocked(locked),
   setMode: (mode: GameMode) => controller?.setMode(mode),
   summon: (kind: RobotKind) => controller?.summon(kind),
+  deployRobot: (id: number) => controller?.deployRobot(id) ?? false,
   selectRobot: (id: number) => controller?.selectRobot(id),
   updateCode: (id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number) => controller?.updateCode(id, slot, block, sourceSlot),
   runCode: (id: number) => controller?.runCode(id),

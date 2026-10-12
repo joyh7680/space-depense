@@ -55,7 +55,10 @@ test('invalid placement, occupied slots and full board preserve matching energy'
   assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 9 * ROBOT_CHARGE_COST);
   for (let i = 0; i < 7; i++) game.summon('fire');
   assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 2 * ROBOT_CHARGE_COST);
-  game.summon('fire'); assert.equal(game.elementEnergy.fire, 2 * ROBOT_CHARGE_COST); assert.equal(game.robots.length, 8);
+  game.summon('fire'); assert.equal(game.elementEnergy.fire, ROBOT_CHARGE_COST); assert.equal(game.robots.length, 9);
+  assert.equal(game.summon('fire'), '로봇은 최대 9대까지 소환할 수 있어요.');
+  assert.equal(game.elementEnergy.fire, ROBOT_CHARGE_COST); assert.equal(game.robots.length, 9);
+  assert.equal(new Set(game.deployedRobots.map(robot => `${robot.x},${robot.y}`)).size, 9);
 });
 
 test('each killed regular monster grants one random element; living or escaped monsters do not', () => {
@@ -254,6 +257,46 @@ test('three second countdown shows 3, 2, 1 before combat starts once', () => {
  advance(game, 0.05); assert.equal(game.status, 'running'); assert.equal(game.wave, 1); assert.equal(game.robots.length, 0);
  assert.equal(game.countdown, 0); assert.equal(game.elapsed, 0); assert.equal(game.spawned, 0);
  advance(game, 0.1); assert.equal(game.spawned, 1); assert.equal(game.startWave(), false);
+});
+
+test('later waves reset energy and all robots before the same countdown', () => {
+ const game = new DefenseSimulation(() => 0.4);
+ game.startWave(); game.player = { x: 14, y: 11 }; summon(game, 'fire');
+ for (const nextWave of [2, 3]) {
+   game.enemies = []; game.elapsed = SUMMONED_MONSTER.summonDelay; game.step(0.05);
+   for (const target of game.enemies) target.health = 0;
+   game.step(0.05); assert.equal(game.status, 'cleared');
+   game.elementEnergy = { fire: 5, electric: 7, ice: 8 };
+   assert.equal(game.startWave(), true);
+   assert.equal(game.status, 'ready'); assert.equal(game.wave, nextWave); assert.equal(game.countdown, 3);
+   assert.equal(game.credits, 300); assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
+   assert.equal(game.robotCount, 0); assert.deepEqual(game.deployedRobots, []); assert.equal(game.selectedId, null);
+   assert.equal(game.startWave(), false, 'repeated requests cannot bypass the countdown');
+   for (const expected of [2, 1]) {
+     advance(game, 1);
+     assert.ok(Math.abs(game.countdown - expected) < 0.000001);
+     assert.equal(game.status, 'ready'); assert.equal(game.wave, nextWave);
+     assert.equal(game.elapsed, 0); assert.equal(game.spawned, 0); assert.equal(game.enemies.length, 0);
+     assert.equal(game.monsterSummonCountdown, SUMMONED_MONSTER.summonDelay);
+     assert.equal(game.movePlayer(4, 7), false);
+     assert.equal(game.startWave(), false);
+   }
+   advance(game, 0.95); assert.equal(game.status, 'ready');
+   advance(game, 0.05); assert.equal(game.status, 'running'); assert.equal(game.countdown, 0);
+   assert.equal(game.elapsed, 0); assert.equal(game.spawned, 0);
+   assert.equal(game.credits, 300); assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
+   assert.equal(game.robotCount, 0);
+   summon(game, 'fire');
+   assert.equal(game.robots[0].serial, 1); assert.equal(game.robots[0].missionNumber, nextWave);
+   advance(game, 0.05); assert.equal(game.spawned, 1);
+ }
+ game.enemies = []; game.elapsed = SUMMONED_MONSTER.summonDelay; game.step(0.05);
+ for (const target of game.enemies) target.health = 0;
+ game.step(0.05); assert.equal(game.status, 'cleared');
+ const finalState = JSON.stringify(game);
+ assert.equal(game.startWave(), false);
+ for (let frame = 0; frame < 100; frame++) game.step(0.05);
+ assert.equal(JSON.stringify(game), finalState, 'the final victory remains on screen');
 });
 test('connected route stays on walkable orthogonal tiles and rejects robot placement', () => {
  for (let i=1; i<ROUTE.length; i++) {

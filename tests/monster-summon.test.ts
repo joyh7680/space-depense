@@ -143,14 +143,27 @@ test('rare rewards store every robot kind for free without deploying it and pres
   }
 });
 
-test('rare rewards respect the eight robot limit while still awarding element energy', () => {
+test('rare rewards respect the nine robot limit while still awarding element energy', () => {
   const game = new DefenseSimulation(() => 0);
+  game.elementEnergy.fire = 9 * ROBOT_CHARGE_COST;
+  for (let i = 0; i < 9; i++) game.summon('fire');
+  spawnBoss(game); game.enemies[0].health = 0;
+  game.step(0.05);
+  assert.equal(game.robotCount, 9);
+  assert.equal(game.elementEnergy.fire, 3);
+});
+
+test('rare rewards can add the ninth robot', () => {
+  const draws = [0, 0.5, 0.99, 0, 0];
+  let count = 0;
+  const game = new DefenseSimulation(() => draws[count++]);
   game.elementEnergy.fire = 8 * ROBOT_CHARGE_COST;
   for (let i = 0; i < 8; i++) game.summon('fire');
   spawnBoss(game); game.enemies[0].health = 0;
   game.step(0.05);
-  assert.equal(game.robotCount, 8);
-  assert.equal(game.elementEnergy.fire, 3);
+  assert.equal(game.robotCount, 9);
+  assert.equal(game.robots.at(-1)!.deployed, false);
+  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 1 });
 });
 
 test('special monsters award nothing on escape and prevent clearing until defeated', () => {

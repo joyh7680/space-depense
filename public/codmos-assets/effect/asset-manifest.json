@@ -1,6 +1,6 @@
 [
   {
-    "file": "5a4e0dbc093c/5a4e0dbc093c382ff36298ce9eadf131450deba3c4051fbff6282c3b2667f988.json",
+    "file": "cooling-energy/5a4e0dbc093c382ff36298ce9eadf131450deba3c4051fbff6282c3b2667f988.json",
     "sha256": "5a4e0dbc093c382ff36298ce9eadf131450deba3c4051fbff6282c3b2667f988",
     "assetGroups": [],
     "originalPaths": [
@@ -9,7 +9,7 @@
     ]
   },
   {
-    "file": "5e04ca1208c8/03f99ad7-2496-46a1-88d8-ec7523c394bb.atlas",
+    "file": "flame-energy/03f99ad7-2496-46a1-88d8-ec7523c394bb.atlas",
     "sha256": "5e04ca1208c88a996e69d5ce375a2de197444abb03e3e0dffc6176f145761bdf",
     "assetGroups": [],
     "originalPaths": [
@@ -17,7 +17,7 @@
     ]
   },
   {
-    "file": "7b5b747b7763/7b5b747b7763a37a2403d64d8efede4427655645f9c957d2aaaacd86d8fabcc9.json",
+    "file": "electric-energy/7b5b747b7763a37a2403d64d8efede4427655645f9c957d2aaaacd86d8fabcc9.json",
     "sha256": "7b5b747b7763a37a2403d64d8efede4427655645f9c957d2aaaacd86d8fabcc9",
     "assetGroups": [],
     "originalPaths": [
@@ -26,7 +26,7 @@
     ]
   },
   {
-    "file": "7f25d58526c3/7f25d58526c32fa8032c10d12c228be36ffdfd24af1f309e596657ec327754c1.atlas",
+    "file": "green-light/7f25d58526c32fa8032c10d12c228be36ffdfd24af1f309e596657ec327754c1.atlas",
     "sha256": "7f25d58526c32fa8032c10d12c228be36ffdfd24af1f309e596657ec327754c1",
     "assetGroups": [],
     "originalPaths": [
@@ -35,7 +35,7 @@
     ]
   },
   {
-    "file": "e2a97dc5a99d/e2a97dc5a99d4b56c27e4d4cdbabc75df45f5c36367b475956a4e9770bf83dd0.atlas",
+    "file": "game-clear/game-clear.atlas",
     "sha256": "e2a97dc5a99d4b56c27e4d4cdbabc75df45f5c36367b475956a4e9770bf83dd0",
     "assetGroups": [],
     "originalPaths": [
@@ -44,12 +44,102 @@
     ]
   },
   {
-    "file": "e5780c1598f4/e5780c1598f4cd2cac5858b586bece866148067d16c9b8f1a422e0e949723155.json",
+    "file": "game-clear/e5780c1598f4cd2cac5858b586bece866148067d16c9b8f1a422e0e949723155.json",
     "sha256": "e5780c1598f4cd2cac5858b586bece866148067d16c9b8f1a422e0e949723155",
     "assetGroups": [],
     "originalPaths": [
       "blobs/e5780c1598f4cd2cac5858b586bece866148067d16c9b8f1a422e0e949723155.json",
       "origins/cdn.codmos.io/default/public/4a1043d3-409f-4d36-960b-dfa9d0277954.json"
+    ]
+  },
+  {
+    "file": "cooling-energy/04c6d1cd-9291-4488-bc5e-258007baf847.png",
+    "sha256": "26578a139f9ff2a291f298d2ae924f6a7b94225cb967502e3ee3b4dddd0a74c7",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://cdn.codmos.io/default/public/04c6d1cd-9291-4488-bc5e-258007baf847.png"
+    ]
+  },
+  {
+    "file": "cooling-energy/cooling-energy.atlas",
+    "sha256": "a4161cd1e728771fdb43e74cef7f6471c66a56312bccafad4f25db85b9b32462",
+    "assetGroups": [],
+    "originalPaths": []
+  },
+  {
+    "file": "electric-energy/6a94c24e-365c-4df2-ac87-e6cd30f9b301.png",
+    "sha256": "44cbf26546af29a01533eaee3857f29c1955bf31d94f53e9c5d4534b5a1d11b5",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://cdn.codmos.io/default/public/6a94c24e-365c-4df2-ac87-e6cd30f9b301.png"
+    ]
+  },
+  {
+    "file": "electric-energy/bb447bd1-fa9e-49aa-8ed7-8a4216e19f8b.atlas",
+    "sha256": "7ff9b9e12a103227cf29afa9b32a80cdc269df7166ac38231748910399f1b44a",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://cdn.codmos.io/default/public/bb447bd1-fa9e-49aa-8ed7-8a4216e19f8b.atlas"
+    ]
+  },
+  {
+    "file": "flame-energy/9ae27227-06b4-432c-95e7-305f10efc0e5.png",
+    "sha256": "f20fcc921f6e9d5c64f0a37816e2de9cca52945222b4e518b2454b731d8fb582",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://cdn.codmos.io/default/public/9ae27227-06b4-432c-95e7-305f10efc0e5.png"
+    ]
+  },
+  {
+    "file": "flame-energy/flame-frames.json",
+    "sha256": "dc1d5d501677436af6449410489b40f00d7620fc579a11901bd0fc68a483c187",
+    "assetGroups": [],
+    "originalPaths": []
+  },
+  {
+    "file": "game-clear/8bf9ea33-b55d-4999-b95d-19821511003d.png",
+    "sha256": "00bb5e34a83ff629425d5f48bb9048df37fcf6414f39ae3d6d2f9b8706c25380",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://cdn.codmos.io/default/public/8bf9ea33-b55d-4999-b95d-19821511003d.png"
+    ]
+  },
+  {
+    "file": "green-light/c516760e-6c8c-4d1d-8db9-b78796a65ebe.png",
+    "sha256": "988f4ce18d1bc822555b862ad167ff6f29fa0a0e7dcf67b89b15babd60311627",
+    "assetGroups": [],
+    "originalPaths": [
+      "https://cdn.codmos.io/default/public/c516760e-6c8c-4d1d-8db9-b78796a65ebe.png"
+    ]
+  },
+  {
+    "file": "green-light/green-light.json",
+    "sha256": "027031059f6875c9e0dac5e5a5a96dab89af4db83a0187a7a45501a18768fd52",
+    "assetGroups": [],
+    "originalPaths": []
+  },
+  {
+    "file": "1036ce357bc3/1036ce357bc3384f508e4e32142c98fbcc0beb56ca628e92c656ddcac6f08b5d.atlas",
+    "sha256": "1036ce357bc3384f508e4e32142c98fbcc0beb56ca628e92c656ddcac6f08b5d",
+    "assetGroups": [],
+    "originalPaths": [
+      "../1036ce357bc3/1036ce357bc3384f508e4e32142c98fbcc0beb56ca628e92c656ddcac6f08b5d.atlas"
+    ]
+  },
+  {
+    "file": "1036ce357bc3/attack-success.json",
+    "sha256": "b5fc6673b51119f4a8a359bc6dfc72ebf3d86c9cd77d4e14a6a9d3c70580724c",
+    "assetGroups": [],
+    "originalPaths": [
+      "C:/workspace/codmos-cms/contents/aidt/public/CDN/default/public/f21fcb67-9ed0-427c-880e-45391f3eb894.json"
+    ]
+  },
+  {
+    "file": "1036ce357bc3/9daf20f9-3b18-4beb-be52-ca86e900effc.png",
+    "sha256": "d7791a41e03d89afde926da48aae01ce8ebdcf4fd197a40796dfe2c8be7e1f67",
+    "assetGroups": [],
+    "originalPaths": [
+      "C:/workspace/codmos-cms/contents/aidt/public/CDN/default/public/9daf20f9-3b18-4beb-be52-ca86e900effc.png"
     ]
   }
 ]

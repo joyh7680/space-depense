@@ -1,5 +1,10 @@
 # 원본 이미지 출처
 
+- `effect/1036ce357bc3/`: 사용자가 지정한 atlas에 대응하는 `9daf20f9-3b18-4beb-be52-ca86e900effc.png`(276 × 140)와 `attack-success.json`은 로컬 `C:/workspace/codmos-cms/contents/aidt/public/CDN/default/public/`의 동일 PNG 및 `f21fcb67-9ed0-427c-880e-45391f3eb894.json` 원본을 복사했습니다. particle/twinkle 애니메이션을 공격 성공 카드에 재생하며 원본 내용은 수정하지 않았습니다.
+
+- `effect/green-light/`, `effect/cooling-energy/`, `effect/electric-energy/`, `effect/game-clear/`의 PNG는 해당 atlas에 기록된 파일명을 사용해 `https://cdn.codmos.io/default/public/`에서 복원했습니다. 이미지는 수정하지 않았습니다. 누락된 green-light JSON, cooling-energy atlas, game-clear atlas는 기존 `codmos-assets`의 대응 원본을 복사했습니다. electric-energy atlas는 로컬 코드모스 런타임의 `MLT_ATTACK` JSON/atlas 쌍을 확인해 같은 CDN에서 복원했습니다.
+- `effect/flame-energy/flame-frames.json`과 PNG는 기존 `game-over/5e04ca1208c8/`의 동일 atlas용 메타데이터와 텍스처를 복사했습니다. 화염 공격 시 원본 6개 영역을 주황색으로 표시해 재생합니다.
+
 - `game-over/5e04ca1208c8/9ae27227-06b4-432c-95e7-305f10efc0e5.png`: 사용자가 지정한 붕괴 연기 atlas의 원본 텍스처(220 × 276). 로컬 `C:/workspace/codmos-cms/contents/aidt/public/CDN/default/public/`에서 동일 파일명의 원본을 복사했습니다. 이미지는 수정하지 않았습니다. `smoke-frames.json`은 같은 폴더의 `03f99ad7-2496-46a1-88d8-ec7523c394bb.atlas`에 있는 6개 영역과 회전 정보를 Phaser JSON atlas 형식으로 옮긴 메타데이터입니다. 기지 침입 후 방 붕괴 연출에 사용합니다.
 
 - `e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`: 사용자가 지정한 게임오버 atlas의 원본 텍스처(600 × 104). `https://cdn.codmos.io/default/public/6a69a85b-2fab-4322-8b87-30a4eab82980.png`에서 복원했습니다. 게임오버 결과 화면의 타이틀로 사용하며 이미지는 수정하지 않았습니다.

@@ -52,6 +52,11 @@ test('each next wave resets continuous spawning, boss defeat, and the boss count
     assert.equal(game.wave, wave);
     assert.equal(game.spawned, 0);
     assert.equal(game.monsterSummonCountdown, SUMMONED_MONSTER.summonDelay);
+    if (wave > 1) {
+      assert.equal(game.status, 'ready');
+      for (let frame = 0; frame < 60; frame++) game.step(0.05);
+      assert.equal(game.status, 'running');
+    }
     for (let frame = 0; frame < 100 * 20; frame++) {
       game.step(0.05);
       for (const enemy of game.enemies) if (enemy.kind !== 'summoned') enemy.health = 0;

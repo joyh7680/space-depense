@@ -1,6 +1,6 @@
 import { isWalkable } from './room/walkable.ts';
 import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type MissionProgress, type RobotProgram, type AttackProfile } from './coding-missions.ts';
-import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
+import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
 export type Robot = RobotState & { program: RobotProgram; cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
@@ -45,6 +45,7 @@ export class DefenseSimulation {
   constructor(random: () => number = Math.random) { this.random = random; }
   get canDeploy(): boolean { return this.status === 'ready' || this.status === 'running'; }
   get robotCount(): number { return this.robots.length; }
+  get storedRobotCount(): number { return this.robots.filter(robot => !robot.deployed).length; }
   get deployedRobots(): Robot[] { return this.robots.filter(robot => robot.deployed); }
   get totalEnemies(): number {
     if (this.bossDefeated || this.status === 'defeat') return this.spawned + Number(this.bossSpawned);
@@ -94,7 +95,7 @@ export class DefenseSimulation {
   placeRobot(x: number, y: number, kind: RobotKind): string {
     if (!this.canDeploy) return '준비 중이거나 전투 중일 때 소환할 수 있어요.';
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥을 선택해 주세요.';
-    if (this.robots.length >= 8) return '로봇은 최대 8대까지 소환할 수 있어요.';
+    if (this.robots.length >= MAX_ROBOTS) return `로봇은 최대 ${MAX_ROBOTS}대까지 소환할 수 있어요.`;
     if (this.deployedRobots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
     if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 ${ROBOTS[kind].name}이 충전돼요.`;
     this.createRobot(kind, { x, y });
@@ -127,21 +128,26 @@ export class DefenseSimulation {
       robot.autoAttackActive = robot.completedMissions.length > 0;
     }
   }
-  private findRobotSlot(): TilePosition | undefined {
+  private findRobotSlot(randomPlacement = false): TilePosition | undefined {
     const candidates = [...DEPLOY_SLOTS];
     for (let y = 3; y <= 11; y++) for (let x = 1; x <= 14; x++) {
       if (isWalkable(x, y) && !isRouteTile(x, y)) candidates.push({ x, y });
     }
-    return candidates.find(p => !this.deployedRobots.some(d => d.x === p.x && d.y === p.y) && !(p.x === this.player.x && p.y === this.player.y));
+    const available = candidates.filter((p, index) => !this.deployedRobots.some(d => d.x === p.x && d.y === p.y)
+      && !(p.x === this.player.x && p.y === this.player.y)
+      && candidates.findIndex(other => other.x === p.x && other.y === p.y) === index);
+    if (!available.length) return undefined;
+    return available[randomPlacement ? Math.min(available.length - 1, Math.max(0, Math.floor(this.random() * available.length))) : 0];
   }
   summon(kind: RobotKind): string {
     if (!this.canDeploy) return '지금은 소환할 수 없어요.';
     const slot = this.findRobotSlot();
     return slot ? this.placeRobot(slot.x, slot.y, kind) : '배치 칸이 가득 찼어요. 같은 로봇을 합성해 보세요.';
   }
-  private deployRobot(robot: Robot): boolean {
-    if (robot.deployed) return true;
-    const slot = this.findRobotSlot();
+  deployRobot(id: number): boolean {
+    const robot = this.robots.find(robot => robot.id === id);
+    if (!this.canDeploy || !robot || robot.deployed) return false;
+    const slot = this.findRobotSlot(true);
     if (!slot) {
       robot.missionMessage = '배치할 빈 바닥이 없어요. 자리를 비운 뒤 다시 선택해 주세요.';
       return false;
@@ -151,12 +157,12 @@ export class DefenseSimulation {
   }
   selectRobot(id: number): void {
     const robot = this.robots.find(robot => robot.id === id);
-    if (!this.canDeploy || !robot || !this.deployRobot(robot)) return;
+    if (!this.canDeploy || !robot?.deployed) return;
     this.selectedId = id;
   }
   updateCode(id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number): MissionNumber | null {
     const robot = this.robots.find(r => r.id === id);
-    if (!this.canDeploy || !robot || !Number.isInteger(slot)) return null;
+    if (!this.canDeploy || !robot?.deployed || !Number.isInteger(slot)) return null;
     const number = this.currentMission();
     const progress = this.missionProgress(robot, number);
     if (progress.status === 'completed' || slot < 0 || slot >= progress.code.length) return null;
@@ -179,12 +185,11 @@ export class DefenseSimulation {
   }
   runCode(id: number): string {
     const robot = this.robots.find(r => r.id === id);
-    if (!this.canDeploy || !robot) return '지금은 코드를 실행할 수 없어요.';
+    if (!this.canDeploy || !robot?.deployed) return '전장에 배치한 로봇의 코드를 실행해 주세요.';
     const number = this.currentMission();
     const progress = this.missionProgress(robot, number);
     if (progress.status === 'completed') return progress.message;
     const result = validateRobotCode(robot.kind, number, progress.code);
-    if (result.success && !this.deployRobot(robot)) return robot.missionMessage;
     progress.status = result.success ? 'completed' : 'error';
     progress.message = result.message;
     this.syncPrograms();
@@ -192,8 +197,10 @@ export class DefenseSimulation {
   }
   private autoSummon(): void {
     for (const kind of ROBOT_KINDS) {
-      while (this.elementEnergy[kind] >= ROBOT_CHARGE_COST && this.robotCount < 8) {
-        this.createRobot(kind, null, false);
+      while (this.elementEnergy[kind] >= ROBOT_CHARGE_COST && this.robotCount < MAX_ROBOTS) {
+        const slot = this.findRobotSlot(true);
+        if (!slot) break;
+        this.createRobot(kind, slot, false);
         this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
       }
     }
@@ -228,18 +235,22 @@ export class DefenseSimulation {
   }
   startWave(): boolean {
     const nextWave = this.status === 'cleared';
-    if ((this.status !== 'ready' && !nextWave) || this.wave >= 3) return false;
-    this.wave = nextWave ? this.wave + 1 : 1;
+    if ((this.status !== 'ready' && !nextWave) || (nextWave && this.wave >= 3)) return false;
+    // Repeated requests cannot skip a later wave's preparation countdown.
+    if (this.status === 'ready' && this.wave > 0 && this.countdown > 0.000001) return false;
+    this.wave = nextWave ? this.wave + 1 : Math.max(1, this.wave);
     if (nextWave) {
       this.kills = 0; this.escaped = 0; this.spawned = 0; this.elapsed = 0;
       this.bossSpawned = false; this.bossDefeated = false; this.playerCooldown = 0; this.selectedId = null;
-      for (const robot of this.robots) {
-        robot.cooldown = 0; robot.phaseTimer = 0; robot.burstRemaining = 0;
-        robot.burstProfile = null;
-        robot.activeBlock = 'find'; robot.targetId = null;
-      }
+      this.credits = 300;
+      this.elementEnergy = { fire: 0, electric: 0, ice: 0 };
+      this.robots = [];
+      this.robotSerial = { fire: 0, electric: 0, ice: 0 };
     }
     this.syncPrograms();
+    if (nextWave) {
+      this.countdown = 3; this.spawnTimer = 0; this.status = 'ready'; return true;
+    }
     this.countdown = 0; this.spawnTimer = 0; this.status = 'running'; return true;
   }
   togglePause(): void {
@@ -287,12 +298,11 @@ export class DefenseSimulation {
     this.enemies = this.enemies.filter(e => {
       if (e.health > 0) return true;
       if (e.kind === 'summoned') this.bossDefeated = true;
-      // Regular monsters grant one random element; summoned bosses still grant three.
-      const rewardCount = e.kind === 'summoned' ? 3 : 1;
+      const rewardCount = e.kind === 'summoned' ? SUMMONED_MONSTER.elementEnergyReward : WAVE_ONE.elementEnergyReward;
       for (let reward = 0; reward < rewardCount; reward++) {
         this.elementEnergy[this.randomKind()]++;
       }
-      if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < 8) {
+      if (e.kind === 'summoned' && this.random() < SUMMONED_MONSTER.robotDropChance && this.robotCount < MAX_ROBOTS) {
         this.createRobot(this.randomKind(), null, false);
       }
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;

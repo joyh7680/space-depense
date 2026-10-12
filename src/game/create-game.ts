@@ -1,17 +1,10 @@
 import Phaser from 'phaser';
 import { DefenseScene } from './defense-scene';
 import type { GameController, GameOptions } from './types';
+import { loadSpineRuntime } from './spine-runtime';
 
 export async function createDefenseGame(options: GameOptions): Promise<GameController> {
-  const runtime = window as unknown as { Phaser: typeof Phaser; SpinePlugin?: Phaser.Types.Core.PluginObjectItem['plugin'] };
-  runtime.Phaser = Phaser;
-  if (!runtime.SpinePlugin) await new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = `${import.meta.env.BASE_URL}plugins/SpinePlugin.min.js`;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Spine runtime could not load'));
-    document.head.append(script);
-  });
+  const spinePlugin = await loadSpineRuntime();
   const scene = new DefenseScene(options);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -20,7 +13,7 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     pixelArt: true,
     scale: { mode: Phaser.Scale.RESIZE, width: options.parent.clientWidth, height: options.parent.clientHeight },
     scene: [scene],
-    plugins: { scene: [{ key: 'SpinePlugin', plugin: runtime.SpinePlugin!, mapping: 'spine' }] },
+    plugins: { scene: [{ key: 'SpinePlugin', plugin: spinePlugin, mapping: 'spine' }] },
     input: { keyboard: false, touch: { capture: true } },
     render: { antialias: false, roundPixels: true },
     audio: { noAudio: true },
@@ -38,8 +31,9 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     setInteractionLocked: locked => scene.setInteractionLocked(locked),
     setMode: mode => scene.setMode(mode),
     summon: kind => scene.summon(kind),
+    deployRobot: id => scene.deployRobot(id),
     selectRobot: id => scene.selectRobot(id),
-    updateCode: (id, slot, block) => scene.updateCode(id, slot, block),
+    updateCode: (id, slot, block, sourceSlot) => scene.updateCode(id, slot, block, sourceSlot),
     runCode: id => scene.runCode(id),
     merge: () => scene.merge(),
     toggleGrid: () => scene.toggleGrid(),

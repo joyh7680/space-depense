@@ -14,15 +14,17 @@ export type RobotState = TilePosition & {
 export type DefenseState = {
   status: GameStatus; wave: number; health: number; credits: number; kills: number;
   enemies: number; spawned: number; total: number; escaped: number; elapsed: number;
-  robots: RobotState[]; robotCount: number; elementEnergy: ElementEnergy; selectedId: number | null; player: TilePosition;
+  robots: RobotState[]; robotCount: number; storedRobotCount: number; elementEnergy: ElementEnergy; selectedId: number | null; player: TilePosition;
   mode: GameMode; grid: boolean; message: string; countdown: number;
   monsterSummonCountdown: number | null;
   defeatAnimationComplete: boolean;
+  victoryAnimationComplete: boolean;
 };
 export type GameController = {
   setInteractionLocked: (locked: boolean) => void;
   setMode: (mode: GameMode) => void;
   summon: (kind: RobotKind) => void;
+  deployRobot: (id: number) => boolean;
   selectRobot: (id: number) => void;
   updateCode: (id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number) => void;
   runCode: (id: number) => void;
@@ -38,5 +40,5 @@ export type GameOptions = {
   assetBase?: string;
   onState?: (state: DefenseState) => void;
   onError?: (message: string) => void;
-  onInspect?: () => void;
+  onInspect?: (id: number) => void;
 };

@@ -40,7 +40,11 @@ function nextWave(game: DefenseSimulation) {
   game.step(0.05); assert.equal(game.status, 'cleared');
   const canStart = game.wave < 3;
   assert.equal(game.startWave(), canStart);
-
+  if (canStart) {
+    assert.equal(game.status, 'ready');
+    for (let frame = 0; frame < 60; frame++) game.step(0.05);
+    assert.equal(game.status, 'running');
+  }
 }
 
 test('every kind learns sequence, repetition and conditions in the same wave with only its attack command changed', () => {
@@ -111,35 +115,37 @@ test('drafts and errors stay with each robot when selecting the same or a differ
   }
 });
 
-test('wave transitions retain activated robots and drafts while opening the new mission', () => {
+test('wave transitions remove completed robots and drafts; new robots need the current mission', () => {
   const game = setup('fire'), fire = game.robots[0], ice = summon(game, 'ice');
   complete(game, fire.id); game.updateCode(ice.id, 0, 'find');
-  const base = JSON.stringify(fire.program[1]), draft = JSON.stringify(ice.program[1]);
-  const positions = game.robots.map(robot => [robot.id, robot.x, robot.y]);
+  const oldIds = [fire.id, ice.id];
   for (const wave of [2, 3] as const) {
-    nextWave(game); assert.equal(game.wave, wave);
-    assert.equal(fire.missionNumber, wave); assert.equal(ice.missionNumber, wave);
-    assert.equal(fire.autoAttackActive, true); assert.equal(ice.autoAttackActive, false);
-    assert.deepEqual(fire.code, [null, null]); assert.equal(JSON.stringify(fire.program[1]), base);
-    assert.equal(JSON.stringify(ice.program[1]), draft);
-    assert.deepEqual(game.robots.slice(0, 2).map(robot => [robot.id, robot.x, robot.y]), positions);
-    game.enemies = [enemy(100, fire.x)]; assert.ok(advance(game).some(shot => !shot.player && shot.kind === 'fire'));
-    complete(game, fire.id);
+    nextWave(game);
+    assert.equal(game.wave, wave); assert.equal(game.robotCount, 0);
+    assert.equal(game.selectedId, null); assert.equal(game.elapsed, 0); assert.equal(game.kills, 0);
+    assert.equal(game.monsterSummonCountdown, 100);
+    for (const id of oldIds) assert.equal(game.updateCode(id, 0, 'find'), null);
+    const fresh = summon(game, 'fire');
+    assert.equal(fresh.serial, 1); assert.equal(fresh.missionNumber, wave);
+    assert.equal(fresh.autoAttackActive, false); assert.deepEqual(fresh.completedMissions, []);
+    assert.deepEqual(fresh.code, [null, null]); assert.ok(!oldIds.includes(fresh.id));
+    game.enemies = [enemy(100, fresh.x)];
+    assert.equal(advance(game).filter(shot => !shot.player).length, 0);
+    complete(game, fresh.id);
+    assert.equal(fresh.autoAttackActive, true); assert.deepEqual(fresh.completedMissions, [wave]);
+    oldIds.push(fresh.id);
   }
-  assert.deepEqual(fire.completedMissions, [1, 2, 3]);
-  complete(game, ice.id); assert.equal(ice.autoAttackActive, true); assert.deepEqual(ice.completedMissions, [3]);
 });
 
-test('editing or failing later missions preserves activated attacks and cooldowns', () => {
+test('new robots in later waves wait for a correct answer before attacking', () => {
   for (const wave of [2, 3] as const) for (const kind of kinds) {
-    const game = setup(kind), robot = game.robots[0]; complete(game);
-    while (game.wave < wave) nextWave(game);
+    const game = setup(kind, wave), robot = game.robots[0];
     game.updateCode(robot.id, 0, getCodingMission(kind, wave).slots[0].block);
-    game.enemies = [enemy(100, 3)]; assert.ok(advance(game).length > 0);
-    const combat = [robot.cooldown, robot.phaseTimer, robot.activeBlock, robot.burstRemaining];
-    game.runCode(robot.id); assert.equal(robot.missionStatus, 'error'); assert.equal(robot.autoAttackActive, true);
-    assert.deepEqual([robot.cooldown, robot.phaseTimer, robot.activeBlock, robot.burstRemaining], combat);
-    assert.ok(advance(game, 30).length > 0); complete(game); assert.equal(robot.autoAttackActive, true);
+    game.enemies = [enemy(100, 3)]; assert.equal(advance(game).length, 0);
+    game.runCode(robot.id);
+    assert.equal(robot.missionStatus, 'error'); assert.equal(robot.autoAttackActive, false);
+    assert.equal(advance(game, 30).length, 0);
+    complete(game); assert.equal(robot.autoAttackActive, true);
   }
 });
 
@@ -228,20 +234,21 @@ test('every mission attacks a lone boss and ignores dead or out-of-range targets
   }
 });
 
-test('automatically acquired robots require their own current wave answer after deployment', () => {
+test('automatically deployed robots require their own current wave answer', () => {
   for (const wave of waves) {
     const game = setup('ice', wave), first = game.robots.at(-1)!; complete(game, first.id);
     game.elementEnergy.ice = 0; const owned = game.robotCount;
     game.enemies = Array.from({ length: ROBOT_CHARGE_COST }, (_, index) => enemy(100 + index, 14, 0)); game.step(0.05);
-    const stored = game.robots.at(-1)!;
-    assert.equal(stored.deployed, false); assert.equal(stored.autoAttackActive, false);
-    assert.equal(stored.missionNumber, wave); assert.deepEqual(stored.completedMissions, []);
-    game.selectRobot(stored.id);
-    assert.equal(stored.deployed, true); assert.equal(game.robotCount, owned + 1);
+    const added = game.robots.at(-1)!;
+    assert.equal(added.deployed, true); assert.equal(added.autoAttackActive, false);
+    assert.equal(added.missionNumber, wave); assert.deepEqual(added.completedMissions, []);
+    assert.equal(game.selectedId, first.id, 'automatic deployment preserves the existing selection');
+    game.selectRobot(added.id);
+    assert.equal(game.robotCount, owned + 1);
     for (const robot of game.robots) { robot.x = 3; robot.y = 5; }
     game.enemies = [enemy(200, 3)]; advance(game, 30);
-    assert.ok(first.attacks > 0); assert.equal(stored.attacks, 0);
-    complete(game, stored.id); advance(game, 30); assert.ok(stored.attacks > 0);
+    assert.ok(first.attacks > 0); assert.equal(added.attacks, 0);
+    complete(game, added.id); advance(game, 30); assert.ok(added.attacks > 0);
   }
 });
 
@@ -251,7 +258,7 @@ test('paused and finished games cannot edit, deploy or spend energy', () => {
   const stored = game.robots.at(-1)!;
   for (const status of ['paused', 'cleared', 'defeat'] as const) {
     game.status = status; const before = JSON.stringify(game);
-    game.step(0.05); game.selectRobot(stored.id); game.runCode(stored.id); game.updateCode(stored.id, 0, 'cool'); game.summon('ice');
+    game.step(0.05); game.deployRobot(stored.id); game.selectRobot(stored.id); game.runCode(stored.id); game.updateCode(stored.id, 0, 'cool'); game.summon('ice');
     assert.equal(JSON.stringify(game), before);
   }
 });
@@ -260,13 +267,13 @@ test('rare boss rewards require a new answer even when that kind already complet
   for (const kind of kinds) {
     const roll = { fire: 0, ice: 0.4, electric: 0.99 }[kind];
     const rewards = [0, 0.4, 0.99, 0.01, roll]; let index = 0;
-    const game = new DefenseSimulation(() => rewards[index++]);
+    const game = new DefenseSimulation(() => rewards[index++] ?? 0.4);
     game.startWave(); game.player = { x: 14, y: 11 };
     const learned = summon(game, kind); complete(game, learned.id);
     game.enemies = [{ ...enemy(100, 14, 0), kind: 'summoned' }, enemy(101, 14)]; game.step(0.05);
     const added = game.robots.at(-1)!;
     assert.equal(added.kind, kind); assert.equal(added.deployed, false); assert.equal(added.autoAttackActive, false);
-    assert.deepEqual(added.code, [null, null]); game.selectRobot(added.id);
+    assert.deepEqual(added.code, [null, null]); game.deployRobot(added.id); game.selectRobot(added.id);
     for (const robot of game.robots) { robot.x = 3; robot.y = 5; }
     game.enemies = [enemy(200, 3)]; advance(game, 30);
     assert.ok(learned.attacks > 0); assert.equal(added.attacks, 0);
