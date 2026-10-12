@@ -50,6 +50,13 @@ const robotStatus = computed(() => (['electric', 'ice', 'fire'] as const).map(ki
   kind, count: getAvailableRobotCount(state.value.elementEnergy, state.value.robots, kind),
 })));
 const summonCount = computed(() => getTotalSummonCount(state.value.elementEnergy, state.value.robots));
+watch([canDeploy, summonCount], ([deployable, count], [wasDeployable, previousCount]) => {
+  if (!deployable) {
+    closeSummon();
+  } else if (count > 0 && (!wasDeployable || count > previousCount)) {
+    void openSummon();
+  }
+});
 const robotArt = {
  fire: robotPortraitStyle('fire'),
  ice: robotPortraitStyle('ice'),
@@ -67,8 +74,12 @@ async function openSummon() {
   summonDialog.value?.focus({ preventScroll: true });
 }
 function closeSummon() { summonOpen.value = false; openRecipe.value = null; }
-function summonRobot(kind: RobotKind) {
-  if (canDeploy.value && room.value?.deployRobotKind(kind)) { codingRobotId.value = null; closeSummon(); }
+async function summonRobot(kind: RobotKind) {
+  if (canDeploy.value && room.value?.deployRobotKind(kind)) {
+    codingRobotId.value = null;
+    await nextTick();
+    summonDialog.value?.focus({ preventScroll: true });
+  }
 }
 function replay() {
   closeSummon();
@@ -112,18 +123,18 @@ function nextWave() {
           <EnergyIcon :kind="kind" /><b>{{ state.elementEnergy[kind] }}</b>
         </span>
       </div>
-      <button class="robot-button" :class="{ open: summonOpen }" :disabled="!canDeploy" :aria-label="`로봇 배치, 소환 가능 ${summonCount}대`" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
+      <button class="robot-button" :class="{ open: summonOpen, empty: summonCount === 0 }" :disabled="!canDeploy" :aria-label="`로봇 배치, 소환 가능 ${summonCount}대`" aria-haspopup="dialog" aria-controls="robot-hangar" :aria-expanded="summonOpen" @click="openSummon">
         <span class="robot-button-count">{{ summonCount }}</span>
         <i class="robot-portrait" :style="robotArt.fire" aria-hidden="true" />
         <b>로봇 배치</b>
       </button>
       <Transition name="battle-hint">
-        <p v-if="canDeploy && state.message" class="battle-hint" role="status" aria-atomic="true">{{ state.message }}</p>
+        <p v-if="canDeploy && state.message && !summonOpen" class="battle-hint" role="status" aria-atomic="true">{{ state.message }}</p>
       </Transition>
     </div>
     </div>
     <div v-if="summonOpen" class="summon-backdrop" @click.self="closeSummon">
-      <section id="robot-hangar" ref="summonDialog" class="robot-status-hud" role="dialog" aria-modal="false" aria-label="로봇 선택" tabindex="-1" @keydown.esc="closeSummon">
+      <section id="robot-hangar" ref="summonDialog" class="robot-status-hud" :class="{ empty: summonCount === 0 }" role="dialog" aria-modal="false" aria-label="로봇 선택" tabindex="-1" @keydown.esc="closeSummon">
         <div class="robot-status-roster">
           <div v-for="card in robotStatus" :key="card.kind" class="robot-card-slot" :class="card.kind">
             <button class="robot-button robot-status-unit" :class="card.kind" :disabled="!canDeploy || !card.count" :aria-label="`${ROBOTS[card.kind].name}, 소환 가능 ${card.count}대, ${ROBOTS[card.kind].description}`" @click="summonRobot(card.kind)">
