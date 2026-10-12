@@ -6,6 +6,7 @@ import VictoryResult from './components/victory-result.vue';
 import RobotCodingPanel from './components/robot-coding-panel.vue';
 import { ELEMENTS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './game/wave-one';
 import { getAvailableRobotCount, getTotalSummonCount } from './game/robot-energy';
+import { robotPortraitStyle } from './game/robot-visuals';
 import type { DefenseState, RobotKind } from './game/types';
 import { getRegularMonster, MONSTER_ASSET_PATH } from './game/regular-monsters';
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
@@ -50,9 +51,9 @@ const robotStatus = computed(() => (['electric', 'ice', 'fire'] as const).map(ki
 })));
 const summonCount = computed(() => getTotalSummonCount(state.value.elementEnergy, state.value.robots));
 const robotArt = {
- fire: { backgroundPosition: '-169.8px -435.3px', clipPath: 'inset(0 0 14px 0)' },
- ice: { backgroundPosition: '-95.4px -402.9px' },
- electric: { backgroundPosition: '-453px -428.4px' },
+ fire: robotPortraitStyle('fire'),
+ ice: robotPortraitStyle('ice'),
+ electric: robotPortraitStyle('electric'),
 };
 function selectCodingRobot(id: number) {
   if (!canDeploy.value || !state.value.robots.some(robot => robot.id === id && robot.deployed)) return;

@@ -8,6 +8,7 @@ import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } fro
 import { getBasicRobotAttack, type CodingBlockId } from './coding-missions';
 import { getRegularMonster, MONSTER_ASSET_PATH, REGULAR_MONSTERS } from './regular-monsters';
 import { SPINE_EFFECTS, type SpineEffectKind } from './effects';
+import { ROBOT_ART_SCALE, ROBOT_VISUALS, robotAssetUrl } from './robot-visuals';
 
 const center = (value: number) => value * 100 + 50;
 const DRAG_NOTICE = '에너지를 모아 로봇 배치 카드에서 원하는 로봇을 소환하세요. 전장 로봇을 클릭하면 미션이 열려요.';
@@ -30,7 +31,7 @@ export class DefenseScene extends Phaser.Scene {
   private room!: Room;
   private player!: SpineActor;
   private aliens = new Map<number, Phaser.GameObjects.Image | SpineActor>();
-  private robotArt = new Map<number, SpineActor>();
+  private robotArt = new Map<number, Phaser.GameObjects.Image>();
   private robotSpawnTimes = new Map<number, number>();
   private units!: Phaser.GameObjects.Graphics;
   private ranges!: Phaser.GameObjects.Graphics;
@@ -67,6 +68,9 @@ export class DefenseScene extends Phaser.Scene {
   preload(): void {
     const base = this.options.assetBase ?? `${import.meta.env.BASE_URL}games/space/`;
     this.load.image('room-tiles', `${base}SPACE_MAP_TILESET.png`);
+    for (const kind of ROBOT_KINDS) {
+      this.load.svg(ROBOT_VISUALS[kind].texture, robotAssetUrl(kind));
+    }
     for (const monster of REGULAR_MONSTERS) {
       this.load.image(monster.texture, `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${monster.file}`);
     }
@@ -241,7 +245,7 @@ export class DefenseScene extends Phaser.Scene {
   private unitAt(pointer: Phaser.Input.Pointer): { robotId: number | null; tile: TilePosition } | null {
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     // Hit the visible body, including the head above its floor tile.
-    const contains = (actor: SpineActor) => {
+    const contains = (actor: SpineActor | Phaser.GameObjects.Image) => {
       const left = actor.x - actor.displayOriginX * actor.scaleX;
       const top = actor.y - actor.displayOriginY * actor.scaleY;
       return world.x >= left && world.x <= left + actor.width * actor.scaleX
@@ -453,10 +457,8 @@ export class DefenseScene extends Phaser.Scene {
       this.units.fillStyle(color, 0.2); this.units.fillTriangle(x - 18, y - 3, x + 18, y - 3, x, y + 20);
       let art = this.robotArt.get(robot.id);
       if (!art) {
-        art = this.add.spine(x, y + 24, 'player', 'idle', true).setScale(0.17).setDepth(14);
-        art.setSkinByName({ fire: 'volta', ice: 'cloud', electric: 'monitorhead' }[robot.kind]);
-        art.skeleton.setSlotsToSetupPose();
-        art.updateSize();
+        art = this.add.image(x, y + 24, ROBOT_VISUALS[robot.kind].texture)
+          .setOrigin(0.5, 1).setScale(ROBOT_ART_SCALE).setDepth(14);
         this.robotArt.set(robot.id, art);
         this.robotSpawnTimes.set(robot.id, s.elapsed);
         this.showRobotSummon(x, y, color);
@@ -469,7 +471,7 @@ export class DefenseScene extends Phaser.Scene {
       }
       const attackEnabled = robot.autoAttackActive;
       const arrival = Math.min(1, Math.max(0, (s.elapsed - (this.robotSpawnTimes.get(robot.id) ?? s.elapsed)) / 0.55));
-      art.setScale(0.17 * (0.35 + 0.65 * Math.sin(arrival * Math.PI / 2)));
+      art.setScale(ROBOT_ART_SCALE * (0.35 + 0.65 * Math.sin(arrival * Math.PI / 2)));
       art.setAlpha((0.4 + arrival * 0.6) * (attackEnabled ? 1 : 0.9));
       if (!attackEnabled && s.status !== 'cleared' && s.status !== 'defeat') {
         const pulse = (Math.sin(s.elapsed * 4 + robot.id) + 1) / 2;

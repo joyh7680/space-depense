@@ -67,7 +67,7 @@ npm run build
 ## 코드모스 원본 에셋
 
 - 대원: `player/int-front`의 **purple** 스킨. 원본 Spine JSON + atlas + PNG와 Phaser 번들 Spine 3.8 런타임으로 애니메이션을 표시합니다.
-- 로봇: 원본 Spine 캐릭터의 volta/cloud/monitorhead 스킨을 플라즈마·써멀 쇼크·크라이오 볼트로 사용합니다.
+- 로봇: `public/games/space/robots/`의 전용 64×80 SD 픽셀 스프라이트. 검정 외곽선 없이 밝은 재질색과 부드러운 명암으로 표현하며, 대원과 어울리는 유리 바이저·금속 헬멧·흉갑·어깨 보호대를 사용합니다. 크라이오 볼트는 빙청색 각진 헬멧과 파란 볼트 건틀릿, 써멀 쇼크는 넓은 주황 헬멧과 냉열 이중 흉갑·양팔, 플라즈마는 보라색 돔 헬멧과 분홍 반응로 코어로 구분합니다. 정수 좌표 SVG를 기본 해상도로 래스터화하고 최근접 보간으로 표시하며 전장·선택 카드·코딩 패널은 같은 에셋을 공유합니다. 전장 표시 크기(96×120), 대원 Spine 스킨과 배치·전투 규칙은 유지합니다.
 - 일반 몬스터: public/codmos-assets/monster/의 monster-mint.png, monster-green.png, monster-orange.png 원본 이미지를 웨이브별로 사용합니다.
 - 방: 기존 `public/games/space/SPACE_MAP_TILESET.png` 원본 타일. 바닥·배치 표시·전투 효과와 선택한 플라즈마의 사거리 원은 코드 그래픽입니다.
 

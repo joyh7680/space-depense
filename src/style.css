@@ -221,7 +221,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .robot-button b{font-size:14px;line-height:1.2;color:#fff4d0;text-shadow:0 2px 0 #14232d}
 .robot-button-count{position:absolute;z-index:1;right:-7px;top:-9px;display:grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border:2px solid #fff4cd;border-radius:8px;background:#76be59;color:#172e21;font-size:14px;font-weight:900;box-shadow:0 2px 0 #24382a;font-variant-numeric:tabular-nums}
 .monster-summon-timer{min-width:38px;font-size:12px;white-space:nowrap}
-.robot-portrait{display:block;flex-shrink:0;width:72px;height:74px;margin:0;background-image:var(--portrait-url);background-size:610.8px 562.8px;background-repeat:no-repeat;filter:drop-shadow(0 3px 1px #18232b55)}
+.robot-portrait{display:block;flex-shrink:0;width:72px;height:74px;margin:0;background-image:var(--robot-portrait-url);background-size:contain;background-position:center;background-repeat:no-repeat;image-rendering:pixelated}
 .robot-button .robot-portrait{transform:scale(.65);margin:-12px -12px -9px}
 .monster-portrait{display:block;width:48px;height:53px;object-fit:contain;filter:drop-shadow(0 3px 1px #18232b55)}
 .monster-button{pointer-events:none;cursor:default}
@@ -285,9 +285,6 @@ button:not(:disabled):active{transform:translateY(3px)}
 .coding-progress span{border:1px solid #ffffff15;border-radius:6px;padding:5px 7px;background:#ffffff06}
 .coding-progress .learned{color:#8ce4c7;border-color:#8ce4c740}
 .coding-choice{font-size:11px;line-height:1.7;color:#a6bad4;margin:0 0 14px}
-.portrait-fire{background-position:-169.8px -435.3px;clip-path:inset(0 0 14px 0)}
-.portrait-ice{background-position:-95.4px -402.9px}
-.portrait-electric{background-position:-453px -428.4px}
 .coding-mission{padding:15px;border:1px solid color-mix(in srgb,var(--robot-accent),transparent 65%);background:#263147;border-radius:14px;margin-bottom:23px}
 .coding-mission-header{display:flex;gap:6px;align-items:center}
 .coding-mission-header>small{color:var(--robot-accent);font-size:10px}
