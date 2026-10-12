@@ -9,9 +9,9 @@ const monster = (id: number, health: number): Enemy => ({
   id, x: 5, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0,
 });
 
-test('hybrid robots use the requested names and exact 7, 9 and 12 energy combinations', () => {
+test('hybrid robots use the requested names and exact 6, 9 and 12 energy combinations', () => {
   assert.equal(ROBOTS.electric.name, '크라이오 볼트');
-  assert.deepEqual(ROBOTS.electric.recipe, [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 3 }, { kind: 'fire', amount: 1 }]);
+  assert.deepEqual(ROBOTS.electric.recipe, [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 2 }, { kind: 'fire', amount: 1 }]);
   assert.equal(ROBOTS.ice.name, '써멀 쇼크');
   assert.deepEqual(ROBOTS.ice.recipe, [{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 3 }, { kind: 'electric', amount: 2 }]);
   assert.equal(ROBOTS.fire.name, '플라즈마');
@@ -206,12 +206,12 @@ test('manual choices and total counts never double spend shared energy and respe
   assert.equal(game.deployRobotKind('ice'), false);
   game.togglePause(); game.step(0.05);
   assert.equal(game.robotCount, 0);
-  assert.equal(getTotalSummonCount(game.elementEnergy, game.robots), 2);
-  assert.equal(getAvailableRobotCount(game.elementEnergy, game.robots, 'electric'), 2);
+  assert.equal(getTotalSummonCount(game.elementEnergy, game.robots), 3);
+  assert.equal(getAvailableRobotCount(game.elementEnergy, game.robots, 'electric'), 3);
   assert.equal(game.deployRobotKind('ice'), true);
   assert.deepEqual(game.elementEnergy, { fire: 2, ice: 3, electric: 8 });
   assert.equal(game.deployRobotKind('electric'), true);
-  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 0, electric: 5 });
+  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 1, electric: 5 });
   fundRobot(game, 'fire', 9); game.step(0.05);
   assert.equal(game.robotCount, 2);
   for (let index = 2; index < MAX_ROBOTS; index++) assert.equal(game.deployRobotKind('fire'), true);
