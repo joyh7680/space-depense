@@ -1,0 +1,41 @@
+
+8bf9ea33-b55d-4999-b95d-19821511003d.png
+size: 1036, 164
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+backlight
+  rotate: false
+  xy: 2, 103
+  size: 905, 59
+  orig: 930, 70
+  offset: 13, 5
+  index: -1
+clear
+  rotate: false
+  xy: 2, 2
+  size: 343, 99
+  orig: 343, 99
+  offset: 0, 0
+  index: -1
+game
+  rotate: false
+  xy: 347, 2
+  size: 302, 99
+  orig: 302, 99
+  offset: 0, 0
+  index: -1
+particle
+  rotate: true
+  xy: 651, 7
+  size: 94, 164
+  orig: 95, 164
+  offset: 0, 0
+  index: -1
+spark
+  rotate: false
+  xy: 909, 38
+  size: 124, 124
+  orig: 133, 133
+  offset: 5, 4
+  index: -1

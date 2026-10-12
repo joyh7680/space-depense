@@ -1,0 +1,48 @@
+
+5e3913ce-9ebc-47c9-aa20-7d90d4f31e15.png
+size: 268, 320
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+arm_l
+  rotate: true
+  xy: 200, 264
+  size: 51, 52
+  orig: 51, 52
+  offset: 0, 0
+  index: -1
+arm_r
+  rotate: true
+  xy: 200, 214
+  size: 48, 55
+  orig: 48, 55
+  offset: 0, 0
+  index: -1
+int
+  rotate: true
+  xy: 2, 124
+  size: 191, 196
+  orig: 191, 196
+  offset: 0, 0
+  index: -1
+light
+  rotate: false
+  xy: 145, 2
+  size: 120, 120
+  orig: 120, 120
+  offset: 0, 0
+  index: -1
+mouth
+  rotate: true
+  xy: 200, 187
+  size: 25, 34
+  orig: 25, 34
+  offset: 0, 0
+  index: -1
+wand
+  rotate: true
+  xy: 2, 17
+  size: 105, 141
+  orig: 105, 141
+  offset: 0, 0
+  index: -1

@@ -1,6 +1,7 @@
 import { isWalkable } from './room/walkable.ts';
 import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type MissionProgress, type RobotProgram, type AttackProfile } from './coding-missions.ts';
-import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, ROBOT_CHARGE_COST, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
+import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one.ts';
+import { getRobotEnergyCount, getRobotRecipeLabel, spendRobotEnergy } from './robot-energy.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
 export type Robot = RobotState & { program: RobotProgram; cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
@@ -18,6 +19,20 @@ export function isRouteTile(x: number, y: number): boolean {
   });
 }
 const distance = (a: TilePosition, b: TilePosition) => Math.hypot(a.x - b.x, a.y - b.y);
+function applyAttackEffects(enemy: Enemy, damage: number, profile: AttackProfile): void {
+  if (profile.burn > 0) {
+    enemy.burnTime = Math.max(enemy.burnTime, 2);
+    enemy.burnDamage = Math.max(enemy.burnDamage, damage * profile.burn);
+  }
+  if (profile.slowDuration > 0) {
+    const currentFactor = enemy.slowTime > 0 ? enemy.slowFactor ?? 0.6 : 1;
+    if (profile.slowFactor < currentFactor) {
+      enemy.slowFactor = profile.slowFactor; enemy.slowTime = profile.slowDuration;
+    } else if (profile.slowFactor === currentFactor) {
+      enemy.slowTime = Math.max(enemy.slowTime, profile.slowDuration);
+    }
+  }
+}
 
 export class DefenseSimulation {
   status: GameStatus = 'ready';
@@ -38,6 +53,7 @@ export class DefenseSimulation {
   robots: Robot[] = [];
   enemies: Enemy[] = [];
   private sequence = 0;
+  private missionSequence = 0;
   private spawnTimer = 0;
   private robotSerial: Record<RobotKind, number> = { fire: 0, ice: 0, electric: 0 };
   private random: () => number;
@@ -97,16 +113,17 @@ export class DefenseSimulation {
     if (!isWalkable(x, y) || isRouteTile(x, y) || (this.player.x === x && this.player.y === y)) return '길 밖의 빈 바닥을 선택해 주세요.';
     if (this.robots.length >= MAX_ROBOTS) return `로봇은 최대 ${MAX_ROBOTS}대까지 소환할 수 있어요.`;
     if (this.deployedRobots.some(d => d.x === x && d.y === y)) return '이미 로봇이 있는 칸이에요.';
-    if (this.elementEnergy[kind] < ROBOT_CHARGE_COST) return `${ROBOTS[kind].energyName} 에너지 ${ROBOT_CHARGE_COST}개를 모으면 ${ROBOTS[kind].name}이 충전돼요.`;
+    if (getRobotEnergyCount(this.elementEnergy, kind) < 1) return `${ROBOTS[kind].name} 출격에는 ${getRobotRecipeLabel(kind)}가 필요해요.`;
     this.createRobot(kind, { x, y });
-    this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
+    spendRobotEnergy(this.elementEnergy, kind);
     return `${ROBOTS[kind].name} 소환! 로봇을 드래그해서 빈 바닥에 배치할 수 있어요.`;
   }
   private createRobot(kind: RobotKind, position: TilePosition | null, select = true): void {
     const config = ROBOTS[kind];
+    const missionVariant = this.missionSequence++;
     // Stored robots have no room tile until the player selects them from the hangar.
     const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, range: config.range, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null,
-      serial: ++this.robotSerial[kind], program: createRobotProgram(kind), code: [], missionNumber: getMissionNumber(this.wave), autoAttackActive: false, completedMissions: [], missionStatus: 'waiting', missionMessage: '' };
+      serial: ++this.robotSerial[kind], missionVariant, program: createRobotProgram(kind, missionVariant), code: [], missionNumber: getMissionNumber(this.wave), autoAttackActive: false, completedMissions: [], missionStatus: 'waiting', missionMessage: '' };
     this.robots.push(robot);
     this.syncPrograms();
     if (select) this.selectedId = robot.id;
@@ -147,12 +164,25 @@ export class DefenseSimulation {
   deployRobot(id: number): boolean {
     const robot = this.robots.find(robot => robot.id === id);
     if (!this.canDeploy || !robot || robot.deployed) return false;
+    if (getRobotEnergyCount(this.elementEnergy, robot.kind) < 1) return false;
     const slot = this.findRobotSlot(true);
     if (!slot) {
       robot.missionMessage = '배치할 빈 바닥이 없어요. 자리를 비운 뒤 다시 선택해 주세요.';
       return false;
     }
     robot.x = slot.x; robot.y = slot.y; robot.deployed = true;
+    spendRobotEnergy(this.elementEnergy, robot.kind);
+    this.selectedId = robot.id;
+    return true;
+  }
+  deployRobotKind(kind: RobotKind): boolean {
+    if (!this.canDeploy || getRobotEnergyCount(this.elementEnergy, kind) < 1) return false;
+    const stored = this.robots.find(robot => robot.kind === kind && !robot.deployed);
+    if (stored) return this.deployRobot(stored.id);
+    if (this.robotCount >= MAX_ROBOTS) return false;
+    const slot = this.findRobotSlot(true);
+    if (!slot) return false;
+    this.placeRobot(slot.x, slot.y, kind);
     return true;
   }
   selectRobot(id: number): void {
@@ -166,7 +196,7 @@ export class DefenseSimulation {
     const number = this.currentMission();
     const progress = this.missionProgress(robot, number);
     if (progress.status === 'completed' || slot < 0 || slot >= progress.code.length) return null;
-    const mission = getCodingMission(robot.kind, number);
+    const mission = getCodingMission(robot.kind, number, robot.missionVariant);
     if (block !== null && (!isCodingBlock(block) || !mission.palette.includes(block))) return null;
     // Move or swap both slots before checking the answer.
     if (sourceSlot !== undefined) {
@@ -189,21 +219,11 @@ export class DefenseSimulation {
     const number = this.currentMission();
     const progress = this.missionProgress(robot, number);
     if (progress.status === 'completed') return progress.message;
-    const result = validateRobotCode(robot.kind, number, progress.code);
+    const result = validateRobotCode(robot.kind, number, progress.code, robot.missionVariant);
     progress.status = result.success ? 'completed' : 'error';
     progress.message = result.message;
     this.syncPrograms();
     return result.message;
-  }
-  private autoSummon(): void {
-    for (const kind of ROBOT_KINDS) {
-      while (this.elementEnergy[kind] >= ROBOT_CHARGE_COST && this.robotCount < MAX_ROBOTS) {
-        const slot = this.findRobotSlot(true);
-        if (!slot) break;
-        this.createRobot(kind, slot, false);
-        this.elementEnergy[kind] -= ROBOT_CHARGE_COST;
-      }
-    }
   }
   moveRobot(id: number, x: number, y: number): string {
     const robot = this.robots.find(r => r.id === id);
@@ -229,7 +249,6 @@ export class DefenseSimulation {
     robot.damage = Math.round(ROBOTS[robot.kind].damage * 2.4 ** (robot.grade - 1));
     robot.range = ROBOTS[robot.kind].range + (robot.grade - 1) * 0.4;
     robot.attacks += partner.attacks;
-    this.autoSummon();
     // Keep the selected robot's identity, code and cooldown.
     return `${ROBOTS[robot.kind].name} ${robot.grade}성으로 합성! 공격력과 사거리가 늘었어요.`;
   }
@@ -307,7 +326,6 @@ export class DefenseSimulation {
       }
       this.kills++; this.credits += WAVE_ONE.killEnergy; return false;
     });
-    this.autoSummon();
   }
   private randomKind(): RobotKind {
     return ROBOT_KINDS[Math.min(ROBOT_KINDS.length - 1, Math.max(0, Math.floor(this.random() * ROBOT_KINDS.length)))];
@@ -368,22 +386,12 @@ export class DefenseSimulation {
       for (const enemy of affected) {
         enemy.health -= damage;
         shots.push({ from: enemy === target ? { x: robot.x, y: robot.y } : { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: robot.kind, ...(enemy === target ? {} : { chain: true }) });
-        if (profile.burn > 0) {
-          enemy.burnTime = Math.max(enemy.burnTime, 2);
-          enemy.burnDamage = Math.max(enemy.burnDamage, damage * profile.burn);
-        }
-        if (profile.slowDuration > 0) {
-          const currentFactor = enemy.slowTime > 0 ? enemy.slowFactor ?? 0.6 : 1;
-          if (profile.slowFactor < currentFactor) {
-            enemy.slowFactor = profile.slowFactor; enemy.slowTime = profile.slowDuration;
-          } else if (profile.slowFactor === currentFactor) {
-            enemy.slowTime = Math.max(enemy.slowTime, profile.slowDuration);
-          }
-        }
+        applyAttackEffects(enemy, damage, profile);
       }
       const chained = nearby.filter(enemy => enemy !== target && enemy.health > 0).slice(0, profile.chainTargets);
       for (const enemy of chained) {
         enemy.health -= damage * profile.chainDamage;
+        applyAttackEffects(enemy, damage * profile.chainDamage, profile);
         shots.push({ from: { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: robot.kind, chain: true });
       }
       robot.attacks++;

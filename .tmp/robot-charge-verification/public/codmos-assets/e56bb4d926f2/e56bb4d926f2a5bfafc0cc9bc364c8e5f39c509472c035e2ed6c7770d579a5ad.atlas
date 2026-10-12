@@ -1,0 +1,20 @@
+
+6a69a85b-2fab-4322-8b87-30a4eab82980.png
+size: 600, 104
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+game
+  rotate: false
+  xy: 2, 2
+  size: 303, 100
+  orig: 303, 100
+  offset: 0, 0
+  index: -1
+over
+  rotate: false
+  xy: 307, 2
+  size: 291, 100
+  orig: 291, 100
+  offset: 0, 0
+  index: -1

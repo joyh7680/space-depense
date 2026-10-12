@@ -1,9 +1,10 @@
+import { setRobotEnergy } from './robot-energy-helpers.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFINE } from '../src/game/room/room-definition.ts';
 import { isWalkable } from '../src/game/room/walkable.ts';
 import { DefenseSimulation } from '../src/game/defense-simulation.ts';
-import { DEPLOY_SLOTS, ROBOT_CHARGE_COST } from '../src/game/wave-one.ts';
+import { DEPLOY_SLOTS } from '../src/game/wave-one.ts';
 
 test('front and diagonal wall overlays block the floor tiles underneath', () => {
   for (const [row, tiles] of DEFINE.ROOM_FRONT_WALL_TILES.entries()) {
@@ -23,7 +24,7 @@ test('visible floor up to the front wall remains walkable', () => {
 
 test('wall-covered tiles reject robot placement and relocation without consuming energy', () => {
   const game = new DefenseSimulation();
-  game.elementEnergy.fire = 2 * ROBOT_CHARGE_COST;
+  setRobotEnergy(game, 'fire', 2);
   game.placeRobot(3, 5, 'fire');
   const robot = game.robots[0];
   for (const [row, tiles] of DEFINE.ROOM_FRONT_WALL_TILES.entries()) {
@@ -35,7 +36,7 @@ test('wall-covered tiles reject robot placement and relocation without consuming
       assert.equal(game.canMoveRobot(robot.id, x, y), false);
       assert.equal(game.canMovePlayer(x, y), false);
       assert.equal(game.robots.length, 1);
-      assert.equal(game.elementEnergy.fire, ROBOT_CHARGE_COST);
+      assert.equal(game.elementEnergy.fire, 3); assert.equal(game.elementEnergy.electric, 2);
       assert.deepEqual({ x: robot.x, y: robot.y }, { x: 3, y: 5 });
     }
   }

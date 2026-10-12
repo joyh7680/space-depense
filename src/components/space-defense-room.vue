@@ -32,6 +32,7 @@ defineExpose({
   setMode: (mode: GameMode) => controller?.setMode(mode),
   summon: (kind: RobotKind) => controller?.summon(kind),
   deployRobot: (id: number) => controller?.deployRobot(id) ?? false,
+  deployRobotKind: (kind: RobotKind) => controller?.deployRobotKind(kind) ?? false,
   selectRobot: (id: number) => controller?.selectRobot(id),
   updateCode: (id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number) => controller?.updateCode(id, slot, block, sourceSlot),
   runCode: (id: number) => controller?.runCode(id),

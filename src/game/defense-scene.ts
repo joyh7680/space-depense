@@ -3,7 +3,8 @@ import { DefenseSimulation, ROUTE, isRouteTile } from './defense-simulation';
 import { Room } from './room/room';
 import { isWalkable } from './room/walkable';
 import type { SpineActor } from './spine';
-import { ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one';
+import { ELEMENTS, ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wave-one';
+import { getTotalDeployCount } from './robot-energy';
 import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
 import type { CodingBlockId } from './coding-missions';
 import { getRegularMonster, MONSTER_ASSET_PATH, REGULAR_MONSTERS } from './regular-monsters';
@@ -77,7 +78,6 @@ export class DefenseScene extends Phaser.Scene {
     for (const [key, effect] of Object.entries(SPINE_EFFECTS)) {
       this.load.spine(key, `${effectBase}${effect.json}`, [`${effectBase}${effect.atlas}`], true);
     }
-    this.load.atlas('flame-energy', `${effectBase}flame-energy/9ae27227-06b4-432c-95e7-305f10efc0e5.png`, `${effectBase}flame-energy/flame-frames.json`);
     this.load.spine('player', `${import.meta.env.BASE_URL}codmos-assets/player/int-front.json`, [`${import.meta.env.BASE_URL}codmos-assets/player/int-front.atlas`], true);
     this.load.on('loaderror', () => this.options.onError?.('방 리소스를 불러오지 못했습니다. 새로고침해 주세요.'));
   }
@@ -329,7 +329,7 @@ export class DefenseScene extends Phaser.Scene {
     const previousHealth = this.simulation.health;
     const previousStatus = this.simulation.status;
     const previousEnergy = { ...this.simulation.elementEnergy };
-    const previousRobots = new Set(this.simulation.robots.map(robot => robot.id));
+    const previousDeployable = getTotalDeployCount(previousEnergy, this.simulation.robots);
     const previousBosses = new Set(this.simulation.enemies.filter(enemy => enemy.kind === 'summoned').map(enemy => enemy.id));
     const shots = this.simulation.step(delta / 1000);
     if (previousStatus === 'ready' && this.simulation.status === 'running') this.notice = this.noticeText;
@@ -343,21 +343,14 @@ export class DefenseScene extends Phaser.Scene {
       const amount = this.simulation.elementEnergy[kind] - previousEnergy[kind];
       if (amount > 0) this.showEnergyReward(kind, amount, rewardIndex++);
     }
-    for (const robot of this.simulation.robots) {
-      if (!previousRobots.has(robot.id)) {
-        this.notice = robot.deployed
-          ? `${ROBOTS[robot.kind].name} #${robot.serial} 자동 배치! 공격 대기 로봇을 클릭해 코딩 미션을 시작하세요.`
-          : `${ROBOTS[robot.kind].name} 획득! 로봇 출격 버튼에서 확인하세요.`;
-      }
-    }
+    if (getTotalDeployCount(this.simulation.elementEnergy, this.simulation.robots) > previousDeployable) this.notice = '에너지 조합 완성! 로봇 출격 버튼에서 선택하세요.';
     for (const shot of shots) {
-      const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color).setOrigin(0).setLineWidth(shot.chain ? 3 : 6).setDepth(15);
-      this.tweens.add({ targets: beam, alpha: 0, duration: 220, onComplete: () => beam.destroy() });
-      const x = center(shot.to.x), y = center(shot.to.y) - 20;
-      if (shot.player || shot.kind !== 'ice') this.showSpineEffect('green-light', x, y);
-      if (!shot.player) {
-        if (shot.kind === 'fire') this.showFlameEffect(x, y);
-        else this.showSpineEffect(shot.kind === 'ice' ? 'cooling-energy' : 'electric-energy', x, y);
+      const color = shot.player ? 0xb5fff3 : ROBOTS[shot.kind].color;
+      for (const glow of [true, false]) {
+        const beam = this.add.line(0, 0, center(shot.from.x), center(shot.from.y) - 25, center(shot.to.x), center(shot.to.y) - 20, color)
+          .setOrigin(0).setLineWidth((shot.chain ? 3 : 6) * (glow ? 2.5 : 1)).setAlpha(glow ? 0.2 : 1);
+        this.combatEffects.add(beam);
+        this.tweens.add({ targets: beam, alpha: 0, duration: 220, onComplete: () => beam.destroy() });
       }
     }
     if (previousStatus !== 'cleared' && this.simulation.status === 'cleared' && this.simulation.wave === 3) this.showGameClear();
@@ -375,25 +368,8 @@ export class DefenseScene extends Phaser.Scene {
   private showSpineEffect(kind: SpineEffectKind, x: number, y: number, container = this.combatEffects): void {
     const effect = SPINE_EFFECTS[kind];
     const actor = this.add.spine(x, y, kind, effect.animation, false).setScale(effect.scale);
-    if (kind === 'green-light') {
-      actor.setSkinByName('down');
-      actor.skeleton.setSlotsToSetupPose();
-    }
     container.add(actor);
     this.afterEffect(effect.duration, () => actor.destroy());
-  }
-
-  private showFlameEffect(x: number, y: number): void {
-    // The supplied flame atlas contains six smoke regions, including rotated ones.
-    for (let i = 0; i < 6; i++) {
-      const flame = this.add.image(x + (i % 3 - 1) * 18, y, 'flame-energy', `smoke0${i + 1}`)
-        .setTintFill(i % 2 ? 0xffa43b : 0xff602c).setAlpha(0.9);
-      flame.setScale(65 / flame.width);
-      this.combatEffects.add(flame);
-      this.tweens.add({ targets: flame, y: y - 55 - i * 6, scaleX: flame.scaleX * 1.5,
-        scaleY: flame.scaleY * 1.5, alpha: 0, duration: 450 + i * 30,
-        onComplete: () => flame.destroy() });
-    }
   }
 
   private showGameClear(): void {
@@ -414,7 +390,7 @@ export class DefenseScene extends Phaser.Scene {
   }
 
   private showEnergyReward(kind: RobotKind, amount: number, index: number): void {
-    const config = ROBOTS[kind];
+    const config = ELEMENTS[kind];
     const color = `#${config.color.toString(16).padStart(6, '0')}`;
     const label = this.add.text(this.player.x, this.player.y - 95 - index * 34,
       `${config.symbol} +${amount}`, {
@@ -556,9 +532,20 @@ export class DefenseScene extends Phaser.Scene {
     const deployed = this.simulation.deployRobot(id);
     const robot = this.simulation.robots.find(robot => robot.id === id);
     this.notice = deployed && robot
-      ? `${ROBOTS[robot.kind].name} #${robot.serial} 배치 완료! 공격 대기 로봇을 클릭해 코딩 미션을 시작하세요.`
+      ? `${ROBOTS[robot.kind].name} #${robot.serial} 배치 완료! 이 로봇의 코딩 미션을 완료하세요.`
       : robot?.missionMessage || '배치할 보관 로봇을 선택해 주세요.';
+    if (deployed) { this.cancelDrag(); this.inspectRange = true; this.mode = 'relocate'; }
     this.drawUnits(); this.publish();
+    if (deployed) this.options.onInspect?.(id);
+    return deployed;
+  }
+  deployRobotKind(kind: RobotKind): boolean {
+    const deployed = this.simulation.deployRobotKind(kind);
+    const id = this.simulation.selectedId;
+    this.notice = deployed ? `${ROBOTS[kind].name} 출격 완료! 이 로봇의 코딩 미션을 완료하세요.` : '에너지 조합과 빈 배치 칸을 확인해 주세요.';
+    if (deployed) { this.cancelDrag(); this.inspectRange = true; this.mode = 'relocate'; }
+    this.drawUnits(); this.publish();
+    if (deployed && id !== null) this.options.onInspect?.(id);
     return deployed;
   }
   selectRobot(id: number): void {
@@ -578,7 +565,6 @@ export class DefenseScene extends Phaser.Scene {
     if (completedMission && robot) {
       this.notice = robot.program[completedMission].message;
       const x = center(robot.x), y = center(robot.y) - 25;
-      this.showSpineEffect('green-light', x, y, this.energyEffects);
       const text = this.add.text(x, y - 75, '공격 성공!', {
         fontFamily: 'sans-serif', fontSize: '34px', fontStyle: 'bold', color: '#a4f3d8',
         stroke: '#14283a', strokeThickness: 6,

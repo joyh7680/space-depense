@@ -1,7 +1,9 @@
+import { fundRobot, setRobotEnergy } from './robot-energy-helpers.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE } from '../src/game/defense-simulation.ts';
-import { ROBOT_CHARGE_COST, ROBOT_KINDS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
+import { ROBOT_KINDS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
+import { getRobotDeployCount, getTotalDeployCount } from '../src/game/robot-energy.ts';
 
 const advance = (game: DefenseSimulation, seconds: number) => {
   // Isolate the boss timer from regular enemies without disabling the spawner.
@@ -128,7 +130,7 @@ test('rare rewards store every robot kind for free without deploying it and pres
     const rolls = [0, 0.5, 0.99, SUMMONED_MONSTER.robotDropChance - 0.001, (index + 0.5) / 3];
     let count = 0;
     const game = new DefenseSimulation(() => rolls[count++]);
-    game.elementEnergy.fire = ROBOT_CHARGE_COST; game.summon('fire');
+    setRobotEnergy(game, 'fire'); game.summon('fire');
     const selected = game.selectedId;
     spawnBoss(game); game.enemies[0].health = 0;
     game.step(0.05);
@@ -145,7 +147,7 @@ test('rare rewards store every robot kind for free without deploying it and pres
 
 test('rare rewards respect the nine robot limit while still awarding element energy', () => {
   const game = new DefenseSimulation(() => 0);
-  game.elementEnergy.fire = 9 * ROBOT_CHARGE_COST;
+  setRobotEnergy(game, 'fire', 9);
   for (let i = 0; i < 9; i++) game.summon('fire');
   spawnBoss(game); game.enemies[0].health = 0;
   game.step(0.05);
@@ -153,11 +155,33 @@ test('rare rewards respect the nine robot limit while still awarding element ene
   assert.equal(game.elementEnergy.fire, 3);
 });
 
+test('a rare stored robot still requires its hybrid recipe and can deploy at the ownership limit', () => {
+  const draws = [0, 0.5, 0.99, 0, 0.99]; let draw = 0;
+  const game = new DefenseSimulation(() => draws[draw++] ?? 0.5);
+  fundRobot(game, 'fire', 8);
+  for (let i = 0; i < 8; i++) game.summon('fire');
+  spawnBoss(game); game.enemies[0].health = 0;
+  game.enemies.push({ id: 1000, x: 14, y: 4, waypoint: 1, health: 1000, burnTime: 0, burnDamage: 0, slowTime: 0 });
+  game.step(0.05);
+  const stored = game.robots.at(-1)!;
+  assert.equal(game.robotCount, 9); assert.equal(stored.kind, 'electric'); assert.equal(stored.deployed, false);
+  const before = JSON.stringify(game);
+  assert.equal(game.deployRobot(stored.id), false); assert.equal(JSON.stringify(game), before);
+  assert.equal(getRobotDeployCount(game.elementEnergy, game.robots, 'electric'), 0);
+  setRobotEnergy(game, 'electric');
+  assert.equal(getRobotDeployCount(game.elementEnergy, game.robots, 'electric'), 1);
+  assert.equal(getTotalDeployCount(game.elementEnergy, game.robots), 1);
+  assert.equal(game.deployRobotKind('electric'), true);
+  assert.equal(game.robotCount, 9); assert.equal(stored.deployed, true); assert.equal(game.selectedId, stored.id);
+  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 0, electric: 0 });
+  assert.equal(stored.autoAttackActive, false);
+});
+
 test('rare rewards can add the ninth robot', () => {
   const draws = [0, 0.5, 0.99, 0, 0];
   let count = 0;
   const game = new DefenseSimulation(() => draws[count++]);
-  game.elementEnergy.fire = 8 * ROBOT_CHARGE_COST;
+  setRobotEnergy(game, 'fire', 8);
   for (let i = 0; i < 8; i++) game.summon('fire');
   spawnBoss(game); game.enemies[0].health = 0;
   game.step(0.05);

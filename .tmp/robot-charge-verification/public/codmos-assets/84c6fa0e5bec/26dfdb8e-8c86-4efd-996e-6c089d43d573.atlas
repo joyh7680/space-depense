@@ -1,0 +1,97 @@
+
+f8f527f2-cfbd-4063-819f-cc284df87679.png
+size: 380, 600
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+effect_complete_particle01
+  rotate: false
+  xy: 310, 553
+  size: 45, 45
+  orig: 45, 45
+  offset: 0, 0
+  index: -1
+effect_complete_particle02
+  rotate: false
+  xy: 2, 514
+  size: 45, 45
+  orig: 45, 45
+  offset: 0, 0
+  index: -1
+effect_complete_particle03
+  rotate: false
+  xy: 49, 514
+  size: 45, 45
+  orig: 45, 45
+  offset: 0, 0
+  index: -1
+effect_complete_particle04
+  rotate: false
+  xy: 96, 514
+  size: 45, 45
+  orig: 45, 45
+  offset: 0, 0
+  index: -1
+effect_complete_particle05
+  rotate: false
+  xy: 143, 514
+  size: 45, 45
+  orig: 45, 45
+  offset: 0, 0
+  index: -1
+effect_complete_particle06
+  rotate: false
+  xy: 190, 514
+  size: 45, 45
+  orig: 45, 45
+  offset: 0, 0
+  index: -1
+effect_complete_particle07
+  rotate: false
+  xy: 237, 514
+  size: 45, 45
+  orig: 45, 45
+  offset: 0, 0
+  index: -1
+effect_complete_ribbon
+  rotate: true
+  xy: 2, 561
+  size: 37, 306
+  orig: 37, 306
+  offset: 0, 0
+  index: -1
+effect_complete_smoke
+  rotate: true
+  xy: 2, 2
+  size: 425, 376
+  orig: 425, 376
+  offset: 0, 0
+  index: -1
+effect_complete_star01
+  rotate: false
+  xy: 176, 429
+  size: 84, 83
+  orig: 84, 83
+  offset: 0, 0
+  index: -1
+effect_complete_star02
+  rotate: false
+  xy: 89, 430
+  size: 85, 82
+  orig: 85, 82
+  offset: 0, 0
+  index: -1
+effect_complete_star03
+  rotate: false
+  xy: 284, 470
+  size: 85, 81
+  orig: 85, 81
+  offset: 0, 0
+  index: -1
+effect_complete_star04
+  rotate: false
+  xy: 2, 431
+  size: 85, 81
+  orig: 85, 81
+  offset: 0, 0
+  index: -1
