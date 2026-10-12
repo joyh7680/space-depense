@@ -28,24 +28,27 @@ test('room boundaries and flipped wall tiles cannot be walked on; every deploy s
   }
 });
 
-test('hybrid combinations require both ingredients and never spend credits', () => {
+test('hybrid combinations require every ingredient and never spend credits', () => {
   const game = new DefenseSimulation();
-  assert.equal(ROBOT_CHARGE_COST, 5);
+  assert.equal(ROBOT_CHARGE_COST, 7);
   assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
   game.elementEnergy.fire = 5; game.elementEnergy.electric = 3; game.credits = 9999;
   game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 5);
   game.elementEnergy.fire++;
   game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 6);
   game.elementEnergy.electric++;
+  game.elementEnergy.ice = 2;
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.ice, 2);
+  game.elementEnergy.ice++;
   game.summon('fire');
   assert.equal(game.robots.length, 1); assert.equal(game.robots[0].kind, 'fire');
   assert.equal(game.selectedId, game.robots[0].id);
-  assert.equal(game.elementEnergy.fire, 1); assert.equal(game.elementEnergy.electric, 0);
+  assert.equal(game.elementEnergy.fire, 1); assert.equal(game.elementEnergy.electric, 0); assert.equal(game.elementEnergy.ice, 0);
   assert.equal(game.credits, 9999);
   game.summon('fire'); assert.equal(game.robots.length, 1);
   fundRobot(game, 'electric'); game.summon('electric'); assert.equal(game.robots.length, 2); assert.equal(game.elementEnergy.electric, 0);
-  game.elementEnergy.ice = 7; game.elementEnergy.fire = 3; game.credits = 0; game.summon('ice');
-  assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 3); assert.equal(game.credits, 0);
+  game.elementEnergy.ice = 7; game.elementEnergy.fire = 3; game.elementEnergy.electric = 2; game.credits = 0; game.summon('ice');
+  assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 3); assert.equal(game.elementEnergy.electric, 0); assert.equal(game.credits, 0);
 });
 
 test('invalid placement, occupied slots and full board preserve matching energy', () => {

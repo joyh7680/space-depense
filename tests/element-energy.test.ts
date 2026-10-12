@@ -9,13 +9,13 @@ const monster = (id: number, health: number): Enemy => ({
   id, x: 5, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0,
 });
 
-test('hybrid robots use the requested names and exact 5, 7 and 9 energy combinations', () => {
+test('hybrid robots use the requested names and exact 7, 9 and 12 energy combinations', () => {
   assert.equal(ROBOTS.electric.name, '크라이오 볼트');
-  assert.deepEqual(ROBOTS.electric.recipe, [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 2 }]);
+  assert.deepEqual(ROBOTS.electric.recipe, [{ kind: 'electric', amount: 3 }, { kind: 'ice', amount: 3 }, { kind: 'fire', amount: 1 }]);
   assert.equal(ROBOTS.ice.name, '써멀 쇼크');
-  assert.deepEqual(ROBOTS.ice.recipe, [{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 3 }]);
+  assert.deepEqual(ROBOTS.ice.recipe, [{ kind: 'ice', amount: 4 }, { kind: 'fire', amount: 3 }, { kind: 'electric', amount: 2 }]);
   assert.equal(ROBOTS.fire.name, '플라즈마');
-  assert.deepEqual(ROBOTS.fire.recipe, [{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 4 }]);
+  assert.deepEqual(ROBOTS.fire.recipe, [{ kind: 'fire', amount: 5 }, { kind: 'electric', amount: 4 }, { kind: 'ice', amount: 3 }]);
 });
 
 test('deployment consumes one acquired stored robot without spending energy', () => {
@@ -47,7 +47,7 @@ test('deployment consumes one acquired stored robot without spending energy', ()
   }
 });
 
-test('a missing primary or secondary energy blocks deployment without changing resources or selection', () => {
+test('any missing recipe energy blocks deployment without changing resources or selection', () => {
   for (const kind of ROBOT_KINDS) for (const missing of ROBOTS[kind].recipe) {
     const game = new DefenseSimulation(); game.startWave(); fundRobot(game, kind);
     game.elementEnergy[missing.kind]--;
@@ -60,7 +60,7 @@ test('a missing primary or secondary energy blocks deployment without changing r
 });
 
 test('inventory counts only stored robots regardless of available energy combinations', () => {
-  const energy = { electric: 6, ice: 4, fire: 3 };
+  const energy = { electric: 8, ice: 6, fire: 3 };
   assert.equal(getRobotEnergyCount(energy, 'electric'), 2);
   assert.equal(getRobotEnergyCount(energy, 'ice'), 1);
   assert.equal(getRobotEnergyCount(energy, 'fire'), 0);
@@ -142,7 +142,7 @@ test('nonfatal attacks do not award energy or consume random draws', () => {
 });
 
 test('kills keep accumulating energy and only the chosen robot consumes its recipe', () => {
-  const draws = [0.99, 0.99, 0.99, 0.99, 0, 0, 0, 0, 0, 0]; let rolls = 0;
+  const draws = [0.99, 0.99, 0.99, 0.99, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0.5]; let rolls = 0;
   const game = new DefenseSimulation(() => draws[rolls++] ?? 0.5); game.startWave();
   for (let i = 0; i < draws.length; i++) {
     game.enemies = [monster(100 + i, 0)]; game.step(0.05);
@@ -150,13 +150,13 @@ test('kills keep accumulating energy and only the chosen robot consumes its reci
     assert.equal(game.robotCount, 0);
     assert.equal(Object.values(game.elementEnergy).reduce((a, b) => a + b, 0), i + 1);
   }
-  assert.deepEqual(game.elementEnergy, { fire: 6, ice: 0, electric: 4 });
+  assert.deepEqual(game.elementEnergy, { fire: 6, ice: 3, electric: 4 });
   assert.equal(game.deployRobotKind('fire'), true);
   assert.deepEqual(game.elementEnergy, { fire: 1, ice: 0, electric: 0 });
   const robot = game.robots[0];
   assert.equal(robot.kind, 'fire'); assert.equal(robot.deployed, true);
   assert.equal(robot.autoAttackActive, false); assert.equal(robot.missionStatus, 'waiting');
-  assert.equal(game.selectedId, robot.id); assert.equal(rolls, 11, 'ten rewards and one placement draw');
+  assert.equal(game.selectedId, robot.id); assert.equal(rolls, 14, 'thirteen rewards and one placement draw');
 });
 
 test('burn deaths reward once before movement; pause freezes rewards and escape grants nothing', () => {
@@ -200,18 +200,18 @@ test('complete recipes wait for selection and manual summons use random valid fl
 
 test('manual choices and total counts never double spend shared energy and respect capacity', () => {
   const game = new DefenseSimulation(() => 0.5); game.startWave(); game.player = { x: 14, y: 11 };
-  game.elementEnergy = { fire: 5, ice: 6, electric: 7 };
+  game.elementEnergy = { fire: 5, ice: 7, electric: 10 };
   game.togglePause(); game.step(0.05);
-  assert.equal(game.robotCount, 0); assert.deepEqual(game.elementEnergy, { fire: 5, ice: 6, electric: 7 });
+  assert.equal(game.robotCount, 0); assert.deepEqual(game.elementEnergy, { fire: 5, ice: 7, electric: 10 });
   assert.equal(game.deployRobotKind('ice'), false);
   game.togglePause(); game.step(0.05);
   assert.equal(game.robotCount, 0);
   assert.equal(getTotalSummonCount(game.elementEnergy, game.robots), 2);
   assert.equal(getAvailableRobotCount(game.elementEnergy, game.robots, 'electric'), 2);
   assert.equal(game.deployRobotKind('ice'), true);
-  assert.deepEqual(game.elementEnergy, { fire: 2, ice: 2, electric: 7 });
+  assert.deepEqual(game.elementEnergy, { fire: 2, ice: 3, electric: 8 });
   assert.equal(game.deployRobotKind('electric'), true);
-  assert.deepEqual(game.elementEnergy, { fire: 2, ice: 0, electric: 4 });
+  assert.deepEqual(game.elementEnergy, { fire: 1, ice: 0, electric: 5 });
   fundRobot(game, 'fire', 9); game.step(0.05);
   assert.equal(game.robotCount, 2);
   for (let index = 2; index < MAX_ROBOTS; index++) assert.equal(game.deployRobotKind('fire'), true);
@@ -229,7 +229,7 @@ test('manual choices and total counts never double spend shared energy and respe
 
 test('a manually summoned robot cannot attack until its own mission succeeds', () => {
   const game = new DefenseSimulation(() => 0); game.startWave();
-  game.elementEnergy = { fire: 4, electric: 4, ice: 0 };
+  game.elementEnergy = { fire: 4, electric: 4, ice: 3 };
   game.enemies = [monster(100, 14)]; game.step(0.05);
   assert.equal(game.robotCount, 0); assert.equal(game.deployRobotKind('fire'), true);
   const robot = game.robots[0];
