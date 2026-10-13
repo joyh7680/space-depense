@@ -33,17 +33,19 @@ function showGuide() {
       <ol class="guide-steps">
         <li><h2>내 캐릭터를 옮겨요</h2><p>캐릭터를 마우스나 손가락으로 끌어서 <strong>괴물 길 옆의 빈 바닥</strong>에 놓아요. 가까운 괴물은 알아서 공격해요.</p></li>
         <li><h2>에너지를 모아요</h2><p>괴물을 잡으면 <strong>전기, 냉기(얼음), 화염(불)</strong> 중 하나를 얻어요. 화면 아래에서 몇 개 모았는지 볼 수 있어요.</p></li>
-        <li><h2>로봇을 불러요</h2><p>아래의 <strong>‘로봇 배치’</strong>를 누르고 원하는 로봇을 골라요. 필요한 에너지가 모이면 부를 수 있어요. 흐린 카드는 아직 에너지가 부족하다는 뜻이에요.</p></li>
+        <li><h2>로봇을 불러요</h2><p>아래의 <strong>‘로봇 배치’</strong>를 누르고 원하는 로봇을 골라요. 로봇마다 필요한 <strong>에너지 종류와 개수</strong>를 모두 모아야 해요. 소환하면 사용한 에너지가 자동으로 빠지고, 아래의 보유 숫자도 줄어요.</p></li>
         <li><h2>로봇에게 명령해요</h2><p>바닥에 나온 <strong>로봇을 누르면 코딩 문제</strong>가 열려요. 문제에 적힌 순서대로 블록을 눌러 ‘내 코드’에 넣어요. 정답이면 <strong>‘공격 성공!’</strong>이 뜨고 로봇이 알아서 공격해요.</p></li>
       </ol>
       <p class="guide-tip">블록을 잘못 넣었나요? 옆의 <strong>×</strong>로 빼고 다시 넣으면 돼요.<br />로봇도 끌어서 빈 바닥으로 옮길 수 있어요. 최대 {{ MAX_ROBOTS }}대까지 함께 싸워요.</p>
 
       <section class="guide-robots" aria-labelledby="guide-robots-title">
         <h2 id="guide-robots-title">어떤 로봇을 부를까요?</h2>
+        <p class="guide-tip">아래는 로봇 <strong>1대</strong>를 부를 때 필요한 에너지 조합이에요. 에너지를 모으기만 하면 그대로 남아 있고, 원하는 로봇을 골라 소환할 때 사용돼요.</p>
         <div v-for="robot in robotGuides" :key="robot.kind" class="guide-robot">
           <i class="robot-portrait" :style="robotPortraitStyle(robot.kind)" aria-hidden="true" />
-          <div><h3>{{ ROBOTS[robot.kind].name }}</h3><p>{{ robot.tip }}</p><small>필요한 에너지: {{ ROBOTS[robot.kind].recipe.map(part => `${ELEMENTS[part.kind].name} ${part.amount}개`).join(' + ') }}</small></div>
+          <div><h3>{{ ROBOTS[robot.kind].name }}</h3><p>{{ robot.tip }}</p><small>필요한 에너지: {{ ROBOTS[robot.kind].recipe.map(part => `${ELEMENTS[part.kind].name} ${part.amount}개`).join(' + ') }} (총 {{ ROBOTS[robot.kind].recipe.reduce((total, part) => total + part.amount, 0) }}개)</small></div>
         </div>
+        <p class="guide-tip guide-energy-note">흐린 카드는 에너지가 부족하거나 로봇이 최대 {{ MAX_ROBOTS }}대라서 부를 수 없다는 뜻이에요. 소환하지 못하면 에너지는 줄지 않아요. 보스를 잡아 보상으로 받은 보관 로봇은 에너지 없이 먼저 배치돼요.</p>
       </section>
 
       <section class="guide-rounds" aria-labelledby="guide-rounds-title">
@@ -81,6 +83,7 @@ function showGuide() {
 .guide-steps p,.guide-tip,.guide-robot p,.guide-rounds p,.guide-rounds dd,.guide-important{margin:0;font-size:13px;line-height:1.85;color:#c4d2e3;word-break:keep-all;overflow-wrap:anywhere}
 .guide-content strong{color:#f1f6ff}
 .guide-tip{padding:0 4px}
+.guide-energy-note{margin-top:12px}
 .guide-robots,.guide-rounds{margin-top:24px;padding-top:22px;border-top:1px solid #ffffff1a}
 .guide-robot{display:flex;align-items:center;gap:14px;margin-top:12px;padding:12px 14px;border-radius:14px;background:#0c182b80}
 .guide-robot .robot-portrait{flex-shrink:0;width:40px;height:50px;image-rendering:pixelated}
