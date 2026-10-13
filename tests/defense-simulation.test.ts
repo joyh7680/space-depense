@@ -131,10 +131,10 @@ test('sequential code selects the nearest living target, then attacks, then wait
   assert.ok(game.enemies.find(e => e.id === 101)!.health < 1000);
 });
 
-test('robots acquire targets only within their configured 190 world range', () => {
+test('robots acquire targets only within their configured world range', () => {
   assert.equal(ROBOT_ATTACK_RADIUS, 190);
   for (const kind of ['fire', 'ice', 'electric'] as const) for (const inside of [true, false]) {
-    assert.equal(ROBOTS[kind].attackRadius, ROBOT_ATTACK_RADIUS);
+    assert.equal(ROBOTS[kind].attackRadius, kind === 'fire' ? 150 : ROBOT_ATTACK_RADIUS);
     const game = new DefenseSimulation(() => 0);
     game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
@@ -179,7 +179,7 @@ test('plasma explosion cannot damage monsters outside its displayed circle', () 
   const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
   summon(game); game.startWave(); game.step(0.05);
   game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
-  game.enemies = [enemy(100, 4.2), enemy(101, 4.6), enemy(102, 4.7)]
+  game.enemies = [enemy(100, 4), enemy(101, 4.1), enemy(102, 4.2)]
     .map(target => ({ ...target, slowTime: 100, slowFactor: 0 }));
   advance(game, 0.9);
   assert.ok(game.enemies[0].health < 1000);
@@ -191,7 +191,7 @@ test('plasma damages every enemy around the robot rather than around its target'
   const game = new DefenseSimulation(() => 0);
   game.player = { x: 14, y: 11 };
   summon(game, 'fire'); game.startWave(); game.spawned = WAVE_ONE.enemies;
-  game.enemies = [enemy(100, 4.2), enemy(101, 1.8), enemy(102, 6)]
+  game.enemies = [enemy(100, 4), enemy(101, 2), enemy(102, 6)]
     .map(target => ({ ...target, slowTime: 100, slowFactor: 0 }));
   advance(game, 0.9);
   assert.equal(game.enemies[0].health, 910);

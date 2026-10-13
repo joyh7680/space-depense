@@ -73,12 +73,16 @@ test('thermal pierces all enemies on the full forward beam, excluding enemies be
 
 test('plasma blast covers the entire robot circle and evaluates moving enemies after charging', () => {
   const { game, robot } = setup('fire');
+  assert.equal(getBasicRobotAttack('fire').attackRadius, 150);
   const front = target(100, 3, 4, true), behind = target(101, 3, 6.5, true);
   const outside = target(102, 5, 5, true), entrant = target(103, 7, 5, true);
   game.enemies = [front, behind, outside, entrant];
-  game.step(0);
+  const charge = game.step(0);
+  assert.equal(charge[0].radius, 150);
   front.x = 8; entrant.x = 4;
-  for (let frame = 0; frame < 10; frame++) game.step(0.05);
+  const shots = [];
+  for (let frame = 0; frame < 10; frame++) shots.push(...game.step(0.05));
+  assert.equal(shots[0].radius, 150);
   assert.deepEqual([front, behind, outside, entrant].map(victim => victim.health), [100, 10, 100, 10]);
   assert.equal(robot.attacks, 1);
 });
