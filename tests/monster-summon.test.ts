@@ -19,7 +19,7 @@ const spawnBoss = (game: DefenseSimulation) => {
   game.step(0.05);
 };
 
-test('the timer starts at 100 and spawns exactly one boss at 100 seconds', () => {
+test('the timer starts at 100 and restarts immediately when the boss spawns', () => {
   const game = new DefenseSimulation();
   assert.equal(game.monsterSummonCountdown, 100);
   game.player = { x: 14, y: 11 }; game.startWave();
@@ -32,12 +32,13 @@ test('the timer starts at 100 and spawns exactly one boss at 100 seconds', () =>
   assert.equal(game.status, 'running');
   assert.equal(game.kills, WAVE_ONE.enemies);
   game.step(0.05);
-  assert.equal(game.monsterSummonCountdown, null);
+  assert.equal(game.monsterSummonCountdown, 100);
   const boss = game.enemies[0];
   assert.equal(boss.kind, 'summoned');
   assert.equal(boss.health, SUMMONED_MONSTER.health);
   assert.equal(boss.x, ROUTE[0].x); assert.equal(boss.y, ROUTE[0].y);
   advance(game, 1);
+  assert.equal(game.monsterSummonCountdown, 99);
   assert.equal(game.enemies.length, 1); assert.equal(game.enemies[0].id, boss.id);
   boss.health = 0; game.step(0.05);
   assert.equal(game.status, 'cleared'); assert.equal(game.kills, game.totalEnemies);
@@ -71,7 +72,7 @@ test('pause freezes the timer and resuming triggers the scheduled boss', () => {
   advance(game, 90);
   assert.equal(JSON.stringify(game), before); assert.equal(game.monsterSummonCountdown, 1);
   game.togglePause(); game.step(0.05);
-  assert.equal(game.enemies[0].kind, 'summoned'); assert.equal(game.monsterSummonCountdown, null);
+  assert.equal(game.enemies[0].kind, 'summoned'); assert.equal(game.monsterSummonCountdown, 100);
 });
 
 test('defeat stops the timer and a new game resets it to 100 seconds', () => {
@@ -192,7 +193,7 @@ test('burning special monsters reward once before they can escape; paused reward
   assert.equal(count, 4);
 });
 
-test('each wave spawns only its own boss at 100 seconds and never spawns another', () => {
+test('each wave repeats its own boss every 100 seconds even while earlier bosses are alive', () => {
   const game = new DefenseSimulation(() => 0.5);
   game.player = { x: 14, y: 11 };
   assert.equal(SUMMONED_MONSTERS.length, 3);
@@ -204,52 +205,79 @@ test('each wave spawns only its own boss at 100 seconds and never spawns another
     assert.equal(game.nextBossNumber, wave);
     assert.equal(game.monsterSummonCountdown, 100);
     const regularCount = game.totalEnemies - 1;
-    let bossId: number | undefined;
     for (let frame = 1; frame <= 10000; frame++) {
-      // Keep the wave running for 500 seconds to check all former extra-spawn deadlines.
+      // Keep every boss alive through five spawn deadlines.
       for (const enemy of game.enemies) {
         if (enemy.kind === 'summoned') Object.assign(enemy, ROUTE[0], { waypoint: 1 });
         else enemy.health = 0;
       }
       game.step(0.05);
       const bosses = game.enemies.filter(enemy => enemy.kind === 'summoned');
-      assert.equal(bosses.length, frame < 2000 ? 0 : 1);
-      assert.equal(game.totalEnemies, regularCount + 1);
-      if (frame >= 2000) {
-        const boss = bosses[0];
-        bossId ??= boss.id;
-        assert.equal(boss.id, bossId);
+      const bossCount = Math.floor(frame / 2000);
+      assert.equal(bosses.length, bossCount);
+      assert.equal(new Set(bosses.map(boss => boss.id)).size, bossCount);
+      assert.equal(game.totalEnemies, regularCount + Math.max(1, bossCount));
+      assert.equal(game.nextBossNumber, wave);
+      assert.equal(game.monsterSummonCountdown, Math.ceil((bossCount + 1) * 100 - frame * 0.05 - 0.000001));
+      assert.equal(game.bossApproaching, frame % 2000 >= 1900);
+      for (const boss of bosses) {
         assert.equal(boss.bossIndex, wave - 1);
         assert.equal(boss.health, SUMMONED_MONSTER.health);
-        assert.equal(game.nextBossNumber, null);
-        assert.equal(game.monsterSummonCountdown, null);
       }
     }
     assert.equal(game.status, 'running');
     for (const enemy of game.enemies) enemy.health = 0;
     game.step(0.05);
     assert.equal(game.status, 'cleared');
-    assert.equal(game.kills, regularCount + 1);
+    assert.equal(game.kills, regularCount + 5);
     assert.equal(game.totalEnemies, game.kills);
+    assert.equal(game.monsterSummonCountdown, null);
   }
 });
 
-test('a defeated boss never respawns while regular enemies remain', () => {
+test('defeating a boss does not stop the repeated timer while regular enemies remain', () => {
   const game = new DefenseSimulation();
   spawnBoss(game);
   const boss = game.enemies[0];
   game.enemies.push({ ...ROUTE[0], id: 1000, health: 1000, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
   boss.health = 0; game.step(0.05);
   assert.equal(game.status, 'running');
-  for (const deadline of [200, 300, 400, 500]) {
+  for (const [index, deadline] of [200, 300, 400, 500].entries()) {
     game.elapsed = deadline - 0.05;
     game.step(0.05);
-    assert.equal(game.monsterSummonCountdown, null);
-    assert.equal(game.enemies.some(enemy => enemy.kind === 'summoned'), false);
-    assert.equal(game.totalEnemies, WAVE_ONE.enemies + 1);
+    assert.equal(game.monsterSummonCountdown, 100);
+    const bosses = game.enemies.filter(enemy => enemy.kind === 'summoned');
+    assert.equal(bosses.length, 1);
+    assert.equal(game.totalEnemies, WAVE_ONE.enemies + index + 2);
+    bosses[0].health = 0;
+    game.step(0.05);
+    assert.equal(game.status, 'running');
   }
   game.enemies[0].health = 0; game.step(0.05);
   assert.equal(game.status, 'cleared');
+});
+
+test('the repeated countdown pauses and warns for the five seconds before the next boss', () => {
+  const game = new DefenseSimulation();
+  spawnBoss(game);
+  assert.equal(game.monsterSummonCountdown, 100);
+  game.elapsed = 194.9; game.step(0.05);
+  assert.equal(game.bossApproaching, false);
+  game.step(0.05);
+  assert.equal(game.monsterSummonCountdown, 5);
+  assert.equal(game.bossApproaching, true);
+  game.togglePause();
+  const before = JSON.stringify(game);
+  advance(game, 20);
+  assert.equal(JSON.stringify(game), before);
+  assert.equal(game.monsterSummonCountdown, 5);
+  game.togglePause(); advance(game, 4.95);
+  assert.equal(game.monsterSummonCountdown, 1);
+  assert.equal(game.bossApproaching, true);
+  game.step(0.05);
+  assert.equal(game.enemies.filter(enemy => enemy.kind === 'summoned').length, 2);
+  assert.equal(game.monsterSummonCountdown, 100);
+  assert.equal(game.bossApproaching, false);
 });
 
 test('each wave warns only during the final five seconds, then publishes live boss HP', () => {

@@ -69,17 +69,20 @@ export class DefenseSimulation {
   get storedRobotCount(): number { return this.robots.filter(robot => !robot.deployed).length; }
   get deployedRobots(): Robot[] { return this.robots.filter(robot => robot.deployed); }
   private get regularEnemyCount(): number { return REGULAR_ENEMY_COUNTS[getMissionNumber(this.wave) - 1]; }
-  get totalEnemies(): number { return this.regularEnemyCount + 1; }
+  get totalEnemies(): number { return this.regularEnemyCount + Math.max(1, this.bossesSpawned); }
   get nextBossNumber(): number | null {
-    return this.bossesSpawned > 0 || this.status === 'cleared' ? null : getMissionNumber(this.wave);
+    return this.status === 'cleared' || this.status === 'defeat' ? null : getMissionNumber(this.wave);
+  }
+  private get nextBossSpawnTime(): number {
+    return (this.bossesSpawned + 1) * SUMMONED_MONSTER.summonDelay;
   }
   get monsterSummonCountdown(): number | null {
-    return this.nextBossNumber === null ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
+    return this.nextBossNumber === null ? null : Math.ceil(Math.max(0, this.nextBossSpawnTime - this.elapsed - 0.000001));
   }
   get bossApproaching(): boolean {
     return (this.status === 'running' || this.status === 'paused') && this.nextBossNumber !== null
-      && this.elapsed >= SUMMONED_MONSTER.summonDelay - SUMMONED_MONSTER.warningLeadTime - 0.000001
-      && this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001;
+      && this.elapsed >= this.nextBossSpawnTime - SUMMONED_MONSTER.warningLeadTime - 0.000001
+      && this.elapsed < this.nextBossSpawnTime - 0.000001;
   }
   get bossHealth(): BossHealth | null {
     if (this.status !== 'running' && this.status !== 'paused') return null;
@@ -88,7 +91,7 @@ export class DefenseSimulation {
   }
 
   private spawnBoss(): void {
-    if (this.nextBossNumber === null || this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001) return;
+    if (this.nextBossNumber === null || this.elapsed < this.nextBossSpawnTime - 0.000001) return;
     const bossIndex = this.nextBossNumber - 1;
     this.bossesSpawned++;
     this.enemies.push({ ...ROUTE[0], id: ++this.sequence, kind: 'summoned', bossIndex, health: SUMMONED_MONSTER.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });

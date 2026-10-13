@@ -51,7 +51,7 @@ test('wave three spawns its boss at 100 seconds and still waits for all regular 
     game.step(0.05);
     for (const enemy of game.enemies) enemy.health = 0;
   }
-  assert.equal(game.monsterSummonCountdown, null);
+  assert.equal(game.monsterSummonCountdown, 100);
   assert.ok(game.enemies.some(enemy => enemy.kind === 'summoned'));
   game.step(0.05);
   assert.equal(game.status, 'running'); assert.ok(game.spawned < 90);

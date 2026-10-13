@@ -115,7 +115,7 @@ function nextWave() {
         <span v-for="heart in 10" :key="heart" :class="{ empty: heart > remainingHearts }" aria-hidden="true">♥</span>
       </div>
     </div>
-    <BossHud v-if="ready && !error" :approaching="state.bossApproaching" :health="state.bossHealth" />
+    <BossHud v-if="ready && !error" :approaching="state.bossApproaching" />
     <div class="bottom-controls">
       <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? `${Math.max(1, state.wave)}번 보스 출현` : `${state.nextBossNumber}번 보스 자동 출현까지 ${state.monsterSummonCountdown}초`">
         <span v-if="state.monsterSummonCountdown !== null" class="robot-button-count monster-summon-timer" aria-hidden="true">{{ state.monsterSummonCountdown }}s</span>
