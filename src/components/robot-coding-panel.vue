@@ -4,7 +4,6 @@ import { getCodingBlock, getCodingMission, isCodingBlock, type CodingBlockId } f
 import { ROBOTS } from '../game/wave-one';
 import { robotPortraitStyle } from '../game/robot-visuals';
 import type { RobotState } from '../game/types';
-import EnergyIcon from './energy-icon.vue';
 import CodingSuccessEffect from './coding-success-effect.vue';
 
 const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean }>();
@@ -61,7 +60,6 @@ function removeBlock(slot: number) {
   <aside class="coding-panel" :class="robot.kind" aria-labelledby="coding-title">
     <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(Math.max(1, wave)).padStart(2, '0') }}</small><h2 id="coding-title">로봇에게 명령하기</h2></div><button class="coding-close" type="button" aria-label="코딩 패널 닫기" @click="emit('close')">×</button></header>
     <div class="coding-scroll">
-      <div class="coding-robot"><EnergyIcon :kind="robot.kind" /><div><h3>{{ ROBOTS[robot.kind].name }} #{{ robot.serial }}</h3><span :class="{ complete: robot.autoAttackActive }">{{ robot.autoAttackActive ? '● 기본 자동 공격 중 · 미션 완료' : '● 공격 대기 · 이번 웨이브 미션' }}</span></div><i class="robot-portrait" :style="robotPortraitStyle(robot.kind)" aria-hidden="true" /></div>
       <section class="coding-mission" @keydown.esc="missionDetailsOpen = false">
         <div class="coding-mission-header">
           <small>WAVE {{ mission.number }} {{ mission.title }} · {{ robot.deploymentOrder }}번째 배치</small>
