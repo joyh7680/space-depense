@@ -3,7 +3,7 @@ import type Phaser from 'phaser';
 export type SpineActor = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Transform & Phaser.GameObjects.Components.Depth & Phaser.GameObjects.Components.Alpha & {
   play: (animation: string, loop?: boolean, ignoreIfPlaying?: boolean) => SpineActor;
   setSkinByName: (name: string) => SpineActor;
-  skeleton: { setSlotsToSetupPose: () => void };
+  skeleton: { setSlotsToSetupPose: () => void; findSlot: (name: string) => unknown | null };
   timeScale: number;
   width: number;
   height: number;

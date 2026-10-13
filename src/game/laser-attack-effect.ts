@@ -5,7 +5,7 @@ const center = (value: number) => value * 100 + 50;
 const LASER_COLOR = 0xb5fff3;
 const LASER_DURATION = 220;
 
-// Player and all robot kinds share the original laser beam and soft outer glow.
+// The player's original laser stays separate from the robot-specific effects.
 export function showLaserAttack(scene: Phaser.Scene, container: Phaser.GameObjects.Container, shot: Shot): void {
   for (const glow of [true, false]) {
     const beam = scene.add.line(0, 0,

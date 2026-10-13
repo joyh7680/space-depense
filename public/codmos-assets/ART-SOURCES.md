@@ -1,5 +1,8 @@
 # 원본 이미지 출처
 
+- 웨이브별 보스: `acef8de87e1f…`(민트색), `e5f5d6e48832…`(주황색), `52081da08bde…`(초록색), `80fc9024a85d…`(탈것 탄 파란색)의 기존 Spine JSON을 보존했습니다. 현재 WAVE 1·2·3에서는 각각 민트색·주황색·초록색만 사용하며, 탈것 탄 보스는 보관합니다. 추가 보스의 원본 PNG `monster/aa9ad7124c35/f533c098-9a1d-4981-907f-51328eecf2ab.png`, `monster/45b71e6cd32e/21cd105e-fe40-41fa-b76f-79eea999a47c.png`, `monster/266a4159093d/b8c7a40c-b126-4306-a1d3-09584fefac51.png`는 기존 atlas에 기록된 파일명으로 `https://boominkimlogibros.github.io/codmos-survival/play/assets/`에서 복원했습니다. 원본 이미지는 수정하지 않았습니다.
+- `80fc9024a85d/boss-mounted.json`은 동일 폴더의 원본 JSON을 보존하고 만든 호환 사본입니다. `armed01` 스킨의 `armor`, `body_armor2` attachment에 기존 atlas의 실제 영역명 `head_armor`, `body_armor`를 각각 path로 지정했습니다. 나머지 데이터는 동일합니다.
+
 - `effect/1036ce357bc3/`: 사용자가 지정한 atlas에 대응하는 `9daf20f9-3b18-4beb-be52-ca86e900effc.png`(276 × 140)와 `attack-success.json`은 로컬 `C:/workspace/codmos-cms/contents/aidt/public/CDN/default/public/`의 동일 PNG 및 `f21fcb67-9ed0-427c-880e-45391f3eb894.json` 원본을 복사했습니다. particle/twinkle 애니메이션을 공격 성공 카드에 재생하며 원본 내용은 수정하지 않았습니다.
 
 - `effect/green-light/`, `effect/cooling-energy/`, `effect/electric-energy/`, `effect/game-clear/`의 PNG는 해당 atlas에 기록된 파일명을 사용해 `https://cdn.codmos.io/default/public/`에서 복원했습니다. 이미지는 수정하지 않았습니다. 누락된 green-light JSON, cooling-energy atlas, game-clear atlas는 기존 `codmos-assets`의 대응 원본을 복사했습니다. electric-energy atlas는 로컬 코드모스 런타임의 `MLT_ATTACK` JSON/atlas 쌍을 확인해 같은 CDN에서 복원했습니다.

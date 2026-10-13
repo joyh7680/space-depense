@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { DefenseSimulation, ROUTE } from '../src/game/defense-simulation.ts';
 import { ROBOT_KINDS, SUMMONED_MONSTER, WAVE_ONE } from '../src/game/wave-one.ts';
 import { getRobotDeployCount, getTotalDeployCount } from '../src/game/robot-energy.ts';
+import { SUMMONED_MONSTERS } from '../src/game/summoned-monsters.ts';
 
 const advance = (game: DefenseSimulation, seconds: number) => {
   for (let frame = 0; frame < Math.round(seconds * 20); frame++) game.step(0.05);
@@ -189,4 +190,64 @@ test('burning special monsters reward once before they can escape; paused reward
   assert.equal(game.health, 100); assert.equal(game.elementEnergy.electric, 3);
   assert.equal(game.robotCount, 0);
   assert.equal(count, 4);
+});
+
+test('each wave spawns only its own boss at 100 seconds and never spawns another', () => {
+  const game = new DefenseSimulation(() => 0.5);
+  game.player = { x: 14, y: 11 };
+  assert.equal(SUMMONED_MONSTERS.length, 3);
+  for (const wave of [1, 2, 3]) {
+    assert.equal(game.startWave(), true);
+    if (wave > 1) advance(game, 3);
+    assert.equal(game.wave, wave);
+    assert.equal(game.elapsed, 0);
+    assert.equal(game.nextBossNumber, wave);
+    assert.equal(game.monsterSummonCountdown, 100);
+    const regularCount = game.totalEnemies - 1;
+    let bossId: number | undefined;
+    for (let frame = 1; frame <= 10000; frame++) {
+      // Keep the wave running for 500 seconds to check all former extra-spawn deadlines.
+      for (const enemy of game.enemies) {
+        if (enemy.kind === 'summoned') Object.assign(enemy, ROUTE[0], { waypoint: 1 });
+        else enemy.health = 0;
+      }
+      game.step(0.05);
+      const bosses = game.enemies.filter(enemy => enemy.kind === 'summoned');
+      assert.equal(bosses.length, frame < 2000 ? 0 : 1);
+      assert.equal(game.totalEnemies, regularCount + 1);
+      if (frame >= 2000) {
+        const boss = bosses[0];
+        bossId ??= boss.id;
+        assert.equal(boss.id, bossId);
+        assert.equal(boss.bossIndex, wave - 1);
+        assert.equal(boss.health, SUMMONED_MONSTER.health);
+        assert.equal(game.nextBossNumber, null);
+        assert.equal(game.monsterSummonCountdown, null);
+      }
+    }
+    assert.equal(game.status, 'running');
+    for (const enemy of game.enemies) enemy.health = 0;
+    game.step(0.05);
+    assert.equal(game.status, 'cleared');
+    assert.equal(game.kills, regularCount + 1);
+    assert.equal(game.totalEnemies, game.kills);
+  }
+});
+
+test('a defeated boss never respawns while regular enemies remain', () => {
+  const game = new DefenseSimulation();
+  spawnBoss(game);
+  const boss = game.enemies[0];
+  game.enemies.push({ ...ROUTE[0], id: 1000, health: 1000, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
+  boss.health = 0; game.step(0.05);
+  assert.equal(game.status, 'running');
+  for (const deadline of [200, 300, 400, 500]) {
+    game.elapsed = deadline - 0.05;
+    game.step(0.05);
+    assert.equal(game.monsterSummonCountdown, null);
+    assert.equal(game.enemies.some(enemy => enemy.kind === 'summoned'), false);
+    assert.equal(game.totalEnemies, WAVE_ONE.enemies + 1);
+  }
+  game.enemies[0].health = 0; game.step(0.05);
+  assert.equal(game.status, 'cleared');
 });

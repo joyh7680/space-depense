@@ -7,8 +7,10 @@ import { ELEMENTS, ROBOT_KINDS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './wav
 import type { DefenseState, GameMode, GameOptions, RobotKind, TilePosition } from './types';
 import type { CodingBlockId } from './coding-missions';
 import { getRegularMonster, MONSTER_ASSET_PATH, REGULAR_MONSTERS } from './regular-monsters';
+import { getSummonedMonster, SUMMONED_MONSTERS } from './summoned-monsters';
 import { SPINE_EFFECTS, type SpineEffectKind } from './effects';
 import { showLaserAttack } from './laser-attack-effect';
+import { showRobotAttack } from './robot-attack-effect';
 import { ROBOT_ART_SCALE, ROBOT_VISUALS, robotAssetUrl } from './robot-visuals';
 
 const center = (value: number) => value * 100 + 50;
@@ -35,6 +37,7 @@ export class DefenseScene extends Phaser.Scene {
   private robotArt = new Map<number, Phaser.GameObjects.Image>();
   private robotSpawnTimes = new Map<number, number>();
   private units!: Phaser.GameObjects.Graphics;
+  private weapons!: Phaser.GameObjects.Graphics;
   private route!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Graphics;
   private core!: Phaser.GameObjects.Graphics;
@@ -74,7 +77,9 @@ export class DefenseScene extends Phaser.Scene {
     for (const monster of REGULAR_MONSTERS) {
       this.load.image(monster.texture, `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${monster.file}`);
     }
-    this.load.spine('monster-summoned', `${import.meta.env.BASE_URL}codmos-assets/acef8de87e1f/acef8de87e1f2fe72202365bc0c517f690041bd8ab24a55f592a2b2a3c1df8b5.json`, [`${import.meta.env.BASE_URL}codmos-assets/monster/1bae1e1a9bf8/1bae1e1a9bf8c1ac49b4b6c9a7cfd1d56c0eeaab03fef737bf139078ca66add0.atlas`], true);
+    for (const monster of SUMMONED_MONSTERS) {
+      this.load.spine(monster.texture, `${import.meta.env.BASE_URL}codmos-assets/${monster.json}`, [`${import.meta.env.BASE_URL}codmos-assets/${monster.atlas}`], true);
+    }
     const smokeBase = `${import.meta.env.BASE_URL}codmos-assets/game-over/5e04ca1208c8/`;
     this.load.atlas('station-smoke', `${smokeBase}9ae27227-06b4-432c-95e7-305f10efc0e5.png`, `${smokeBase}smoke-frames.json`);
     const effectBase = `${import.meta.env.BASE_URL}codmos-assets/effect/`;
@@ -101,6 +106,7 @@ export class DefenseScene extends Phaser.Scene {
       this.route.fillStyle(0xa68b58, 0.7); this.route.fillCircle(center(x), center(y), 3);
     }
     this.units = this.add.graphics().setDepth(12);
+    this.weapons = this.add.graphics().setDepth(15);
     this.hover = this.add.graphics().setDepth(4);
     this.stationDamage = this.add.graphics().setDepth(23);
     this.stationEffects = this.add.container(0, 0).setDepth(24);
@@ -346,7 +352,8 @@ export class DefenseScene extends Phaser.Scene {
     }
     if (this.simulation.storedRobotCount > previousStored) this.notice = '로봇을 획득했어요! 로봇 배치 카드에서 선택해 소환하세요.';
     for (const shot of shots) {
-      showLaserAttack(this, this.combatEffects, shot);
+      if (shot.player) showLaserAttack(this, this.combatEffects, shot);
+      else showRobotAttack(this, this.combatEffects, shot);
     }
     if (previousStatus !== 'cleared' && this.simulation.status === 'cleared' && this.simulation.wave === 3) this.showGameClear();
     if (time >= this.publishAt) { this.publish(); this.publishAt = time + 120; }
@@ -414,6 +421,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private drawUnits(): void {
     this.units.clear();
+    this.weapons.clear();
     const s = this.simulation;
     const deployedRobots = s.deployedRobots;
     const labelBounds: { left: number; right: number; top: number; bottom: number }[] = [];
@@ -448,6 +456,15 @@ export class DefenseScene extends Phaser.Scene {
       const arrival = Math.min(1, Math.max(0, (s.elapsed - (this.robotSpawnTimes.get(robot.id) ?? s.elapsed)) / 0.55));
       art.setScale(ROBOT_ART_SCALE * (0.35 + 0.65 * Math.sin(arrival * Math.PI / 2)));
       art.setAlpha((0.4 + arrival * 0.6) * (attackEnabled ? 1 : 0.9));
+      if (attackEnabled && robot.kind !== 'fire') {
+        // Keep the character upright while its cannon tracks targets in 360°.
+        const gunX = x, gunY = y - 25;
+        const endX = gunX + Math.cos(robot.aimAngle) * 47, endY = gunY + Math.sin(robot.aimAngle) * 47;
+        this.weapons.lineStyle(12, 0x152b46, 1); this.weapons.lineBetween(gunX, gunY, endX, endY);
+        this.weapons.lineStyle(6, robot.kind === 'electric' ? 0x76d8ff : 0xffad65, 1);
+        this.weapons.lineBetween(gunX, gunY, endX, endY);
+        this.weapons.fillStyle(0xd8f5ff, 1); this.weapons.fillCircle(endX, endY, 5);
+      }
       if (!attackEnabled && s.status !== 'cleared' && s.status !== 'defeat') {
         const pulse = (Math.sin(s.elapsed * 4 + robot.id) + 1) / 2;
         this.units.lineStyle(3, 0xfff2a0, 0.4 + pulse * 0.5);
@@ -490,17 +507,20 @@ export class DefenseScene extends Phaser.Scene {
     for (const [id, art] of this.robotArt) if (!deployedRobots.some(d => d.id === id)) { art.destroy(); this.robotArt.delete(id); this.robotSpawnTimes.delete(id); }
     for (const enemy of s.enemies) {
       const x = center(enemy.x); const y = center(enemy.y);
+      if (enemy.slowTime > 0) {
+        this.units.lineStyle(3, 0x76c9ff, 0.85); this.units.strokeEllipse(x, y + 8, 72, 28);
+      }
       this.units.fillStyle(0x112331, 0.35); this.units.fillEllipse(x, y + 12, 65, 24);
       let actor = this.aliens.get(enemy.id);
       if (!actor) {
         actor = enemy.kind === 'summoned'
-          ? this.add.spine(x, y + 12, 'monster-summoned', 'idle', true).setDepth(13)
+          ? this.add.spine(x, y + 12, getSummonedMonster(enemy.bossIndex).texture, 'idle', true).setDepth(13)
           : this.add.image(x, y - 22, getRegularMonster(s.wave).texture).setDisplaySize(78, 78).setDepth(13);
         if (enemy.kind === 'summoned') {
           const spine = actor as SpineActor;
           // Invisible effect attachments otherwise inflate Spine's bounds and shrink the body.
-          for (const slot of ['attacked', 'die01', 'die02', 'explosion', 'eyes_die', 'eyes_stun', 'magic', 'spawn', 'stun01', 'stun02', 'stun03']) {
-            spine.setAttachment(slot, null);
+          for (const slot of ['attacked', 'die01', 'die02', 'explosion', 'eyes_die', 'eyes_stun', 'eyes2_die', 'eyes2_stun', 'magic', 'spawn', 'stun01', 'stun02', 'stun03']) {
+            if (spine.skeleton.findSlot(slot)) spine.setAttachment(slot, null);
           }
           spine.updateSize();
         }
@@ -623,7 +643,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(Math.max(0, s.countdown - 0.000001)), monsterSummonCountdown: s.monsterSummonCountdown, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, storedRobotCount: s.storedRobotCount, robots: s.robots.map(({ program, cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], completedMissions: [...robot.completedMissions] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete, victoryAnimationComplete: this.victoryAnimationComplete };
+    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(Math.max(0, s.countdown - 0.000001)), monsterSummonCountdown: s.monsterSummonCountdown, nextBossNumber: s.nextBossNumber, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, storedRobotCount: s.storedRobotCount, robots: s.robots.map(({ program, cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], completedMissions: [...robot.completedMissions] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete, victoryAnimationComplete: this.victoryAnimationComplete };
     this.options.onState?.(state);
   }
 }

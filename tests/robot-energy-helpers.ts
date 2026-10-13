@@ -18,7 +18,7 @@ export function addStoredRobot(game: DefenseSimulation, kind: RobotKind): Robot 
     id: Math.min(0, ...game.robots.map(robot => robot.id)) - 1,
     x: -1, y: -1, deployed: false, kind, grade: 1, damage: config.damage,
     cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null,
-    activeBlock: 'find', attacks: 0, targetId: null,
+    activeBlock: 'find', attacks: 0, targetId: null, aimAngle: -Math.PI / 2,
     serial: game.robots.filter(robot => robot.kind === kind).length + 1,
     deploymentOrder: 0, missionVariant: 0, program: createRobotProgram(kind), code: [],
     missionNumber: getMissionNumber(game.wave), autoAttackActive: false, completedMissions: [],

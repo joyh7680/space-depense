@@ -20,7 +20,7 @@ function setup(kind: RobotKind, wave: MissionNumber = 1) {
   return game;
 }
 const enemy = (id: number, x: number, health = 1000): Enemy => ({ id, x, y: 4, waypoint: 1, health, burnTime: 0, burnDamage: 0, slowTime: 0 });
-const advance = (game: DefenseSimulation, frames = 11) => {
+const advance = (game: DefenseSimulation, frames = 18) => {
   // Isolate supplied targets while keeping normal spawning enabled.
   const ids = new Set(game.enemies.map(enemy => enemy.id));
   return Array.from({ length: frames }, () => {
@@ -259,17 +259,18 @@ test('wave two and three success never increases damage, number of shots, splash
   }
 });
 
-test('basic electricity fires twice and retargets after killing its first target in every wave', () => {
+test('cryo fires one slowing bolt and reacquires the nearest target on its next attack in every wave', () => {
   for (const wave of waves) {
     const game = setup('electric', wave), robot = game.robots.at(-1)!; complete(game, robot.id);
     game.enemies = [enemy(100, 3), enemy(101, 14)];
-    assert.equal(advance(game).filter(shot => !shot.chain).length, 2);
-    assert.equal(game.enemies[0].health, 1000 - robot.damage * 2);
-    assert.equal(game.enemies[1].health, 1000, 'near-range shots cannot chain to distant enemies');
+    assert.equal(advance(game).filter(shot => !shot.chain).length, 1);
+    assert.equal(game.enemies[0].health, 1000 - robot.damage);
+    assert.ok(game.enemies[0].slowTime > 0);
+    assert.equal(game.enemies[1].health, 1000, 'a single bolt cannot reach distant enemies');
     const retarget = setup('electric', wave), retargetRobot = retarget.robots.at(-1)!;
     complete(retarget, retargetRobot.id);
     retarget.enemies = [enemy(100, 3, 1), enemy(101, 3.4)];
-    assert.equal(advance(retarget).filter(shot => !shot.chain).length, 2);
+    assert.equal(advance(retarget, 30).filter(shot => !shot.chain).length, 2);
     assert.equal(retargetRobot.targetId, 101);
   }
 });

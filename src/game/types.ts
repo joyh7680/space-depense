@@ -2,12 +2,12 @@ import type { CodingBlockId, RobotCode, MissionNumber } from './coding-missions.
 export type TilePosition = { x: number; y: number };
 export type RobotKind = 'fire' | 'ice' | 'electric';
 export type ElementEnergy = Record<RobotKind, number>;
-export type CodeBlock = 'find' | 'attack' | 'wait';
+export type CodeBlock = 'find' | 'charge' | 'attack' | 'wait';
 export type GameMode = 'move' | 'relocate';
 export type GameStatus = 'ready' | 'running' | 'paused' | 'cleared' | 'defeat';
 export type RobotState = TilePosition & {
   id: number; kind: RobotKind; grade: number; damage: number; deployed: boolean;
-  activeBlock: CodeBlock; attacks: number; targetId: number | null;
+  activeBlock: CodeBlock; attacks: number; targetId: number | null; aimAngle: number;
   serial: number; code: RobotCode; missionStatus: 'waiting' | 'error' | 'completed'; missionMessage: string;
   missionNumber: MissionNumber; missionVariant: number; deploymentOrder: number; autoAttackActive: boolean; completedMissions: MissionNumber[];
 };
@@ -17,6 +17,7 @@ export type DefenseState = {
   robots: RobotState[]; robotCount: number; storedRobotCount: number; elementEnergy: ElementEnergy; selectedId: number | null; player: TilePosition;
   mode: GameMode; grid: boolean; message: string; countdown: number;
   monsterSummonCountdown: number | null;
+  nextBossNumber: number | null;
   defeatAnimationComplete: boolean;
   victoryAnimationComplete: boolean;
 };

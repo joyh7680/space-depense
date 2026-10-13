@@ -4,8 +4,8 @@ import { ROBOTS } from './wave-one.ts';
 export const CODING_BLOCKS = {
   find: { label: '목표 찾기', category: 'action' },
   missile: { label: '플라즈마 폭발 발사', category: 'action' },
-  cool: { label: '써멀 쇼크 냉열 충격파', category: 'action' },
-  shock: { label: '크라이오 볼트 빠른 발사', category: 'action' },
+  cool: { label: '써멀 쇼크 관통 빔 발사', category: 'action' },
+  shock: { label: '크라이오 볼트 둔화 볼트 발사', category: 'action' },
   'repeat-two': { label: '2번 반복하기', category: 'loop' },
   'enemy-present': { label: '만약 적이 있다면', category: 'condition' },
   aim: { label: '조준하기', category: 'action' },
@@ -108,6 +108,7 @@ export function validateRobotCode(kind: RobotKind, wave: number, code: readonly 
 
 export type AttackProfile = {
   attackRadius: number; attackInterval: number;
+  mode: 'bolt' | 'beam' | 'blast'; chargeDuration: number; effectDuration: number; beamHalfWidth: number;
   shots: number; damage: number; splash: number; burn: number;
   slowDuration: number; slowFactor: number; chainTargets: number; chainDamage: number; area: boolean;
 };
@@ -115,9 +116,11 @@ export type AttackProfile = {
 export function getBasicRobotAttack(kind: RobotKind): AttackProfile {
   return {
     attackRadius: ROBOTS[kind].attackRadius, attackInterval: ROBOTS[kind].attackInterval,
-    shots: kind === 'electric' ? 2 : 1, damage: 1,
-    splash: kind === 'fire' ? 1.6 : kind === 'ice' ? 1.4 : 0, burn: 0,
-    slowDuration: kind === 'ice' ? 1.4 : 0, slowFactor: 0.6,
-    chainTargets: kind === 'electric' ? 1 : 0, chainDamage: 0.5, area: false,
+    mode: kind === 'electric' ? 'bolt' : kind === 'ice' ? 'beam' : 'blast',
+    chargeDuration: ROBOTS[kind].chargeDuration, effectDuration: ROBOTS[kind].effectDuration,
+    beamHalfWidth: 20,
+    shots: 1, damage: 1, splash: 0, burn: 0,
+    slowDuration: kind === 'electric' ? 2 : 0, slowFactor: 0.7,
+    chainTargets: 0, chainDamage: 0, area: kind === 'fire',
   };
 }

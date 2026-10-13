@@ -30,12 +30,12 @@ test('room boundaries and flipped wall tiles cannot be walked on; every deploy s
 
 test('hybrid combinations require every ingredient and never spend credits', () => {
   const game = new DefenseSimulation();
-  assert.equal(ROBOT_CHARGE_COST, 4);
+  assert.equal(ROBOT_CHARGE_COST, 5);
   assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
-  game.elementEnergy.fire = 4; game.elementEnergy.electric = 1; game.credits = 9999;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 4);
-  game.elementEnergy.fire++;
+  game.elementEnergy.fire = 5; game.elementEnergy.electric = 2; game.credits = 9999;
   game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 5);
+  game.elementEnergy.fire++;
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 6);
   game.elementEnergy.electric++;
   game.elementEnergy.ice = 0;
   game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.ice, 0);
@@ -47,21 +47,21 @@ test('hybrid combinations require every ingredient and never spend credits', () 
   assert.equal(game.credits, 9999);
   game.summon('fire'); assert.equal(game.robots.length, 1);
   fundRobot(game, 'electric'); game.summon('electric'); assert.equal(game.robots.length, 2); assert.equal(game.elementEnergy.electric, 0);
-  game.elementEnergy.ice = 7; game.elementEnergy.fire = 2; game.elementEnergy.electric = 1; game.credits = 0; game.summon('ice');
+  game.elementEnergy.ice = 7; game.elementEnergy.fire = 3; game.elementEnergy.electric = 1; game.credits = 0; game.summon('ice');
   assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 4); assert.equal(game.elementEnergy.electric, 0); assert.equal(game.credits, 0);
 });
 
 test('invalid placement, occupied slots and full board preserve matching energy', () => {
   const game = new DefenseSimulation(); setRobotEnergy(game, 'fire', 10);
   for (const [x, y] of [[0, 6], [1, 4], [12, 5], [3, 6], [game.player.x, game.player.y]]) game.placeRobot(x, y, 'fire');
-  assert.equal(game.elementEnergy.fire, 40); assert.equal(game.elementEnergy.electric, 20); assert.equal(game.robots.length, 0);
+  assert.equal(game.elementEnergy.fire, 50); assert.equal(game.elementEnergy.electric, 30); assert.equal(game.robots.length, 0);
   game.placeRobot(3, 5, 'fire'); game.placeRobot(3, 5, 'fire');
-  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 36);
+  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 45);
   for (let i = 0; i < 7; i++) game.summon('fire');
-  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 8);
-  game.summon('fire'); assert.equal(game.elementEnergy.fire, 4); assert.equal(game.robots.length, 9);
+  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 10);
+  game.summon('fire'); assert.equal(game.elementEnergy.fire, 5); assert.equal(game.robots.length, 9);
   assert.equal(game.summon('fire'), '로봇은 최대 9대까지 소환할 수 있어요.');
-  assert.equal(game.elementEnergy.fire, 4); assert.equal(game.elementEnergy.electric, 2); assert.equal(game.robots.length, 9);
+  assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 3); assert.equal(game.robots.length, 9);
   assert.equal(new Set(game.deployedRobots.map(robot => `${robot.x},${robot.y}`)).size, 9);
 });
 
@@ -88,7 +88,7 @@ test('merge requires matching kind and grade, preserves selected identity and co
   const energy = { ...game.elementEnergy };
   game.merge(); assert.equal(game.robots.length, 1); assert.equal(selected.grade, 2);
   assert.equal(game.selectedId, selected.id); assert.equal(selected.cooldown, .65); assert.deepEqual(game.elementEnergy, energy);
-  assert.ok(selected.damage > 19 * 2);
+  assert.ok(selected.damage > ROBOTS.fire.damage * 2);
   summon(game); game.selectRobot(selected.id); game.merge(); assert.equal(game.robots.length, 2);
   summon(game); game.selectRobot(game.robots.at(-1)!.id); game.merge();
   assert.equal(game.robots.length, 2); assert.equal(game.robots[1].grade, 2);
@@ -131,7 +131,7 @@ test('sequential code selects the nearest living target, then attacks, then wait
   assert.ok(game.enemies.find(e => e.id === 101)!.health < 1000);
 });
 
-test('all robots use the reference-sized world circle and attack only inside it', () => {
+test('robots acquire targets only within their configured 190 world range', () => {
   assert.equal(ROBOT_ATTACK_RADIUS, 190);
   for (const kind of ['fire', 'ice', 'electric'] as const) for (const inside of [true, false]) {
     assert.equal(ROBOTS[kind].attackRadius, ROBOT_ATTACK_RADIUS);
@@ -143,7 +143,7 @@ test('all robots use the reference-sized world circle and attack only inside it'
     const gap = (ROBOTS[kind].attackRadius + (inside ? -10 : 10)) / 100;
     game.enemies = [{ ...enemy(100, robot.x + Math.sqrt(gap ** 2 - 1)), slowTime: 100, slowFactor: 0 }];
     const shots = [];
-    for (let i = 0; i < 12; i++) shots.push(...game.step(0.05));
+    for (let i = 0; i < 18; i++) shots.push(...game.step(0.05));
     assert.equal(shots.some(shot => shot.from.x === robot.x && shot.from.y === robot.y), inside);
     assert.equal(game.enemies[0].health < 1000, inside, `${kind} range boundary`);
   }
@@ -181,25 +181,22 @@ test('plasma explosion cannot damage monsters outside its displayed circle', () 
   game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
   game.enemies = [enemy(100, 4.2), enemy(101, 4.6), enemy(102, 4.7)]
     .map(target => ({ ...target, slowTime: 100, slowFactor: 0 }));
-  advance(game, 0.6);
+  advance(game, 0.9);
   assert.ok(game.enemies[0].health < 1000);
   assert.ok(game.enemies[1].health < 1000);
   assert.equal(game.enemies[2].health, 1000);
 });
 
-test('plasma explosions and thermal shockwaves damage only enemies near the target', () => {
-  for (const kind of ['fire', 'ice'] as const) {
-    const game = new DefenseSimulation(() => 0);
-    game.player = { x: 14, y: 11 };
-    summon(game, kind); game.startWave(); game.step(0.05);
-    const x = 4;
-    game.enemies = [enemy(100, x), enemy(101, x + 0.3), enemy(102, 12)];
-    game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
-    advance(game, 0.6);
-    assert.ok(game.enemies[0].health < 1000);
-    assert.ok(game.enemies[1].health < 1000);
-    assert.equal(game.enemies[2].health, 1000);
-  }
+test('plasma damages every enemy around the robot rather than around its target', () => {
+  const game = new DefenseSimulation(() => 0);
+  game.player = { x: 14, y: 11 };
+  summon(game, 'fire'); game.startWave(); game.spawned = WAVE_ONE.enemies;
+  game.enemies = [enemy(100, 4.2), enemy(101, 1.8), enemy(102, 6)]
+    .map(target => ({ ...target, slowTime: 100, slowFactor: 0 }));
+  advance(game, 0.9);
+  assert.equal(game.enemies[0].health, 910);
+  assert.equal(game.enemies[1].health, 910);
+  assert.equal(game.enemies[2].health, 1000);
 });
 
 test('repeated code respects attack cooldown and reacquires dead targets', () => {
@@ -214,20 +211,21 @@ test('repeated code respects attack cooldown and reacquires dead targets', () =>
   }
   assert.ok(times.length > 4);
   for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] >= 0.9 - 1e-8);
+  game.enemies = [];
   game.robots[0].activeBlock = 'attack'; game.robots[0].phaseTimer = 0; game.robots[0].targetId = -1;
   game.step(0.05); assert.equal(game.robots[0].activeBlock, 'find'); assert.equal(game.robots[0].targetId, null);
 });
 
-test('only thermal shock slows enemies; plasma and cryo deal direct damage without burning', () => {
+test('only cryo bolt slows its target; beam and plasma do not apply slowing or burning', () => {
   for (const kind of ['fire', 'ice', 'electric'] as const) {
     const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.enemies = [enemy(100, 3), enemy(101, 3.3), enemy(102, 14)];
-    advance(game, 0.25);
-    for (const target of game.enemies.slice(0, 2)) {
-      assert.ok(target.health < 1000);
+    advance(game, 0.9);
+    for (const target of game.enemies.filter(target => target.id === 100 || target.id === 101)) {
+      if (target.id === 100 || kind === 'fire') assert.ok(target.health < 1000);
       assert.equal(target.burnTime, 0);
-      assert.equal(target.slowTime > 0, kind === 'ice');
-      if (kind === 'ice') assert.equal(target.slowFactor, 0.6);
+      assert.equal(target.slowTime > 0, kind === 'electric' && target.id === 100);
+      if (kind === 'electric' && target.id === 100) assert.equal(target.slowFactor, 0.7);
     }
     assert.equal(game.enemies.find(e => e.id === 102)!.health, 1000);
   }
@@ -244,19 +242,23 @@ test('cryo bolt attacks nearby monsters faster than thermal shock and plasma', (
     }
     counts.set(kind, game.robots[0].attacks);
   }
-  assert.ok(counts.get('electric')! > counts.get('ice')! * 2);
-  assert.ok(counts.get('electric')! > counts.get('fire')! * 2);
+  assert.ok(counts.get('electric')! > counts.get('ice')!);
+  assert.ok(counts.get('electric')! > counts.get('fire')!);
 });
 
-test('thermal shock slows actual movement and the monster recovers after the effect expires', () => {
+test('cryo bolt reduces movement speed by 30 percent for two seconds before recovery', () => {
   const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
-  summon(game, 'ice'); game.startWave(); game.enemies = [enemy(100, 3)];
-  advance(game, 0.25);
+  summon(game, 'electric'); game.startWave(); game.enemies = [enemy(100, 3)];
+  for (let frame = 0; frame < 20 && game.enemies[0].slowTime === 0; frame++) game.step(0.05);
   const target = game.enemies[0]; game.robots[0].autoAttackActive = false;
+  assert.equal(target.slowTime, 2);
+  assert.equal(target.slowFactor, 0.7);
   const slowedX = target.x;
   game.step(0.05);
-  assert.ok(Math.abs(target.x - slowedX - WAVE_ONE.speed * 0.6 * 0.05) < 1e-8);
-  advance(game, 1.5);
+  assert.ok(Math.abs(target.x - slowedX - WAVE_ONE.speed * 0.7 * 0.05) < 1e-8);
+  advance(game, 1.9);
+  assert.ok(target.slowTime > 0, 'the effect remains active before two seconds');
+  advance(game, 0.1);
   assert.equal(target.slowTime, 0);
   const recoveredX = target.x; game.step(0.05);
   assert.ok(Math.abs(target.x - recoveredX - WAVE_ONE.speed * 0.05) < 1e-8);
