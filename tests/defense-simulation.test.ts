@@ -459,10 +459,10 @@ test('the player attacks nearby enemies before any robot is summoned', () => {
  assert.equal(game.robots.length,0); assert.ok(shots.some(s=>s.player)); assert.ok(game.enemies[0].health<1000);
 });
 
-test('the player has a larger 250 world attack radius and ignores monsters outside it', () => {
- assert.equal(PLAYER_LASER_RADIUS, 250);
+test('the player has a 150 world attack radius and ignores monsters outside it', () => {
+ assert.equal(PLAYER_LASER_RADIUS, 150);
  assert.equal(ROBOT_ATTACK_RADIUS, 190);
- for (const [dx, dy, inRange] of [[0, -2.5, true], [1, -1, true], [1.91, 0, true], [1.5, -1.5, true], [1.5, -2, true], [2.51, 0, false], [1.8, -1.8, false]] as const) {
+ for (const [dx, dy, inRange] of [[0, -1.5, true], [0.5, -0.5, true], [1.4, 0, true], [1, -1, true], [0.8, -1.2, true], [1.51, 0, false], [1.1, -1.1, false], [2, 0, false]] as const) {
    const game = new DefenseSimulation(() => 0); game.startWave();
    const target = { ...enemy(100, game.player.x + dx, game.player.y + dy), slowTime: 100, slowFactor: 0 };
    game.enemies = [target];
@@ -475,11 +475,11 @@ test('the player has a larger 250 world attack radius and ignores monsters outsi
 test('the player hits every living enemy around all 360 degrees once per cooldown', () => {
   const game = new DefenseSimulation(() => 0);
   game.startWave(); game.spawned = WAVE_ONE.enemies;
-  const offsets = [[2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5], [-1.5, -1.5]];
+  const offsets = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [1, 1], [-1, 1], [1, -1], [-1, -1]];
   const targets = offsets.map(([dx, dy], index) => ({
     ...enemy(100 + index, game.player.x + dx, game.player.y + dy), slowTime: 100, slowFactor: 0,
   }));
-  const outside = { ...enemy(200, game.player.x + 2.51, game.player.y), slowTime: 100, slowFactor: 0 };
+  const outside = { ...enemy(200, game.player.x + 1.51, game.player.y), slowTime: 100, slowFactor: 0 };
   const defeated = { ...enemy(201, game.player.x, game.player.y), health: 0 };
   game.enemies = [...targets, outside, defeated];
   const shots = game.step(0.05).filter(shot => shot.player);
