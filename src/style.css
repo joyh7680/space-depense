@@ -285,10 +285,6 @@ button:not(:disabled):active{transform:translateY(3px)}
 .coding-robot span{font-size:10px;color:#e7c990}
 .coding-robot span.complete{color:#8ce4c7}
 .coding-robot>.robot-portrait{transform:scale(.7);margin:-12px -12px -12px auto}
-.coding-progress{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;font-size:10px;color:#849bb9}
-.coding-progress span{border:1px solid #ffffff15;border-radius:6px;padding:5px 7px;background:#ffffff06}
-.coding-progress .learned{color:#8ce4c7;border-color:#8ce4c740}
-.coding-choice{font-size:11px;line-height:1.7;color:#a6bad4;margin:0 0 14px}
 .coding-mission{padding:15px;border:1px solid color-mix(in srgb,var(--robot-accent),transparent 65%);background:#263147;border-radius:14px;margin-bottom:23px}
 .coding-mission-header{display:flex;gap:6px;align-items:center}
 .coding-mission-header>small{color:var(--robot-accent);font-size:10px}
