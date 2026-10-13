@@ -11,7 +11,7 @@ export const SUMMONED_MONSTER = { summonDelay: 100, warningLeadTime: 5, health: 
 export const MAX_GRADE = 3;
 // World-space range: circular bolt/blast range and straight beam length.
 export const ROBOT_ATTACK_RADIUS = 190;
-export const PLAYER_LASER_RADIUS = ROBOT_ATTACK_RADIUS;
+export const PLAYER_LASER_RADIUS = 250;
 export const ROBOT_KINDS: readonly RobotKind[] = ['fire', 'ice', 'electric'];
 export const ELEMENTS = {
   fire: { name: '화염', color: 0xffac70, symbol: '♨' },

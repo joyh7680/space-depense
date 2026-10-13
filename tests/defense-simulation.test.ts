@@ -459,9 +459,10 @@ test('the player attacks nearby enemies before any robot is summoned', () => {
  assert.equal(game.robots.length,0); assert.ok(shots.some(s=>s.player)); assert.ok(game.enemies[0].health<1000);
 });
 
-test('the player shares the robot attack circle and ignores monsters outside it', () => {
- assert.equal(PLAYER_LASER_RADIUS, ROBOT_ATTACK_RADIUS);
- for (const [dx, dy, inRange] of [[0, -1.9, true], [1, -1, true], [1.91, 0, false], [1.5, -1.5, false]] as const) {
+test('the player has a larger 250 world attack radius and ignores monsters outside it', () => {
+ assert.equal(PLAYER_LASER_RADIUS, 250);
+ assert.equal(ROBOT_ATTACK_RADIUS, 190);
+ for (const [dx, dy, inRange] of [[0, -2.5, true], [1, -1, true], [1.91, 0, true], [1.5, -1.5, true], [1.5, -2, true], [2.51, 0, false], [1.8, -1.8, false]] as const) {
    const game = new DefenseSimulation(() => 0); game.startWave();
    const target = { ...enemy(100, game.player.x + dx, game.player.y + dy), slowTime: 100, slowFactor: 0 };
    game.enemies = [target];
