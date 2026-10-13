@@ -100,8 +100,8 @@ function removeBlock(slot: number) {
         <div class="code-start">▶ 로봇이 작동하는 동안</div>
         <div class="code-body">
           <div v-for="(slot, index) in mission.slots" :key="index" class="coding-slot-row" :style="{ marginLeft: slot.depth * 16 + 'px' }">
-            <button class="coding-slot" :class="[robot.code[index] ? getCodingBlock(robot.code[index]!).category : 'empty', { 'drag-over': overSlot === index }]" :disabled="!interactive || completed" :draggable="!!robot.code[index] && interactive && !completed" :aria-label="`${index + 1}번째 칸: ${robot.code[index] ? getCodingBlock(robot.code[index]!).label : slot.hint}`" @dragstart="robot.code[index] && drag($event, robot.code[index]!, index)" @dragend="endDrag" @dragover.prevent="overSlot = index" @dragleave="overSlot = null" @drop.prevent="drop($event, index)">
-              <span class="slot-number">{{ index + 1 }}</span>{{ robot.code[index] ? getCodingBlock(robot.code[index]!).label : slot.hint }}<span v-if="!robot.code[index]" class="slot-plus">+</span>
+            <button class="coding-slot" :class="[robot.code[index] ? getCodingBlock(robot.code[index]!).category : 'empty', { 'drag-over': overSlot === index }]" :disabled="!interactive || completed" :draggable="!!robot.code[index] && interactive && !completed" :aria-label="`${index + 1}번째 칸: ${robot.code[index] ? getCodingBlock(robot.code[index]!).label : '+ 여기에 블록 놓기'}`" @dragstart="robot.code[index] && drag($event, robot.code[index]!, index)" @dragend="endDrag" @dragover.prevent="overSlot = index" @dragleave="overSlot = null" @drop.prevent="drop($event, index)">
+              <span class="slot-number">{{ index + 1 }}</span>{{ robot.code[index] ? getCodingBlock(robot.code[index]!).label : '+ 여기에 블록 놓기' }}
             </button>
             <button v-if="robot.code[index] && !completed" class="remove-block" :disabled="!interactive" :aria-label="`${index + 1}번째 블록 제거`" @click="removeBlock(index)">×</button>
           </div>
