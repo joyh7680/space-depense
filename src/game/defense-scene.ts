@@ -64,6 +64,7 @@ export class DefenseScene extends Phaser.Scene {
   private unitDrag: UnitDrag | null = null;
   private publishAt = 0;
   private interactionLocked = false;
+  private pauseStartedAt: number | null = null;
   private options: GameOptions;
 
   constructor(options: GameOptions) { super('DefenseScene'); this.options = options; }
@@ -165,6 +166,7 @@ export class DefenseScene extends Phaser.Scene {
 
   private createPlayer(): void {
     this.player = this.add.spine(center(this.playerTile.x), center(this.playerTile.y) + 30, 'player', 'idle', true).setScale(0.19).setDepth(20);
+    this.player.timeScale = this.simulation.playbackSpeed;
     this.player.setSkinByName('purple');
     this.player.skeleton.setSlotsToSetupPose();
     this.player.updateSize();
@@ -370,6 +372,7 @@ export class DefenseScene extends Phaser.Scene {
   private showSpineEffect(kind: SpineEffectKind, x: number, y: number, container = this.combatEffects): void {
     const effect = SPINE_EFFECTS[kind];
     const actor = this.add.spine(x, y, kind, effect.animation, false).setScale(effect.scale);
+    actor.timeScale = this.simulation.playbackSpeed;
     container.add(actor);
     this.afterEffect(effect.duration, () => actor.destroy());
   }
@@ -518,6 +521,7 @@ export class DefenseScene extends Phaser.Scene {
           : this.add.image(x, y - 22, getRegularMonster(s.wave).texture).setDisplaySize(78, 78).setDepth(13);
         if (enemy.kind === 'summoned') {
           const spine = actor as SpineActor;
+          spine.timeScale = s.playbackSpeed;
           // Invisible effect attachments otherwise inflate Spine's bounds and shrink the body.
           for (const slot of ['attacked', 'die01', 'die02', 'explosion', 'eyes_die', 'eyes_stun', 'eyes2_die', 'eyes2_stun', 'magic', 'spawn', 'stun01', 'stun02', 'stun03']) {
             if (spine.skeleton.findSlot(slot)) spine.setAttachment(slot, null);
@@ -534,7 +538,7 @@ export class DefenseScene extends Phaser.Scene {
         spine.setPosition(x + (spine.displayOriginX - spine.width / 2) * scale * direction,
           y + 12 + (spine.displayOriginY - spine.height) * scale);
       } else {
-        (actor as Phaser.GameObjects.Image).setPosition(x, y - 22 + Math.sin(this.time.now / 160 + enemy.id) * 3).setFlipX(enemy.waypoint === 3);
+        (actor as Phaser.GameObjects.Image).setPosition(x, y - 22 + Math.sin(s.elapsed * 1000 / 160 + enemy.id) * 3).setFlipX(enemy.waypoint === 3);
       }
       const healthY = y - (enemy.kind === 'summoned' ? SUMMONED_MONSTER.size + 10 : 85);
       const maxHealth = enemy.kind === 'summoned' ? SUMMONED_MONSTER.health : WAVE_ONE.health;
@@ -610,8 +614,40 @@ export class DefenseScene extends Phaser.Scene {
   clearCode(id: number): void { this.simulation.clearCode(id); this.publish(); }
   runCode(id: number): void { this.notice = this.simulation.runCode(id); this.publish(); }
   merge(): void { this.notice = this.simulation.merge(); this.publish(); }
-  togglePause(): void { this.simulation.togglePause(); this.publish(); }
+  togglePause(): void {
+    this.simulation.togglePause();
+    if (this.simulation.status === 'paused') {
+      this.cancelDrag();
+      this.pauseStartedAt ??= Date.now();
+      this.sys.pause();
+    } else if (this.simulation.status === 'running') this.resumePlayback();
+    this.publish();
+  }
+  toggleSpeed(): void {
+    this.simulation.toggleSpeed();
+    this.syncPlaybackSpeed();
+    this.publish();
+  }
+  private syncPlaybackSpeed(): void {
+    const speed = this.simulation.playbackSpeed;
+    this.time.timeScale = speed;
+    this.tweens.timeScale = speed;
+    for (const actor of this.sys.updateList.getActive()) {
+      if (actor.type === 'Spine') (actor as SpineActor).timeScale = speed;
+    }
+  }
+  private resumePlayback(): void {
+    if (this.pauseStartedAt !== null) {
+      // TweenManager uses wall time; exclude the pause instead of catching up.
+      const pausedDuration = Date.now() - this.pauseStartedAt;
+      this.tweens.startTime += pausedDuration;
+      this.tweens.prevTime += pausedDuration;
+      this.pauseStartedAt = null;
+    }
+    this.sys.resume();
+  }
   reset(): void {
+    this.resumePlayback();
     this.cancelDrag();
     this.defeatTimer?.remove(); this.defeatTimer = undefined;
     for (const timer of this.effectTimers) timer.remove();
@@ -631,6 +667,7 @@ export class DefenseScene extends Phaser.Scene {
     for (const label of this.unitLabels.values()) label.destroy();
     this.aliens.clear(); this.robotArt.clear(); this.unitLabels.clear(); this.robotSpawnTimes.clear();
     this.simulation = new DefenseSimulation(); this.mode = 'move';
+    this.syncPlaybackSpeed();
     this.tweens.killTweensOf(this.player); this.playerTile = { ...this.simulation.player };
     this.player.play('idle', true);
     this.player.setAngle(0);
@@ -644,7 +681,7 @@ export class DefenseScene extends Phaser.Scene {
   private publish(): void {
     const s = this.simulation;
     const message = s.status === 'cleared' ? '괴물을 모두 처치했어요!' : s.status === 'defeat' ? '괴물이 우리 기지로 탈출해 우주정거장이 파괴됐어요. 게임 오버!' : this.notice;
-    const state: DefenseState = { status: s.status, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(Math.max(0, s.countdown - 0.000001)), monsterSummonCountdown: s.monsterSummonCountdown, nextBossNumber: s.nextBossNumber, bossApproaching: s.bossApproaching, bossHealth: s.bossHealth, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, storedRobotCount: s.storedRobotCount, robots: s.robots.map(({ program, cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], completedMissions: [...robot.completedMissions] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete, victoryAnimationComplete: this.victoryAnimationComplete };
+    const state: DefenseState = { status: s.status, playbackSpeed: s.playbackSpeed, wave: s.wave, health: s.health, credits: s.credits, kills: s.kills, enemies: s.enemies.length, spawned: s.spawned, total: s.totalEnemies, escaped: s.escaped, elapsed: s.elapsed, countdown: Math.ceil(Math.max(0, s.countdown - 0.000001)), monsterSummonCountdown: s.monsterSummonCountdown, nextBossNumber: s.nextBossNumber, bossApproaching: s.bossApproaching, bossHealth: s.bossHealth, elementEnergy: { ...s.elementEnergy }, robotCount: s.robotCount, storedRobotCount: s.storedRobotCount, robots: s.robots.map(({ program, cooldown, phaseTimer, burstRemaining, burstProfile, ...robot }) => ({ ...robot, code: [...robot.code], completedMissions: [...robot.completedMissions] })), selectedId: s.selectedId, player: { ...this.playerTile }, mode: this.mode, grid: this.showGrid, message, defeatAnimationComplete: this.defeatAnimationComplete, victoryAnimationComplete: this.victoryAnimationComplete };
     this.options.onState?.(state);
   }
 }

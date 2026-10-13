@@ -41,6 +41,7 @@ defineExpose({
   toggleGrid: () => controller?.toggleGrid(),
   startWave: () => controller?.startWave(),
   togglePause: () => controller?.togglePause(),
+  toggleSpeed: () => controller?.toggleSpeed(),
   reset: () => controller?.reset(),
 });
 </script>

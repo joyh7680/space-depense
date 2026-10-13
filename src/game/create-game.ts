@@ -41,6 +41,7 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     toggleGrid: () => scene.toggleGrid(),
     startWave: () => scene.startWave(),
     togglePause: () => scene.togglePause(),
+    toggleSpeed: () => scene.toggleSpeed(),
     reset: () => scene.reset(),
     destroy: () => {
       observer.disconnect();

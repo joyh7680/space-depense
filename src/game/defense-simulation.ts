@@ -3,7 +3,7 @@ import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMis
 import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE, REGULAR_ENEMY_COUNTS, PLAYER_LASER_RADIUS } from './wave-one.ts';
 import { getRobotEnergyCount, getRobotRecipeLabel, spendRobotEnergy } from './robot-energy.ts';
 import { getBeamEndpoint, isOnBeamPath } from './robot-attack-geometry.ts';
-import type { BossHealth, CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
+import type { BossHealth, CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, PlaybackSpeed, TilePosition } from './types.ts';
 
 export type Robot = RobotState & { program: RobotProgram; cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
 export type Enemy = TilePosition & {
@@ -40,6 +40,7 @@ function applyAttackEffects(enemy: Enemy, damage: number, profile: AttackProfile
 
 export class DefenseSimulation {
   status: GameStatus = 'ready';
+  playbackSpeed: PlaybackSpeed = 1;
   wave = 0;
   health = 100;
   credits = 300;
@@ -310,16 +311,26 @@ export class DefenseSimulation {
     if (this.status === 'running') this.status = 'paused';
     else if (this.status === 'paused') this.status = 'running';
   }
+  toggleSpeed(): void {
+    this.playbackSpeed = this.playbackSpeed === 1 ? 2 : 1;
+  }
   step(seconds: number): Shot[] {
     if (!Number.isFinite(seconds)) return [];
     const dt = Math.min(Math.max(seconds, 0), 0.05);
+    if (this.status === 'running') this.lastEnergyRewards = { fire: 0, electric: 0, ice: 0 };
+    const shots: Shot[] = [];
+    // Repeat bounded steps so 2x also works at low frame rates, preserving
+    // both steps' shots and energy rewards for the renderer.
+    for (let frame = 0; frame < this.playbackSpeed; frame++) shots.push(...this.advance(dt));
+    return shots;
+  }
+  private advance(dt: number): Shot[] {
     if (this.status === 'ready') {
       this.countdown = Math.max(0, this.countdown - dt);
       if (this.countdown < 0.000001) this.startWave();
       return [];
     }
     if (this.status !== 'running') return [];
-    this.lastEnergyRewards = { fire: 0, electric: 0, ice: 0 };
     this.elapsed += dt; this.spawnTimer -= dt;
     for (const enemy of this.enemies) {
       if (enemy.burnTime > 0) enemy.health -= enemy.burnDamage * Math.min(dt, enemy.burnTime);

@@ -3,11 +3,11 @@ import { computed, ref, useId, watch } from 'vue';
 import { getCodingBlock, getCodingMission, isCodingBlock, type CodingBlockId } from '../game/coding-missions';
 import { ROBOTS } from '../game/wave-one';
 import { robotPortraitStyle } from '../game/robot-visuals';
-import type { RobotState } from '../game/types';
+import type { PlaybackSpeed, RobotState } from '../game/types';
 import CodingSuccessEffect from './coding-success-effect.vue';
 
-const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean }>();
-const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null, sourceSlot?: number]; clear: []; run: []; close: [] }>();
+const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean; paused: boolean; playbackSpeed: PlaybackSpeed }>();
+const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null, sourceSlot?: number]; clear: []; run: []; close: []; pause: []; speed: [] }>();
 const mission = computed(() => getCodingMission(props.robot.kind, props.robot.missionNumber, props.robot.missionVariant));
 const completed = computed(() => props.robot.missionStatus === 'completed');
 const draggingBlock = ref<CodingBlockId | null>(null);
@@ -17,8 +17,8 @@ const missionDetailsId = useId();
 const overSlot = ref<number | null>(null);
 let dragSource: number | null = null;
 watch(() => `${props.robot.id}-${props.robot.missionNumber}`, () => { endDrag(); editMessage.value = ''; missionDetailsOpen.value = false; });
-watch([() => props.robot.id, () => props.robot.missionNumber, completed], ([_id, _missionNumber, done], _previous, onCleanup) => {
-  if (!done) return;
+watch([() => props.robot.id, () => props.robot.missionNumber, completed, () => props.paused], ([_id, _missionNumber, done, paused], _previous, onCleanup) => {
+  if (!done || paused) return;
   const timer = window.setTimeout(() => emit('close'), 1800);
   onCleanup(() => window.clearTimeout(timer));
 }, { immediate: true, flush: 'post' });
@@ -127,9 +127,17 @@ function runCode() {
         </section>
       </div>
     </div>
-    <footer v-if="!completed" class="coding-footer">
-      <p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ editMessage || robot.missionMessage }}</p>
-      <button class="launch-button coding-run" type="button" :disabled="!interactive" @click="runCode"><span aria-hidden="true">▶</span>코딩 실행하기</button>
+    <footer class="coding-footer">
+      <p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ paused ? '일시정지 중이에요. 다시시작 버튼을 누르면 이어서 진행해요.' : editMessage || robot.missionMessage }}</p>
+      <div class="coding-playback-controls">
+        <button class="coding-playback-button coding-pause" type="button" :disabled="!interactive && !paused" :aria-label="paused ? '다시시작' : '일시정지'" :title="paused ? '게임 이어서 진행' : '게임 일시정지'" @click="emit('pause')">
+          <svg v-if="paused" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
+          <span>{{ paused ? '다시시작' : '일시정지' }}</span>
+        </button>
+        <button class="launch-button coding-run" type="button" :disabled="!interactive || completed" @click="runCode"><span aria-hidden="true">▶</span>코딩 실행하기</button>
+        <button class="coding-playback-button coding-speed" :class="{ active: playbackSpeed === 2 }" type="button" :disabled="!interactive && !paused" :aria-pressed="playbackSpeed === 2" aria-label="2배속" :title="playbackSpeed === 2 ? '기본 속도로 전환' : '2배속으로 전환'" @click="emit('speed')"><span>2배속</span></button>
+      </div>
     </footer>
   </aside>
 </template>

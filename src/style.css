@@ -50,7 +50,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .loading-orbit{font-size:56px;color:#0fd2d8;animation:orbit 3s infinite linear}
 @keyframes orbit{to{transform:rotate(360deg)}
 }
-.paused-label{position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);background:#13192eea;border:2px solid #6d708f;border-radius:20px;padding:20px 32px;font-size:24px;pointer-events:none}
+.paused-label{position:absolute;z-index:25;left:50%;top:47%;transform:translate(-50%,-50%);background:#13192eea;border:2px solid #6d708f;border-radius:20px;padding:16px 24px;font-size:clamp(12px,2vw,20px);white-space:nowrap}
 .game-modal{position:relative;width:480px;max-width:100%;max-height:calc(100dvh - 40px);overflow-y:auto;background:linear-gradient(155deg,#29324c,#171e33);border:3px solid #04c7dc;border-radius:30px;padding:33px;text-align:center;box-shadow:0 9px 0 #00637c,0 20px 80px #0008}
 .game-modal>small{font-size:11px;letter-spacing:3px;color:#9eaed0;display:block}
 .game-modal h2,.game-modal h1{margin:12px 0 25px;font-size:27px;letter-spacing:-1px}
@@ -302,7 +302,17 @@ button:not(:disabled):active{transform:translateY(3px)}
 .coding-block-list{min-height:0;overflow-y:auto;overflow-x:hidden;padding:3px 3px 6px;scrollbar-width:thin;scrollbar-color:#4d6485 transparent;overscroll-behavior:contain}
 .coding-footer{flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding:10px 18px 16px;border-top:1px solid #ffffff12;background:#121d3066}
 .coding-footer .coding-feedback{margin:0;max-height:3.4em;overflow-y:auto;scrollbar-width:thin;overflow-wrap:anywhere}
-.coding-run{width:100%;flex:none;min-height:48px;padding:10px 14px;font-size:16px;border-radius:12px}
+.coding-playback-controls{display:grid;grid-template-columns:60px minmax(0,1fr) 60px;gap:8px;align-items:stretch}
+.coding-playback-button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;padding:5px 3px;border:1px solid #a98aff70;border-radius:12px;background:linear-gradient(180deg,#7652c5,#51338f);color:#f5efff;box-shadow:inset 0 1px 0 #ffffff20}
+.coding-playback-button svg{width:22px;height:22px;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.coding-playback-button span{font-size:10px;font-weight:800;white-space:nowrap}
+.coding-pause{border-color:#99e3ff;background:linear-gradient(180deg,#70cfff,#42ade5);color:#0a344c}
+.coding-speed{border-color:#ffc0dd;background:linear-gradient(180deg,#f49ac5,#e570a8);color:#4a1535}
+.coding-speed span{font-size:14px;line-height:1.2}
+.coding-playback-button:hover{filter:brightness(1.15)}
+.coding-playback-button:focus-visible,.coding-run:focus-visible,.paused-label:focus-visible{outline:2px solid #f3de9c;outline-offset:3px}
+.coding-speed.active{border-color:#ffe49c;background:linear-gradient(180deg,#ffafd5,#ef7cb4);color:#4a1535;box-shadow:inset 0 0 0 1px #ffe49c80,0 0 12px #f49ac560}
+.coding-run{width:100%;min-width:0;flex:none;min-height:48px;padding:10px 6px;font-size:clamp(12px,1.5vw,16px);border-radius:12px;gap:6px}
 .coding-run span{font-size:16px}
 .coding-success{position:relative;isolation:isolate;min-height:0;overflow-y:auto;text-align:center;padding:17px 18px 20px;border:1px solid color-mix(in srgb,var(--robot-accent),transparent 68%);border-radius:18px;background:radial-gradient(ellipse at 50% 27%,color-mix(in srgb,var(--robot-accent),transparent 87%),transparent 65%),linear-gradient(155deg,#202a40,#151e30);box-shadow:inset 0 1px 0 #ffffff09;animation:coding-success-arrive .4s ease-out}
 .coding-success-meta{display:flex;align-items:center;justify-content:space-between;color:var(--robot-accent);font-size:8px;font-weight:800;letter-spacing:1.7px}
@@ -369,3 +379,5 @@ button:not(:disabled):active{transform:translateY(3px)}
 @media(max-height:600px){.coding-mission-summary{max-height:3em;overflow-y:auto;scrollbar-width:thin}.coding-footer .coding-feedback{max-height:1.7em}.coding-workspace,.coding-palette{grid-template-rows:auto 28px minmax(0,1fr)}.coding-workspace-tools .coding-help{display:none}.coding-palette>.coding-help{visibility:hidden}}
 @media(max-height:400px){.coding-header small{display:none}.coding-header h2{margin-top:0}}
 @media(max-width:400px) and (max-height:600px),(max-height:400px){.coding-header small{display:none}.coding-header h2{margin-top:0}.coding-panel .code-start,.coding-panel .code-end{padding:4px 7px;font-size:9px;line-height:1.4}.coding-panel .code-body{padding:6px 4px 6px 6px}.coding-slot{min-height:36px;padding:5px;font-size:9px;line-height:1.4}.coding-slot-row{margin-top:6px}.palette-block{padding:7px;font-size:9px;line-height:1.4}.coding-footer{padding:6px 12px 8px;gap:4px}.coding-footer .coding-feedback{font-size:9px;line-height:1.4;max-height:1.4em}.coding-run{min-height:38px;padding:6px 12px}.coding-run span{font-size:14px;line-height:1}}
+@media(max-width:900px){.coding-playback-controls{grid-template-columns:48px minmax(0,1fr) 48px;gap:6px}.coding-run{font-size:12px;padding:8px 2px;gap:3px}}
+@media(max-height:600px){.coding-playback-button{min-height:40px;padding:3px}.coding-playback-button svg{width:20px;height:20px}.coding-playback-button span{font-size:9px}.coding-speed span{font-size:12px}}
