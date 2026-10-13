@@ -2,15 +2,17 @@ import { isWalkable } from './room/walkable.ts';
 import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMission, isCodingBlock, validateRobotCode, type CodingBlockId, type MissionNumber, type MissionProgress, type RobotProgram, type AttackProfile } from './coding-missions.ts';
 import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE, REGULAR_ENEMY_COUNTS, PLAYER_LASER_RADIUS } from './wave-one.ts';
 import { getRobotEnergyCount, getRobotRecipeLabel, spendRobotEnergy } from './robot-energy.ts';
+import { getBeamEndpoint, isOnBeamPath } from './robot-attack-geometry.ts';
 import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
 export type Robot = RobotState & { program: RobotProgram; cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
 export type Enemy = TilePosition & {
   id: number; health: number; waypoint: number; burnTime: number; burnDamage: number; slowTime: number;
   kind?: 'summoned';
+  bossIndex?: number;
   slowFactor?: number;
 };
-export type Shot = { from: TilePosition; to: TilePosition; kind: RobotKind; chain?: boolean; player?: boolean };
+export type Shot = { from: TilePosition; to: TilePosition; kind: RobotKind; chain?: boolean; player?: boolean; phase?: 'charge'; radius?: number; duration?: number };
 export const ROUTE: readonly TilePosition[] = [{ x: 1, y: 4 }, { x: 12, y: 4 }, { x: 12, y: 6 }, { x: 3, y: 6 }];
 export function isRouteTile(x: number, y: number): boolean {
   return ROUTE.slice(1).some((end, i) => {
@@ -27,7 +29,7 @@ function applyAttackEffects(enemy: Enemy, damage: number, profile: AttackProfile
     enemy.burnDamage = Math.max(enemy.burnDamage, damage * profile.burn);
   }
   if (profile.slowDuration > 0) {
-    const currentFactor = enemy.slowTime > 0 ? enemy.slowFactor ?? 0.6 : 1;
+    const currentFactor = enemy.slowTime > 0 ? enemy.slowFactor ?? 0.7 : 1;
     if (profile.slowFactor < currentFactor) {
       enemy.slowFactor = profile.slowFactor; enemy.slowTime = profile.slowDuration;
     } else if (profile.slowFactor === currentFactor) {
@@ -46,8 +48,8 @@ export class DefenseSimulation {
   kills = 0;
   escaped = 0;
   spawned = 0;
-  private bossSpawned = false;
-  private bossDefeated = false;
+  private bossesSpawned = 0;
+  private bossesDefeated = 0;
   elapsed = 0;
   countdown = 3;
   player: TilePosition = { x: 5, y: 5 };
@@ -68,14 +70,18 @@ export class DefenseSimulation {
   get deployedRobots(): Robot[] { return this.robots.filter(robot => robot.deployed); }
   private get regularEnemyCount(): number { return REGULAR_ENEMY_COUNTS[getMissionNumber(this.wave) - 1]; }
   get totalEnemies(): number { return this.regularEnemyCount + 1; }
+  get nextBossNumber(): number | null {
+    return this.bossesSpawned > 0 || this.status === 'cleared' ? null : getMissionNumber(this.wave);
+  }
   get monsterSummonCountdown(): number | null {
-    return this.bossSpawned ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
+    return this.nextBossNumber === null ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
   }
 
   private spawnBoss(): void {
-    if (this.bossSpawned || this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001) return;
-    this.bossSpawned = true;
-    this.enemies.push({ ...ROUTE[0], id: ++this.sequence, kind: 'summoned', health: SUMMONED_MONSTER.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
+    if (this.nextBossNumber === null || this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001) return;
+    const bossIndex = this.nextBossNumber - 1;
+    this.bossesSpawned++;
+    this.enemies.push({ ...ROUTE[0], id: ++this.sequence, kind: 'summoned', bossIndex, health: SUMMONED_MONSTER.health, waypoint: 1, burnTime: 0, burnDamage: 0, slowTime: 0 });
   }
 
   canMovePlayer(x: number, y: number): boolean {
@@ -124,7 +130,7 @@ export class DefenseSimulation {
     const deploymentOrder = position ? ++this.deploymentSequence : 0;
     const missionVariant = Math.max(0, deploymentOrder - 1);
     // Stored rewards wait until the player selects them from the robot modal.
-    const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null,
+    const robot: Robot = { id: ++this.sequence, x: position?.x ?? -1, y: position?.y ?? -1, deployed: position !== null, kind, grade: 1, damage: config.damage, cooldown: 0, phaseTimer: 0, burstRemaining: 0, burstProfile: null, activeBlock: 'find', attacks: 0, targetId: null, aimAngle: -Math.PI / 2,
       serial: ++this.robotSerial[kind], deploymentOrder, missionVariant, program: createRobotProgram(kind, missionVariant), code: [], missionNumber: getMissionNumber(this.wave), autoAttackActive: false, completedMissions: [], missionStatus: 'waiting', missionMessage: '' };
     this.robots.push(robot);
     this.syncPrograms();
@@ -262,7 +268,7 @@ export class DefenseSimulation {
     this.wave = nextWave ? this.wave + 1 : Math.max(1, this.wave);
     if (nextWave) {
       this.kills = 0; this.escaped = 0; this.spawned = 0; this.elapsed = 0;
-      this.bossSpawned = false; this.bossDefeated = false; this.playerCooldown = 0; this.selectedId = null;
+      this.bossesSpawned = 0; this.bossesDefeated = 0; this.playerCooldown = 0; this.selectedId = null;
       this.credits = 300;
       this.elementEnergy = { fire: 0, electric: 0, ice: 0 };
       this.lastEnergyRewards = { fire: 0, electric: 0, ice: 0 };
@@ -313,7 +319,7 @@ export class DefenseSimulation {
     }
     this.collectKills();
     this.spawnBoss();
-    if (this.bossDefeated && this.spawned === this.regularEnemyCount && this.enemies.length === 0) {
+    if (this.bossesSpawned > 0 && this.bossesDefeated >= this.bossesSpawned && this.spawned === this.regularEnemyCount && this.enemies.length === 0) {
       this.status = 'cleared'; this.credits += WAVE_ONE.clearEnergy;
     }
     return shots;
@@ -321,7 +327,7 @@ export class DefenseSimulation {
   private collectKills(): void {
     this.enemies = this.enemies.filter(e => {
       if (e.health > 0) return true;
-      if (e.kind === 'summoned') this.bossDefeated = true;
+      if (e.kind === 'summoned') this.bossesDefeated++;
       const rewardCount = e.kind === 'summoned' ? SUMMONED_MONSTER.elementEnergyReward : WAVE_ONE.elementEnergyReward;
       for (let reward = 0; reward < rewardCount; reward++) {
         const kind = this.randomKind();
@@ -342,7 +348,7 @@ export class DefenseSimulation {
       if (this.health === 0) return true;
       const target = ROUTE[enemy.waypoint];
       const gap = distance(target, enemy);
-      const movement = dt * WAVE_ONE.speed * (enemy.slowTime > 0 ? enemy.slowFactor ?? 0.6 : 1);
+      const movement = dt * WAVE_ONE.speed * (enemy.slowTime > 0 ? enemy.slowFactor ?? 0.7 : 1);
       if (gap <= movement) {
         enemy.x = target.x; enemy.y = target.y; enemy.waypoint++;
         if (enemy.waypoint === ROUTE.length) {
@@ -367,47 +373,53 @@ export class DefenseSimulation {
       const basicAttack = getBasicRobotAttack(robot.kind);
       robot.cooldown = Math.max(0, robot.cooldown - dt);
       robot.phaseTimer = Math.max(0, robot.phaseTimer - dt);
-      if (robot.phaseTimer > 0) continue;
-      if (robot.activeBlock === 'wait') { this.phase(robot, 'find', 0.16); continue; }
       const living = this.enemies.filter(e => e.health > 0);
       const targets = living.filter(e => withinAttackCircle(e, robot, basicAttack.attackRadius))
         .sort((a, b) => distance(a, robot) - distance(b, robot) || a.id - b.id);
+      const nearest = targets[0];
+      if (nearest) robot.aimAngle = Math.atan2(nearest.y - robot.y, nearest.x - robot.x);
+      if (robot.phaseTimer > 1e-9) continue;
+      if (robot.activeBlock === 'wait') { this.phase(robot, 'find', 0.16); continue; }
+      // Once charging starts, plasma explodes around the robot even if its
+      // original target leaves. Hit membership is evaluated at explosion time.
+      if (robot.activeBlock === 'charge') {
+        for (const enemy of targets) enemy.health -= robot.damage;
+        shots.push({ from: { x: robot.x, y: robot.y }, to: { x: robot.x, y: robot.y }, kind: robot.kind, radius: basicAttack.attackRadius, duration: basicAttack.effectDuration });
+        robot.attacks++;
+        robot.cooldown = Math.max(basicAttack.attackInterval, basicAttack.effectDuration);
+        this.phase(robot, 'wait', robot.cooldown);
+        continue;
+      }
       if (robot.activeBlock === 'find') {
-        robot.targetId = targets[0]?.id ?? null;
+        robot.targetId = nearest?.id ?? null;
         this.phase(robot, targets.length ? 'attack' : 'wait', targets.length ? 0.16 : 0.25);
         continue;
       }
-      // A repeated shot can find another target if the first shot killed its target.
-      const target = targets.find(e => e.id === robot.targetId) ?? (robot.burstRemaining > 0 ? targets[0] : undefined);
+      const target = nearest;
       if (!target) {
         robot.targetId = null; robot.burstRemaining = 0; robot.burstProfile = null;
         this.phase(robot, 'find', 0.16); continue;
       }
       if (robot.cooldown > 0) { this.phase(robot, 'wait', robot.cooldown); continue; }
       robot.targetId = target.id;
-      if (robot.burstRemaining === 0 || !robot.burstProfile) {
-        robot.burstProfile = basicAttack;
-        robot.burstRemaining = robot.burstProfile.shots;
+      const from = { x: robot.x, y: robot.y };
+      if (basicAttack.chargeDuration > 0) {
+        shots.push({ from, to: { ...from }, kind: robot.kind, phase: 'charge', radius: basicAttack.attackRadius, duration: basicAttack.chargeDuration });
+        this.phase(robot, 'charge', basicAttack.chargeDuration);
+        continue;
       }
-      const profile = robot.burstProfile;
-      const damage = robot.damage * profile.damage;
-      const affected = targets.filter(enemy => enemy === target || profile.area || (profile.splash > 0 && distance(enemy, target) <= profile.splash));
+      const to = basicAttack.mode === 'beam' ? getBeamEndpoint(robot, target, basicAttack.attackRadius) : { x: target.x, y: target.y };
+      const affected = basicAttack.mode === 'beam'
+        ? living.filter(enemy => isOnBeamPath(robot, to, enemy, basicAttack.beamHalfWidth))
+        : [target];
       for (const enemy of affected) {
-        enemy.health -= damage;
-        shots.push({ from: enemy === target ? { x: robot.x, y: robot.y } : { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: robot.kind, ...(enemy === target ? {} : { chain: true }) });
-        applyAttackEffects(enemy, damage, profile);
+        enemy.health -= robot.damage;
+        applyAttackEffects(enemy, robot.damage, basicAttack);
       }
-      const chained = targets.filter(enemy => enemy !== target && enemy.health > 0).slice(0, profile.chainTargets);
-      for (const enemy of chained) {
-        enemy.health -= damage * profile.chainDamage;
-        applyAttackEffects(enemy, damage * profile.chainDamage, profile);
-        shots.push({ from: { x: target.x, y: target.y }, to: { x: enemy.x, y: enemy.y }, kind: robot.kind, chain: true });
-      }
+      shots.push({ from, to, kind: robot.kind, radius: basicAttack.attackRadius, duration: basicAttack.effectDuration });
       robot.attacks++;
-      robot.burstRemaining--;
-      if (robot.burstRemaining > 0) { this.phase(robot, 'attack', 0.12); continue; }
-      robot.burstProfile = null; robot.cooldown = profile.attackInterval;
-      this.phase(robot, 'wait', Math.max(0, profile.attackInterval - 0.32));
+      robot.cooldown = Math.max(basicAttack.attackInterval, basicAttack.effectDuration);
+      this.phase(robot, 'wait', robot.cooldown);
     }
     return shots;
   }

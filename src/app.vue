@@ -9,7 +9,7 @@ import { ELEMENTS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './game/wave-one';
 import { getAvailableRobotCount, getTotalSummonCount } from './game/robot-energy';
 import { robotPortraitStyle } from './game/robot-visuals';
 import type { DefenseState, RobotKind } from './game/types';
-import { getRegularMonster, MONSTER_ASSET_PATH } from './game/regular-monsters';
+import { getSummonedMonster } from './game/summoned-monsters';
 const room = ref<InstanceType<typeof SpaceDefenseRoom>>();
 const ready = ref(false);
 const error = ref('');
@@ -21,9 +21,9 @@ const codingRobot = computed(() => state.value.robots.find(robot => robot.id ===
 const portraitAssetUrl = new URL(`${import.meta.env.BASE_URL}codmos-assets/player/int-front.png`, document.baseURI).href;
 const portraitUrl = `url("${portraitAssetUrl}")`;
 const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
-const monsterArt = `${import.meta.env.BASE_URL}${MONSTER_ASSET_PATH}${getRegularMonster(1).file}`;
+const monsterArt = computed(() => `${import.meta.env.BASE_URL}codmos-assets/${getSummonedMonster(Math.max(1, state.value.wave) - 1).portrait}`);
 const retryButton = ref<HTMLButtonElement>();
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, robots: [], robotCount: 0, storedRobotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false, victoryAnimationComplete: false });
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, nextBossNumber: 1, robots: [], robotCount: 0, storedRobotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false, victoryAnimationComplete: false });
 const remainingHearts = computed(() => Math.max(0, Math.min(10, Math.ceil(state.value.health / 10))));
 const canDeploy = computed(() => ready.value && state.value.status === 'running');
 const finished = computed(() => (state.value.status === 'cleared' && (state.value.wave < 3 || state.value.victoryAnimationComplete)) || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
@@ -115,10 +115,10 @@ function nextWave() {
       </div>
     </div>
     <div class="bottom-controls">
-      <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? '보스급 몬스터 출현' : `보스급 몬스터 자동 출현까지 ${state.monsterSummonCountdown}초`">
+      <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? `${Math.max(1, state.wave)}번 보스 출현` : `${state.nextBossNumber}번 보스 자동 출현까지 ${state.monsterSummonCountdown}초`">
         <span v-if="state.monsterSummonCountdown !== null" class="robot-button-count monster-summon-timer" aria-hidden="true">{{ state.monsterSummonCountdown }}s</span>
         <img class="monster-portrait" :src="monsterArt" alt="" draggable="false" />
-        <b>보스몹 출현</b>
+        <b>{{ Math.max(1, state.wave) }}번 보스 출현</b>
       </div>
       <div class="robot-elements" aria-label="속성 에너지 보유 수량">
         <span v-for="kind in kindOrder" :key="kind" :class="kind" :title="`${ELEMENTS[kind].name} 에너지`" :aria-label="ELEMENTS[kind].name + ' 에너지 ' + state.elementEnergy[kind] + '개'">

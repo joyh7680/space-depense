@@ -7,9 +7,9 @@ defineProps<{ battleRunning: boolean }>();
 const dialog = ref<HTMLDialogElement>();
 const open = ref(false);
 const robotGuides = [
-  { kind: 'electric', tip: '가까운 괴물을 빠르게 공격해요.' },
-  { kind: 'ice', tip: '주변 괴물을 함께 공격하고, 느리게 만들어요.' },
-  { kind: 'fire', tip: '공격이 터지면서 주변 괴물도 함께 맞아요.' },
+  { kind: 'electric', tip: '가장 가까운 괴물에게 푸른 전기 볼트를 쏴요. 30HP 피해를 주고, 2초 동안 이동속도를 30% 줄여요. 포신은 적을 향해 360° 회전해요.', effect: '푸른 전기 스파크 · 0.8초' },
+  { kind: 'ice', tip: '냉기(파란색)와 화염(주황색)이 결합된 직선 빔을 쏴요. 공격 경로의 모든 괴물에게 각각 45HP 관통 피해를 줘요.', effect: '냉기 + 화염 빔 · 1.2초' },
+  { kind: 'fire', tip: '0.5초 동안 에너지를 모은 뒤 로봇을 중심으로 360° 폭발해요. 범위 안의 모든 괴물에게 각각 90HP 피해를 줘요.', effect: '충전 0.5초 + 플라즈마 폭발 1.3초' },
 ] as const;
 
 function showGuide() {
@@ -28,7 +28,7 @@ function showGuide() {
       </header>
       <p id="game-guide-intro" class="guide-intro"><strong>로봇과 함께 우주 기지를 지켜요!</strong>괴물이 우리 기지에 못 오게 막는 게임이에요.<br />로봇에게 명령을 알려 주고, 3라운드를 모두 지켜 보세요!</p>
       <p v-if="battleRunning" class="guide-battle-note">설명을 읽는 동안에도 전투는 계속돼요.</p>
-      <p class="guide-goal">전투 시작 100초 후 보스가 나와요.<br /><strong>모든 괴물과 보스를 잡으면 라운드 성공!</strong></p>
+      <p class="guide-goal">전투 시작 100초 후 보스가 한 마리 나와요. 1라운드는 민트색, 2라운드는 주황색, 3라운드는 초록색 보스예요.<br /><strong>모든 일반 괴물과 보스를 잡으면 라운드 성공!</strong></p>
 
       <ol class="guide-steps">
         <li><h2>내 캐릭터를 옮겨요</h2><p>캐릭터를 마우스나 손가락으로 끌어서 <strong>괴물 길 옆의 빈 바닥</strong>에 놓아요. 가까운 괴물은 알아서 공격해요.</p></li>
@@ -43,8 +43,9 @@ function showGuide() {
         <p class="guide-tip">아래는 로봇 <strong>1대</strong>를 부를 때 필요한 에너지 조합이에요. 에너지를 모으기만 하면 그대로 남아 있고, 원하는 로봇을 골라 소환할 때 사용돼요.</p>
         <div v-for="robot in robotGuides" :key="robot.kind" class="guide-robot">
           <i class="robot-portrait" :style="robotPortraitStyle(robot.kind)" aria-hidden="true" />
-          <div><h3>{{ ROBOTS[robot.kind].name }}</h3><p>{{ robot.tip }}</p><small>필요한 에너지: {{ ROBOTS[robot.kind].recipe.map(part => `${ELEMENTS[part.kind].name} ${part.amount}개`).join(' + ') }} (총 {{ ROBOTS[robot.kind].recipe.reduce((total, part) => total + part.amount, 0) }}개)</small></div>
+          <div><h3>{{ ROBOTS[robot.kind].name }}</h3><p>{{ robot.tip }}</p><small>필요한 에너지: {{ ROBOTS[robot.kind].recipe.map(part => `${ELEMENTS[part.kind].name} ${part.amount}개`).join(' + ') }} (총 {{ ROBOTS[robot.kind].recipe.reduce((total, part) => total + part.amount, 0) }}개)</small><small>{{ robot.effect }}</small></div>
         </div>
+        <p class="guide-tip guide-energy-note">피해량은 기본 1성 로봇 기준이에요. 일반 괴물의 체력은 100HP라서 한 번 공격받으면 크라이오 볼트는 70HP, 써멀 쇼크는 55HP, 플라즈마는 10HP가 남아요. 합성하면 공격력이 높아져요.</p>
         <p class="guide-tip guide-energy-note">흐린 카드는 에너지가 부족하거나 로봇이 최대 {{ MAX_ROBOTS }}대라서 부를 수 없다는 뜻이에요. 소환하지 못하면 에너지는 줄지 않아요. 보스를 잡아 보상으로 받은 보관 로봇은 에너지 없이 먼저 배치돼요.</p>
       </section>
 
