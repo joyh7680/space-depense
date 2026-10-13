@@ -30,12 +30,12 @@ test('room boundaries and flipped wall tiles cannot be walked on; every deploy s
 
 test('hybrid combinations require every ingredient and never spend credits', () => {
   const game = new DefenseSimulation();
-  assert.equal(ROBOT_CHARGE_COST, 5);
+  assert.equal(ROBOT_CHARGE_COST, 4);
   assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
-  game.elementEnergy.fire = 5; game.elementEnergy.electric = 2; game.credits = 9999;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 5);
+  game.elementEnergy.fire = 4; game.elementEnergy.electric = 1; game.credits = 9999;
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 4);
   game.elementEnergy.fire++;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 6);
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 5);
   game.elementEnergy.electric++;
   game.elementEnergy.ice = 0;
   game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.ice, 0);
@@ -48,20 +48,20 @@ test('hybrid combinations require every ingredient and never spend credits', () 
   game.summon('fire'); assert.equal(game.robots.length, 1);
   fundRobot(game, 'electric'); game.summon('electric'); assert.equal(game.robots.length, 2); assert.equal(game.elementEnergy.electric, 0);
   game.elementEnergy.ice = 7; game.elementEnergy.fire = 2; game.elementEnergy.electric = 1; game.credits = 0; game.summon('ice');
-  assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 3); assert.equal(game.elementEnergy.electric, 0); assert.equal(game.credits, 0);
+  assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 4); assert.equal(game.elementEnergy.electric, 0); assert.equal(game.credits, 0);
 });
 
 test('invalid placement, occupied slots and full board preserve matching energy', () => {
   const game = new DefenseSimulation(); setRobotEnergy(game, 'fire', 10);
   for (const [x, y] of [[0, 6], [1, 4], [12, 5], [3, 6], [game.player.x, game.player.y]]) game.placeRobot(x, y, 'fire');
-  assert.equal(game.elementEnergy.fire, 50); assert.equal(game.elementEnergy.electric, 30); assert.equal(game.robots.length, 0);
+  assert.equal(game.elementEnergy.fire, 40); assert.equal(game.elementEnergy.electric, 20); assert.equal(game.robots.length, 0);
   game.placeRobot(3, 5, 'fire'); game.placeRobot(3, 5, 'fire');
-  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 45);
+  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 36);
   for (let i = 0; i < 7; i++) game.summon('fire');
-  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 10);
-  game.summon('fire'); assert.equal(game.elementEnergy.fire, 5); assert.equal(game.robots.length, 9);
+  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 8);
+  game.summon('fire'); assert.equal(game.elementEnergy.fire, 4); assert.equal(game.robots.length, 9);
   assert.equal(game.summon('fire'), '로봇은 최대 9대까지 소환할 수 있어요.');
-  assert.equal(game.elementEnergy.fire, 5); assert.equal(game.elementEnergy.electric, 3); assert.equal(game.robots.length, 9);
+  assert.equal(game.elementEnergy.fire, 4); assert.equal(game.elementEnergy.electric, 2); assert.equal(game.robots.length, 9);
   assert.equal(new Set(game.deployedRobots.map(robot => `${robot.x},${robot.y}`)).size, 9);
 });
 
