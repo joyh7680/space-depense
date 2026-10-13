@@ -32,6 +32,7 @@ export type GameController = {
   deployRobotKind: (kind: RobotKind) => boolean;
   selectRobot: (id: number) => void;
   updateCode: (id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number) => void;
+  clearCode: (id: number) => void;
   runCode: (id: number) => void;
   merge: () => void;
   toggleGrid: () => void;

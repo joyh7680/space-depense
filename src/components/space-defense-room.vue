@@ -35,6 +35,7 @@ defineExpose({
   deployRobotKind: (kind: RobotKind) => controller?.deployRobotKind(kind) ?? false,
   selectRobot: (id: number) => controller?.selectRobot(id),
   updateCode: (id: number, slot: number, block: CodingBlockId | null, sourceSlot?: number) => controller?.updateCode(id, slot, block, sourceSlot),
+  clearCode: (id: number) => controller?.clearCode(id),
   runCode: (id: number) => controller?.runCode(id),
   merge: () => controller?.merge(),
   toggleGrid: () => controller?.toggleGrid(),

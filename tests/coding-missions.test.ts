@@ -164,6 +164,54 @@ test('drafts and errors stay with each robot when selecting the same or a differ
   }
 });
 
+test('clearing blocks resets only the selected robot draft and error, then allows a new answer', () => {
+  for (const wave of waves) for (const kind of kinds) {
+    const game = setup(kind, wave), other = game.robots[0], robot = summon(game, kind);
+    const mission = getCodingMission(kind, wave, robot.missionVariant);
+    const otherBlock = getCodingMission(kind, wave, other.missionVariant).slots[0].block;
+    if (other.code.length > 1) game.updateCode(other.id, 0, otherBlock);
+    else complete(game, other.id);
+    const otherBefore = JSON.stringify(other.program);
+    for (const index of mission.slots.keys()) game.updateCode(robot.id, index, mission.slots.at(-1)!.block);
+    assert.equal(robot.missionStatus, 'error');
+    assert.equal(game.clearCode(robot.id), true);
+    assert.equal(robot.code.length, mission.slots.length);
+    assert.ok(robot.code.every(block => block === null));
+    assert.equal(robot.missionStatus, 'waiting');
+    assert.equal(robot.autoAttackActive, false);
+    assert.doesNotMatch(robot.missionMessage, /번째|틀|실패/);
+    assert.equal(JSON.stringify(other.program), otherBefore);
+    assert.equal(game.clearCode(robot.id), true, 'clearing an empty draft is harmless');
+    game.updateCode(robot.id, 0, mission.slots[0].block);
+    assert.equal(game.clearCode(robot.id), true, 'partial drafts can also be cleared');
+    assert.ok(robot.code.every(block => block === null));
+    complete(game, robot.id);
+    assert.equal(robot.autoAttackActive, true);
+  }
+});
+
+test('clearing blocks rejects invalid, stored, completed, paused and finished robots', () => {
+  const game = setup('ice'), robot = summon(game, 'ice');
+  const block = getCodingMission('ice', 1, robot.missionVariant).slots[0].block;
+  game.updateCode(robot.id, 0, block);
+  const before = JSON.stringify(robot.program);
+  assert.equal(game.clearCode(-1), false);
+  const stored = addStoredRobot(game, 'ice');
+  const storedBefore = JSON.stringify(stored.program);
+  assert.equal(game.clearCode(stored.id), false);
+  assert.equal(JSON.stringify(stored.program), storedBefore);
+  for (const status of ['paused', 'defeat', 'cleared'] as const) {
+    game.status = status;
+    assert.equal(game.clearCode(robot.id), false);
+    assert.equal(JSON.stringify(robot.program), before);
+  }
+  game.status = 'running'; complete(game, robot.id);
+  const completedBefore = JSON.stringify(robot.program);
+  assert.equal(game.clearCode(robot.id), false);
+  assert.equal(JSON.stringify(robot.program), completedBefore);
+  assert.equal(robot.autoAttackActive, true);
+});
+
 test('wave transitions remove completed robots and drafts; new robots need the current mission', () => {
   const game = setup('fire'), fire = game.robots[0], ice = summon(game, 'ice');
   complete(game, fire.id); game.updateCode(ice.id, 0, 'find');

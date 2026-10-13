@@ -7,7 +7,7 @@ import type { RobotState } from '../game/types';
 import CodingSuccessEffect from './coding-success-effect.vue';
 
 const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean }>();
-const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null, sourceSlot?: number]; close: [] }>();
+const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null, sourceSlot?: number]; clear: []; close: [] }>();
 const mission = computed(() => getCodingMission(props.robot.kind, props.robot.missionNumber, props.robot.missionVariant));
 const completed = computed(() => props.robot.missionStatus === 'completed');
 const draggingBlock = ref<CodingBlockId | null>(null);
@@ -54,6 +54,12 @@ function removeBlock(slot: number) {
   emit('change', slot, null);
   editMessage.value = '';
 }
+function clearBlocks() {
+  if (!props.interactive || completed.value || !props.robot.code.some(Boolean)) return;
+  endDrag();
+  emit('clear');
+  editMessage.value = '놓은 블록을 모두 비웠어요.';
+}
 </script>
 
 <template>
@@ -90,7 +96,10 @@ function removeBlock(slot: number) {
       </section>
       <section v-else class="coding-workspace" aria-label="블록코딩 작업 영역">
         <div class="coding-section-title"><h3>내 코드</h3><span>{{ robot.code.filter(Boolean).length }} / {{ mission.slots.length }} 블록</span></div>
-        <p class="coding-help">블록을 클릭하거나 드래그해서 순서대로 넣어 봐요.</p>
+        <div class="coding-workspace-tools">
+          <p class="coding-help">블록을 클릭하거나 드래그해서 순서대로 넣어 봐요.</p>
+          <button class="clear-blocks" type="button" :disabled="!interactive || !robot.code.some(Boolean)" @click="clearBlocks">블록 비우기</button>
+        </div>
         <div class="code-start">▶ 로봇이 작동하는 동안</div>
         <div class="code-body">
           <div v-for="(slot, index) in mission.slots" :key="index" class="coding-slot-row" :style="{ marginLeft: slot.depth * 16 + 'px' }">

@@ -235,6 +235,17 @@ export class DefenseSimulation {
     this.syncPrograms();
     return null;
   }
+  clearCode(id: number): boolean {
+    const robot = this.robots.find(r => r.id === id);
+    if (!this.canDeploy || !robot?.deployed) return false;
+    const progress = this.missionProgress(robot, this.currentMission());
+    if (progress.status === 'completed') return false;
+    progress.code.fill(null);
+    progress.status = 'waiting';
+    progress.message = '블록을 순서대로 연결하면 자동으로 공격해요.';
+    this.syncPrograms();
+    return true;
+  }
   runCode(id: number): string {
     const robot = this.robots.find(r => r.id === id);
     if (!this.canDeploy || !robot?.deployed) return '전장에 배치한 로봇의 코드를 실행해 주세요.';

@@ -335,6 +335,12 @@ button:not(:disabled):active{transform:translateY(3px)}
 .action{background:#296b61;border-color:#4caa98}
 .remove-block{background:transparent;color:#8fa3bf;width:18px;padding:0;font-size:18px}
 .coding-help{font-size:10px;color:#849bb9;line-height:1.7;margin:-4px 0 12px}
+.coding-workspace-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px 0 12px}
+.coding-workspace-tools .coding-help{flex:1;margin:0}
+.clear-blocks{flex-shrink:0;padding:5px 8px;border:1px solid #526781;border-radius:6px;background:#26394f;color:#c4d5eb;font-size:10px;line-height:1.5;white-space:nowrap}
+.clear-blocks:hover:not(:disabled){background:#354f6c;border-color:#8ba3c1;color:#fff}
+.clear-blocks:focus-visible{outline:2px solid var(--robot-accent);outline-offset:3px}
+.clear-blocks:disabled{opacity:.45;cursor:default}
 .palette-block{display:flex;align-items:center;gap:10px;position:relative;width:100%;border-width:1px;border-style:solid;border-radius:7px;padding:10px 12px;font-size:11px;text-align:left;line-height:1.6;margin-top:9px;cursor:pointer;box-shadow:0 3px 0 #050d1c50}
 .palette-block>span{font-size:15px;opacity:.55}
 .palette-block:hover{filter:brightness(1.15)}

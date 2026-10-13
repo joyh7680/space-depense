@@ -607,6 +607,7 @@ export class DefenseScene extends Phaser.Scene {
     }
     this.publish();
   }
+  clearCode(id: number): void { this.simulation.clearCode(id); this.publish(); }
   runCode(id: number): void { this.notice = this.simulation.runCode(id); this.publish(); }
   merge(): void { this.notice = this.simulation.merge(); this.publish(); }
   togglePause(): void { this.simulation.togglePause(); this.publish(); }

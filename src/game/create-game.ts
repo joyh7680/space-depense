@@ -35,6 +35,7 @@ export async function createDefenseGame(options: GameOptions): Promise<GameContr
     deployRobotKind: kind => scene.deployRobotKind(kind),
     selectRobot: id => scene.selectRobot(id),
     updateCode: (id, slot, block, sourceSlot) => scene.updateCode(id, slot, block, sourceSlot),
+    clearCode: id => scene.clearCode(id),
     runCode: id => scene.runCode(id),
     merge: () => scene.merge(),
     toggleGrid: () => scene.toggleGrid(),
