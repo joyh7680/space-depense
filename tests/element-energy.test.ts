@@ -11,7 +11,7 @@ const monster = (id: number, health: number): Enemy => ({
 
 test('robots use the requested names and exact 5, 7 and 9 energy combinations', () => {
   assert.equal(ROBOTS.electric.name, '크라이오 볼트');
-  assert.deepEqual(ROBOTS.electric.recipe, [{ kind: 'electric', amount: 2 }, { kind: 'ice', amount: 3 }]);
+  assert.deepEqual(ROBOTS.electric.recipe, [{ kind: 'ice', amount: 2 }, { kind: 'fire', amount: 2 }, { kind: 'electric', amount: 1 }]);
   assert.equal(ROBOTS.ice.name, '써멀 쇼크');
   assert.deepEqual(ROBOTS.ice.recipe, [{ kind: 'ice', amount: 3 }, { kind: 'fire', amount: 3 }, { kind: 'electric', amount: 1 }]);
   assert.equal(ROBOTS.fire.name, '플라즈마');
@@ -61,7 +61,7 @@ test('any missing recipe energy blocks deployment without changing resources or 
 
 test('inventory counts only stored robots regardless of available energy combinations', () => {
   const energy = { electric: 8, ice: 6, fire: 3 };
-  assert.equal(getRobotEnergyCount(energy, 'electric'), 2);
+  assert.equal(getRobotEnergyCount(energy, 'electric'), 1);
   assert.equal(getRobotEnergyCount(energy, 'ice'), 1);
   assert.equal(getRobotEnergyCount(energy, 'fire'), 0);
   assert.equal(getTotalDeployCount([]), 0);
@@ -206,12 +206,12 @@ test('manual choices and total counts never double spend shared energy and respe
   assert.equal(game.deployRobotKind('ice'), false);
   game.togglePause(); game.step(0.05);
   assert.equal(game.robotCount, 0);
-  assert.equal(getTotalSummonCount(game.elementEnergy, game.robots), 3);
+  assert.equal(getTotalSummonCount(game.elementEnergy, game.robots), 2);
   assert.equal(getAvailableRobotCount(game.elementEnergy, game.robots, 'electric'), 2);
   assert.equal(game.deployRobotKind('ice'), true);
   assert.deepEqual(game.elementEnergy, { fire: 2, ice: 4, electric: 9 });
   assert.equal(game.deployRobotKind('electric'), true);
-  assert.deepEqual(game.elementEnergy, { fire: 2, ice: 1, electric: 7 });
+  assert.deepEqual(game.elementEnergy, { fire: 0, ice: 2, electric: 8 });
   fundRobot(game, 'fire', 9); game.step(0.05);
   assert.equal(game.robotCount, 2);
   for (let index = 2; index < MAX_ROBOTS; index++) assert.equal(game.deployRobotKind('fire'), true);
