@@ -13,5 +13,7 @@ export function robotAssetUrl(kind: RobotKind): string {
 }
 
 export function robotPortraitStyle(kind: RobotKind): Record<string, string> {
-  return { '--robot-portrait-url': `url("${robotAssetUrl(kind)}")` };
+  // CSS variables resolve relative URLs against the stylesheet, which lives in assets/ after build.
+  const portraitUrl = new URL(robotAssetUrl(kind), document.baseURI).href;
+  return { '--robot-portrait-url': `url("${portraitUrl}")` };
 }

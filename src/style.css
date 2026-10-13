@@ -271,7 +271,7 @@ button:not(:disabled):active{transform:translateY(3px)}
 .battle-hint-enter-active,.battle-hint-leave-active{transition:opacity .25s ease}
 .battle-hint-enter-from,.battle-hint-leave-to{opacity:0}
 @media(prefers-reduced-motion:reduce){.battle-hint-enter-active,.battle-hint-leave-active{transition:none}}
-.coding-panel{position:absolute;top:28px;right:22px;bottom:28px;width:390px;max-width:calc(100% - 44px);display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(160deg,#202d43,#121d30);border:1px solid #526079;border-radius:22px;box-shadow:0 8px 32px #080c2066;z-index:2;color:#eef4ff}
+.coding-panel{position:absolute;top:28px;right:22px;bottom:28px;width:390px;max-width:calc(100% - 44px);display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(160deg,#202d43,#121d30);border:1px solid #526079;border-radius:22px;box-shadow:0 8px 32px #080c2066;z-index:4;color:#eef4ff}
 .coding-header{display:flex;justify-content:space-between;align-items:center;padding:20px 22px 17px;border-bottom:1px solid #ffffff12;gap:12px}
 .coding-header small{color:#92a9c9;letter-spacing:1.8px;font-size:9px}
 .coding-header h2{font-size:20px;letter-spacing:-.7px;margin:7px 0 0}

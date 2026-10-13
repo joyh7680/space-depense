@@ -63,7 +63,7 @@ function showGuide() {
 </template>
 
 <style scoped>
-.guide-trigger{position:absolute;top:30px;right:28px;z-index:15;display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 14px;border:1px solid #71849a;border-radius:14px;background:#1c293ded;color:#eff6ff;font-size:13px;box-shadow:0 4px 0 #101626}
+.guide-trigger{position:absolute;top:30px;right:28px;z-index:1;display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 14px;border:1px solid #71849a;border-radius:14px;background:#1c293ded;color:#eff6ff;font-size:13px;box-shadow:0 4px 0 #101626}
 .guide-trigger>span{display:grid;place-items:center;width:20px;height:20px;border:1px solid #a7c9dd;border-radius:50%;color:#93e5e5;font-weight:800}
 .guide-trigger:hover{background:#30455b}
 .game-guide{width:700px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding:0;border:1px solid #66839b;border-radius:24px;background:#182638;color:#edf4ff;box-shadow:0 24px 90px #0008;overflow-y:auto;overscroll-behavior:contain;text-align:left}

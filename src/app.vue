@@ -96,7 +96,7 @@ function nextWave() {
 </script>
 <template>
   <main class="game-screen" aria-label="코드모스 우주 디펜스" :style="{ '--portrait-url': portraitUrl }" :data-player-x="state.player.x" :data-player-y="state.player.y">
-    <GameGuide v-if="ready && !error" :battle-running="state.status === 'running'" />
+    <GameGuide v-if="ready && !error && !codingRobot" :battle-running="state.status === 'running'" />
     <div class="battle-area">
     <SpaceDefenseRoom ref="room" @state="state = $event" @ready="ready = true" @error="error = $event" @inspect="selectCodingRobot" />
     <div v-if="ready && !error && state.status === 'ready'" class="countdown-hud" role="status" aria-live="polite" aria-atomic="true">
