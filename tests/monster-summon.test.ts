@@ -251,3 +251,65 @@ test('a defeated boss never respawns while regular enemies remain', () => {
   game.enemies[0].health = 0; game.step(0.05);
   assert.equal(game.status, 'cleared');
 });
+
+test('each wave warns only during the final five seconds, then publishes live boss HP', () => {
+  for (const wave of [1, 2, 3]) {
+    const game = new DefenseSimulation();
+    game.wave = wave; game.countdown = 0; game.player = { x: 14, y: 11 }; game.startWave();
+    game.spawned = game.totalEnemies - 1;
+    assert.equal(game.bossApproaching, false);
+    assert.equal(game.bossHealth, null);
+    game.elapsed = 94.9; game.step(0.05);
+    assert.equal(game.bossApproaching, false);
+    game.step(0.05);
+    assert.equal(game.bossApproaching, true);
+    assert.equal(game.monsterSummonCountdown, 5);
+    game.togglePause(); advance(game, 10);
+    assert.equal(game.bossApproaching, true);
+    assert.equal(game.monsterSummonCountdown, 5);
+    game.togglePause(); advance(game, 4.95);
+    assert.equal(game.bossApproaching, true);
+    game.step(0.05);
+    assert.equal(game.bossApproaching, false);
+    assert.deepEqual(game.bossHealth, { health: SUMMONED_MONSTER.health, maxHealth: SUMMONED_MONSTER.health });
+    const boss = game.enemies[0];
+    boss.health -= 123;
+    assert.equal(game.bossHealth!.health, SUMMONED_MONSTER.health - 123);
+    game.togglePause(); advance(game, 10);
+    assert.equal(game.bossHealth!.health, SUMMONED_MONSTER.health - 123);
+    game.togglePause(); boss.health = 0; game.step(0.05);
+    assert.equal(game.bossHealth, null);
+    assert.equal(game.bossApproaching, false);
+    assert.equal(game.status, 'cleared');
+    if (wave < 3) {
+      game.startWave();
+      assert.equal(game.bossApproaching, false);
+      assert.equal(game.bossHealth, null);
+      assert.equal(game.monsterSummonCountdown, 100);
+    }
+  }
+});
+
+test('defeat hides the approaching warning and the boss HP bar', () => {
+  const game = new DefenseSimulation(); game.startWave();
+  game.elapsed = 95;
+  assert.equal(game.bossApproaching, true);
+  game.status = 'defeat';
+  assert.equal(game.bossApproaching, false);
+  const fighting = new DefenseSimulation(); spawnBoss(fighting);
+  assert.ok(fighting.bossHealth);
+  fighting.status = 'defeat';
+  assert.equal(fighting.bossHealth, null);
+});
+
+test('boss rewards can mix duplicate elements, such as two fire and one ice, exactly once', () => {
+  const rolls = [0, 0.1, 0.4, 0.99]; let draw = 0;
+  const game = new DefenseSimulation(() => rolls[draw++] ?? 0.99);
+  spawnBoss(game); game.enemies[0].health = 0; game.step(0.05);
+  assert.deepEqual(game.elementEnergy, { fire: 2, ice: 1, electric: 0 });
+  assert.deepEqual(game.lastEnergyRewards, { fire: 2, ice: 1, electric: 0 });
+  assert.equal(draw, 4);
+  game.step(0.05);
+  assert.deepEqual(game.elementEnergy, { fire: 2, ice: 1, electric: 0 });
+  assert.equal(draw, 4);
+});

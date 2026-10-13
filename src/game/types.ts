@@ -5,6 +5,7 @@ export type ElementEnergy = Record<RobotKind, number>;
 export type CodeBlock = 'find' | 'charge' | 'attack' | 'wait';
 export type GameMode = 'move' | 'relocate';
 export type GameStatus = 'ready' | 'running' | 'paused' | 'cleared' | 'defeat';
+export type BossHealth = { health: number; maxHealth: number };
 export type RobotState = TilePosition & {
   id: number; kind: RobotKind; grade: number; damage: number; deployed: boolean;
   activeBlock: CodeBlock; attacks: number; targetId: number | null; aimAngle: number;
@@ -18,6 +19,8 @@ export type DefenseState = {
   mode: GameMode; grid: boolean; message: string; countdown: number;
   monsterSummonCountdown: number | null;
   nextBossNumber: number | null;
+  bossApproaching: boolean;
+  bossHealth: BossHealth | null;
   defeatAnimationComplete: boolean;
   victoryAnimationComplete: boolean;
 };

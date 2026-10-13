@@ -3,7 +3,7 @@ import { createRobotProgram, getBasicRobotAttack, getMissionNumber, getCodingMis
 import { DEPLOY_SLOTS, ROBOT_KINDS, ROBOTS, MAX_GRADE, MAX_ROBOTS, SUMMONED_MONSTER, WAVE_ONE, REGULAR_ENEMY_COUNTS, PLAYER_LASER_RADIUS } from './wave-one.ts';
 import { getRobotEnergyCount, getRobotRecipeLabel, spendRobotEnergy } from './robot-energy.ts';
 import { getBeamEndpoint, isOnBeamPath } from './robot-attack-geometry.ts';
-import type { CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
+import type { BossHealth, CodeBlock, ElementEnergy, RobotKind, RobotState, GameStatus, TilePosition } from './types.ts';
 
 export type Robot = RobotState & { program: RobotProgram; cooldown: number; phaseTimer: number; burstRemaining: number; burstProfile: AttackProfile | null };
 export type Enemy = TilePosition & {
@@ -75,6 +75,16 @@ export class DefenseSimulation {
   }
   get monsterSummonCountdown(): number | null {
     return this.nextBossNumber === null ? null : Math.ceil(Math.max(0, SUMMONED_MONSTER.summonDelay - this.elapsed - 0.000001));
+  }
+  get bossApproaching(): boolean {
+    return (this.status === 'running' || this.status === 'paused') && this.nextBossNumber !== null
+      && this.elapsed >= SUMMONED_MONSTER.summonDelay - SUMMONED_MONSTER.warningLeadTime - 0.000001
+      && this.elapsed < SUMMONED_MONSTER.summonDelay - 0.000001;
+  }
+  get bossHealth(): BossHealth | null {
+    if (this.status !== 'running' && this.status !== 'paused') return null;
+    const boss = this.enemies.find(enemy => enemy.kind === 'summoned' && enemy.health > 0);
+    return boss ? { health: Math.min(boss.health, SUMMONED_MONSTER.health), maxHealth: SUMMONED_MONSTER.health } : null;
   }
 
   private spawnBoss(): void {

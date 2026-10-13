@@ -5,6 +5,7 @@ import EnergyIcon from './components/energy-icon.vue';
 import VictoryResult from './components/victory-result.vue';
 import RobotCodingPanel from './components/robot-coding-panel.vue';
 import GameGuide from './components/game-guide.vue';
+import BossHud from './components/boss-hud.vue';
 import { ELEMENTS, ROBOTS, SUMMONED_MONSTER, WAVE_ONE } from './game/wave-one';
 import { getAvailableRobotCount, getTotalSummonCount } from './game/robot-energy';
 import { robotPortraitStyle } from './game/robot-visuals';
@@ -23,7 +24,7 @@ const portraitUrl = `url("${portraitAssetUrl}")`;
 const gameOverArt = `${import.meta.env.BASE_URL}codmos-assets/e56bb4d926f2/6a69a85b-2fab-4322-8b87-30a4eab82980.png`;
 const monsterArt = computed(() => `${import.meta.env.BASE_URL}codmos-assets/${getSummonedMonster(Math.max(1, state.value.wave) - 1).portrait}`);
 const retryButton = ref<HTMLButtonElement>();
-const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, nextBossNumber: 1, robots: [], robotCount: 0, storedRobotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false, victoryAnimationComplete: false });
+const state = ref<DefenseState>({ status: 'ready', wave: 0, health: 100, credits: 300, elementEnergy: { fire: 0, electric: 0, ice: 0 }, kills: 0, enemies: 0, spawned: 0, total: WAVE_ONE.enemies + 1, escaped: 0, elapsed: 0, countdown: 3, monsterSummonCountdown: SUMMONED_MONSTER.summonDelay, nextBossNumber: 1, bossApproaching: false, bossHealth: null, robots: [], robotCount: 0, storedRobotCount: 0, selectedId: null, player: { x: 5, y: 4 }, mode: 'move', grid: false, message: '', defeatAnimationComplete: false, victoryAnimationComplete: false });
 const remainingHearts = computed(() => Math.max(0, Math.min(10, Math.ceil(state.value.health / 10))));
 const canDeploy = computed(() => ready.value && state.value.status === 'running');
 const finished = computed(() => (state.value.status === 'cleared' && (state.value.wave < 3 || state.value.victoryAnimationComplete)) || (state.value.status === 'defeat' && state.value.defeatAnimationComplete));
@@ -114,6 +115,7 @@ function nextWave() {
         <span v-for="heart in 10" :key="heart" :class="{ empty: heart > remainingHearts }" aria-hidden="true">♥</span>
       </div>
     </div>
+    <BossHud v-if="ready && !error" :approaching="state.bossApproaching" :health="state.bossHealth" />
     <div class="bottom-controls">
       <div class="robot-button monster-button" role="timer" :aria-label="state.monsterSummonCountdown === null ? `${Math.max(1, state.wave)}번 보스 출현` : `${state.nextBossNumber}번 보스 자동 출현까지 ${state.monsterSummonCountdown}초`">
         <span v-if="state.monsterSummonCountdown !== null" class="robot-button-count monster-summon-timer" aria-hidden="true">{{ state.monsterSummonCountdown }}s</span>

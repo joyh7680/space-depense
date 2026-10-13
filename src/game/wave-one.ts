@@ -7,7 +7,7 @@ export const WAVE_ONE = { enemies: REGULAR_ENEMY_COUNTS[0], health: 100, speed: 
 // Minimum cost; each robot's actual energy cost is defined by its recipe below.
 export const ROBOT_CHARGE_COST = 5;
 export const MAX_ROBOTS = 9;
-export const SUMMONED_MONSTER = { summonDelay: 100, health: WAVE_ONE.health * 10, size: 150, elementEnergyReward: 3, robotDropChance: 0.02 } as const;
+export const SUMMONED_MONSTER = { summonDelay: 100, warningLeadTime: 5, health: WAVE_ONE.health * 10, size: 150, elementEnergyReward: 3, robotDropChance: 0.02 } as const;
 export const MAX_GRADE = 3;
 // World-space range: circular bolt/blast range and straight beam length.
 export const ROBOT_ATTACK_RADIUS = 190;
