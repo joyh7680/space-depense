@@ -7,7 +7,7 @@ import type { RobotState } from '../game/types';
 import CodingSuccessEffect from './coding-success-effect.vue';
 
 const props = defineProps<{ robot: RobotState; wave: number; interactive: boolean }>();
-const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null, sourceSlot?: number]; clear: []; close: [] }>();
+const emit = defineEmits<{ change: [slot: number, block: CodingBlockId | null, sourceSlot?: number]; clear: []; run: []; close: [] }>();
 const mission = computed(() => getCodingMission(props.robot.kind, props.robot.missionNumber, props.robot.missionVariant));
 const completed = computed(() => props.robot.missionStatus === 'completed');
 const draggingBlock = ref<CodingBlockId | null>(null);
@@ -60,12 +60,16 @@ function clearBlocks() {
   emit('clear');
   editMessage.value = '놓은 블록을 모두 비웠어요.';
 }
+function runCode() {
+  editMessage.value = '';
+  emit('run');
+}
 </script>
 
 <template>
   <aside class="coding-panel" :class="robot.kind" aria-labelledby="coding-title">
     <header class="coding-header"><div><small>ROBOT CODING · WAVE {{ String(Math.max(1, wave)).padStart(2, '0') }}</small><h2 id="coding-title">로봇에게 명령하기</h2></div><button class="coding-close" type="button" aria-label="코딩 패널 닫기" @click="emit('close')">×</button></header>
-    <div class="coding-scroll">
+    <div class="coding-content">
       <section class="coding-mission" @keydown.esc="missionDetailsOpen = false">
         <div class="coding-mission-header">
           <small>WAVE {{ mission.number }} {{ mission.title }} · {{ robot.deploymentOrder }}번째 배치</small>
@@ -94,30 +98,38 @@ function clearBlocks() {
         <div class="coding-success-status"><span class="coding-success-dot" />기본 자동 공격 활성화<span class="coding-success-status-check" aria-hidden="true">✓</span></div>
         <p class="coding-success-note">이 로봇은 이번 웨이브에서 계속 공격해요.<br />다음 웨이브에서는 에너지와 로봇이 초기화돼요.</p>
       </section>
-      <section v-else class="coding-workspace" aria-label="블록코딩 작업 영역">
-        <div class="coding-section-title"><h3>내 코드</h3><span>{{ robot.code.filter(Boolean).length }} / {{ mission.slots.length }} 블록</span></div>
-        <div class="coding-workspace-tools">
-          <p class="coding-help">블록을 클릭하거나 드래그해서 순서대로 넣어 봐요.</p>
-          <button class="clear-blocks" type="button" :disabled="!interactive || !robot.code.some(Boolean)" @click="clearBlocks">블록 비우기</button>
-        </div>
-        <div class="code-start">▶ 로봇이 작동하는 동안</div>
-        <div class="code-body">
-          <div v-for="(slot, index) in mission.slots" :key="index" class="coding-slot-row" :style="{ marginLeft: slot.depth * 16 + 'px' }">
-            <button class="coding-slot" :class="[robot.code[index] ? getCodingBlock(robot.code[index]!).category : 'empty', { 'drag-over': overSlot === index }]" :disabled="!interactive || completed" :draggable="!!robot.code[index] && interactive && !completed" :aria-label="`${index + 1}번째 칸: ${robot.code[index] ? getCodingBlock(robot.code[index]!).label : '+ 여기에 블록 놓기'}`" @dragstart="robot.code[index] && drag($event, robot.code[index]!, index)" @dragend="endDrag" @dragover.prevent="overSlot = index" @dragleave="overSlot = null" @drop.prevent="drop($event, index)">
-              <span class="slot-number">{{ index + 1 }}</span>{{ robot.code[index] ? getCodingBlock(robot.code[index]!).label : '+ 여기에 블록 놓기' }}
-            </button>
-            <button v-if="robot.code[index] && !completed" class="remove-block" :disabled="!interactive" :aria-label="`${index + 1}번째 블록 제거`" @click="removeBlock(index)">×</button>
+      <div v-else class="coding-columns">
+        <section class="coding-workspace" aria-label="블록코딩 작업 영역">
+          <div class="coding-section-title"><h3>내 코드</h3><span>{{ robot.code.filter(Boolean).length }} / {{ mission.slots.length }} 블록</span></div>
+          <div class="coding-workspace-tools">
+            <p class="coding-help">블록을 클릭하거나 드래그해서 순서대로 넣어 봐요.</p>
+            <button class="clear-blocks" type="button" :disabled="!interactive || !robot.code.some(Boolean)" @click="clearBlocks">블록 비우기</button>
           </div>
-        </div>
-        <div class="code-end">↻ 기본 자동 공격 계속하기</div>
-      </section>
-      <section v-if="!completed" class="coding-palette" aria-label="사용할 수 있는 명령어 블록">
-        <div class="coding-section-title"><h3>명령어 블록</h3><span>클릭해서 넣기</span></div>
-        <p class="coding-help">블록을 올바르게 연결하면 자동으로 공격해요.</p>
-        <button v-for="block in mission.palette" :key="block" class="palette-block" :class="getCodingBlock(block).category" :disabled="!interactive" :draggable="interactive" @dragstart="drag($event, block)" @dragend="endDrag" @click="addBlock(block)"><span>⠿</span>{{ getCodingBlock(block).label }}</button>
-        <p class="coding-edit-message" role="status" aria-live="polite">{{ editMessage }}</p>
-        <p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ robot.missionMessage }}</p>
-      </section>
+          <div class="coding-block-list">
+            <div class="code-start">▶ 로봇이 작동하는 동안</div>
+            <div class="code-body">
+              <div v-for="(slot, index) in mission.slots" :key="index" class="coding-slot-row" :style="{ marginLeft: slot.depth * 16 + 'px' }">
+                <button class="coding-slot" :class="[robot.code[index] ? getCodingBlock(robot.code[index]!).category : 'empty', { 'drag-over': overSlot === index }]" :disabled="!interactive || completed" :draggable="!!robot.code[index] && interactive && !completed" :aria-label="`${index + 1}번째 칸: ${robot.code[index] ? getCodingBlock(robot.code[index]!).label : '+ 여기에 블록 놓기'}`" @dragstart="robot.code[index] && drag($event, robot.code[index]!, index)" @dragend="endDrag" @dragover.prevent="overSlot = index" @dragleave="overSlot = null" @drop.prevent="drop($event, index)">
+                  <span class="slot-number">{{ index + 1 }}</span>{{ robot.code[index] ? getCodingBlock(robot.code[index]!).label : '+ 여기에 블록 놓기' }}
+                </button>
+                <button v-if="robot.code[index] && !completed" class="remove-block" :disabled="!interactive" :aria-label="`${index + 1}번째 블록 제거`" @click="removeBlock(index)">×</button>
+              </div>
+            </div>
+            <div class="code-end">↻ 기본 자동 공격 계속하기</div>
+          </div>
+        </section>
+        <section class="coding-palette" aria-label="사용할 수 있는 명령어 블록">
+          <div class="coding-section-title"><h3>명령어 블록</h3><span>클릭해서 넣기</span></div>
+          <p class="coding-help">블록을 올바르게 연결하면 자동으로 공격해요.</p>
+          <div class="coding-block-list">
+            <button v-for="block in mission.palette" :key="block" class="palette-block" :class="getCodingBlock(block).category" :disabled="!interactive" :draggable="interactive" @dragstart="drag($event, block)" @dragend="endDrag" @click="addBlock(block)"><span>⠿</span>{{ getCodingBlock(block).label }}</button>
+          </div>
+        </section>
+      </div>
     </div>
+    <footer v-if="!completed" class="coding-footer">
+      <p class="coding-feedback" :class="robot.missionStatus" role="status" aria-live="polite">{{ editMessage || robot.missionMessage }}</p>
+      <button class="launch-button coding-run" type="button" :disabled="!interactive" @click="runCode"><span aria-hidden="true">▶</span>코딩 실행하기</button>
+    </footer>
   </aside>
 </template>
