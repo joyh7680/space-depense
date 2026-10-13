@@ -321,11 +321,13 @@ export class DefenseSimulation {
     if (this.health <= 0) { this.health = 0; this.status = 'defeat'; return []; }
     const shots = this.executeRobots(dt);
     this.playerCooldown = Math.max(0, this.playerCooldown - dt);
-    const target = this.enemies.filter(e => e.health > 0 && withinAttackCircle(e, this.player, PLAYER_LASER_RADIUS)).sort((a, b) => distance(a, this.player) - distance(b, this.player))[0];
-    if (target && this.playerCooldown === 0) {
-      target.health -= 14;
-      shots.push({ from: { ...this.player }, to: { x: target.x, y: target.y }, kind: 'electric', player: true });
-      this.playerCooldown = 0.8;
+    if (this.playerCooldown === 0) {
+      const targets = this.enemies.filter(enemy => enemy.health > 0 && withinAttackCircle(enemy, this.player, PLAYER_LASER_RADIUS));
+      if (targets.length > 0) {
+        for (const target of targets) target.health -= 14;
+        shots.push({ from: { ...this.player }, to: { ...this.player }, kind: 'electric', player: true, radius: PLAYER_LASER_RADIUS });
+        this.playerCooldown = 0.8;
+      }
     }
     this.collectKills();
     this.spawnBoss();

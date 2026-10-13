@@ -1,21 +1,21 @@
 import type Phaser from 'phaser';
+import { PLAYER_LASER_RADIUS } from './wave-one';
 import type { Shot } from './defense-simulation';
 
 const center = (value: number) => value * 100 + 50;
 const LASER_COLOR = 0xb5fff3;
 const LASER_DURATION = 220;
 
-// The player's original laser stays separate from the robot-specific effects.
 export function showLaserAttack(scene: Phaser.Scene, container: Phaser.GameObjects.Container, shot: Shot): void {
-  for (const glow of [true, false]) {
-    const beam = scene.add.line(0, 0,
-      center(shot.from.x), center(shot.from.y) - 25,
-      center(shot.to.x), center(shot.to.y) - 20, LASER_COLOR)
-      .setOrigin(0)
-      .setLineWidth((shot.chain ? 3 : 6) * (glow ? 2.5 : 1))
-      .setAlpha(glow ? 0.2 : 1);
-    container.add(beam);
-    scene.tweens.add({ targets: beam, alpha: 0, duration: LASER_DURATION,
-      onComplete: () => beam.destroy() });
-  }
+  const radius = shot.radius ?? PLAYER_LASER_RADIUS;
+  const pulse = scene.add.graphics().setPosition(center(shot.from.x), center(shot.from.y));
+  pulse.fillStyle(LASER_COLOR, 0.12);
+  pulse.fillCircle(0, 0, radius);
+  pulse.lineStyle(12, LASER_COLOR, 0.2);
+  pulse.strokeCircle(0, 0, radius);
+  pulse.lineStyle(3, LASER_COLOR, 0.95);
+  pulse.strokeCircle(0, 0, radius);
+  container.add(pulse);
+  scene.tweens.add({ targets: pulse, alpha: 0, duration: LASER_DURATION,
+    onComplete: () => pulse.destroy() });
 }

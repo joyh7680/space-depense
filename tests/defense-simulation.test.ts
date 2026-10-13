@@ -32,14 +32,14 @@ test('hybrid combinations require every ingredient and never spend credits', () 
   const game = new DefenseSimulation();
   assert.equal(ROBOT_CHARGE_COST, 4);
   assert.deepEqual(game.elementEnergy, { fire: 0, electric: 0, ice: 0 });
-  game.elementEnergy.fire = 4; game.elementEnergy.electric = 1; game.credits = 9999;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 4);
+  game.elementEnergy.fire = 3; game.elementEnergy.electric = 1; game.credits = 9999;
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 3);
   game.elementEnergy.fire++;
-  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 5);
+  game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.fire, 4);
   game.elementEnergy.electric++;
   game.elementEnergy.ice = 0;
   game.summon('fire'); assert.equal(game.robots.length, 0); assert.equal(game.elementEnergy.ice, 0);
-  game.elementEnergy.ice++;
+  game.elementEnergy.ice += 2;
   game.summon('fire');
   assert.equal(game.robots.length, 1); assert.equal(game.robots[0].kind, 'fire');
   assert.equal(game.selectedId, game.robots[0].id);
@@ -47,21 +47,21 @@ test('hybrid combinations require every ingredient and never spend credits', () 
   assert.equal(game.credits, 9999);
   game.summon('fire'); assert.equal(game.robots.length, 1);
   fundRobot(game, 'electric'); game.summon('electric'); assert.equal(game.robots.length, 2); assert.equal(game.elementEnergy.electric, 0);
-  game.elementEnergy.ice = 7; game.elementEnergy.fire = 1; game.elementEnergy.electric = 1; game.credits = 0; game.summon('ice');
-  assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 4); assert.equal(game.elementEnergy.electric, 0); assert.equal(game.credits, 0);
+  game.elementEnergy.ice = 7; game.elementEnergy.fire = 2; game.elementEnergy.electric = 1; game.credits = 0; game.summon('ice');
+  assert.equal(game.robots[2].kind, 'ice'); assert.equal(game.elementEnergy.ice, 5); assert.equal(game.elementEnergy.electric, 0); assert.equal(game.credits, 0);
 });
 
 test('invalid placement, occupied slots and full board preserve matching energy', () => {
   const game = new DefenseSimulation(); setRobotEnergy(game, 'fire', 10);
   for (const [x, y] of [[0, 6], [1, 4], [12, 5], [3, 6], [game.player.x, game.player.y]]) game.placeRobot(x, y, 'fire');
-  assert.equal(game.elementEnergy.fire, 40); assert.equal(game.elementEnergy.electric, 20); assert.equal(game.robots.length, 0);
+  assert.equal(game.elementEnergy.fire, 30); assert.equal(game.elementEnergy.electric, 20); assert.equal(game.robots.length, 0);
   game.placeRobot(3, 5, 'fire'); game.placeRobot(3, 5, 'fire');
-  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 36);
+  assert.equal(game.robots.length, 1); assert.equal(game.elementEnergy.fire, 27);
   for (let i = 0; i < 7; i++) game.summon('fire');
-  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 8);
-  game.summon('fire'); assert.equal(game.elementEnergy.fire, 4); assert.equal(game.robots.length, 9);
+  assert.equal(game.robots.length, 8); assert.equal(game.elementEnergy.fire, 6);
+  game.summon('fire'); assert.equal(game.elementEnergy.fire, 3); assert.equal(game.robots.length, 9);
   assert.equal(game.summon('fire'), '로봇은 최대 9대까지 소환할 수 있어요.');
-  assert.equal(game.elementEnergy.fire, 4); assert.equal(game.elementEnergy.electric, 2); assert.equal(game.robots.length, 9);
+  assert.equal(game.elementEnergy.fire, 3); assert.equal(game.elementEnergy.electric, 2); assert.equal(game.robots.length, 9);
   assert.equal(new Set(game.deployedRobots.map(robot => `${robot.x},${robot.y}`)).size, 9);
 });
 
@@ -467,7 +467,40 @@ test('the player has a larger 250 world attack radius and ignores monsters outsi
    const target = { ...enemy(100, game.player.x + dx, game.player.y + dy), slowTime: 100, slowFactor: 0 };
    game.enemies = [target];
    const shots = game.step(0.05);
-   assert.equal(shots.some(shot => shot.player && shot.to.x === target.x && shot.to.y === target.y), inRange);
+   assert.equal(shots.some(shot => shot.player && shot.radius === PLAYER_LASER_RADIUS), inRange);
    assert.equal(target.health < 1000, inRange, `player target offset ${dx},${dy}`);
  }
+});
+
+test('the player hits every living enemy around all 360 degrees once per cooldown', () => {
+  const game = new DefenseSimulation(() => 0);
+  game.startWave(); game.spawned = WAVE_ONE.enemies;
+  const offsets = [[2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5], [-1.5, -1.5]];
+  const targets = offsets.map(([dx, dy], index) => ({
+    ...enemy(100 + index, game.player.x + dx, game.player.y + dy), slowTime: 100, slowFactor: 0,
+  }));
+  const outside = { ...enemy(200, game.player.x + 2.51, game.player.y), slowTime: 100, slowFactor: 0 };
+  const defeated = { ...enemy(201, game.player.x, game.player.y), health: 0 };
+  game.enemies = [...targets, outside, defeated];
+  const shots = game.step(0.05).filter(shot => shot.player);
+  assert.equal(shots.length, 1);
+  assert.deepEqual(shots[0].from, game.player);
+  assert.deepEqual(shots[0].to, game.player);
+  assert.equal(shots[0].radius, PLAYER_LASER_RADIUS);
+  for (const target of targets) assert.equal(target.health, 986);
+  assert.equal(outside.health, 1000);
+  assert.equal(defeated.health, 0);
+  for (let i = 0; i < 15; i++) assert.equal(game.step(0.05).some(shot => shot.player), false);
+  for (const target of targets) assert.equal(target.health, 986);
+  const nextShots = [...game.step(0.05), ...game.step(0.05)].filter(shot => shot.player);
+  assert.equal(nextShots.length, 1);
+  for (const target of targets) assert.equal(target.health, 972);
+  assert.equal(outside.health, 1000);
+});
+
+test('the player does not emit an attack when no living enemy is in range', () => {
+  const game = new DefenseSimulation(() => 0);
+  game.startWave(); game.spawned = WAVE_ONE.enemies;
+  game.enemies = [{ ...enemy(100, game.player.x + 3, game.player.y), slowTime: 100, slowFactor: 0 }];
+  assert.equal(game.step(0.05).some(shot => shot.player), false);
 });
