@@ -62,13 +62,24 @@ test('cryo selects the closest enemy, slows only that target and never chains', 
 test('thermal pierces all enemies on the full forward beam, excluding enemies behind or beside it', () => {
   const { game } = setup('ice');
   const victims = [target(100, 3, 4.5, true), target(101, 3, 4, true), target(102, 3, 3.2, true),
-    target(103, 3.5, 4, true), target(104, 3, 5.5, true), target(105, 3, 3, true)];
+    target(103, 3.5, 4, true), target(104, 3, 5.5, true), target(105, 3, 1.4, true), target(106, 3, 1.2, true)];
   game.enemies = victims;
   const shots = game.step(0);
-  assert.deepEqual(victims.map(victim => victim.health), [55, 55, 55, 100, 100, 100]);
+  assert.deepEqual(victims.map(victim => victim.health), [55, 55, 55, 100, 100, 55, 100]);
   assert.equal(shots.length, 1, 'one beam effect covers every pierced target');
-  assert.ok(Math.abs(shots[0].to.y - 3.1) < 1e-9);
+  assert.ok(Math.abs(shots[0].to.y - 1.3) < 1e-9);
   assert.ok(victims.every(victim => victim.slowFactor === 0), 'thermal does not replace existing slowing');
+});
+
+test('thermal reaches enemies two columns across and three rows away', () => {
+  const { game, robot } = setup('ice');
+  const victim = target(100, robot.x + 2, robot.y - 3, true);
+  game.enemies = [victim];
+  const shots = game.step(0);
+  assert.equal(shots.length, 1);
+  assert.equal(victim.health, 55);
+  assert.equal(robot.targetId, victim.id);
+  assert.ok(Math.abs(Math.hypot(shots[0].to.x - robot.x, shots[0].to.y - robot.y) * 100 - 370) < 1e-9);
 });
 
 test('plasma blast covers the entire robot circle and evaluates moving enemies after charging', () => {

@@ -134,7 +134,7 @@ test('sequential code selects the nearest living target, then attacks, then wait
 test('robots acquire targets only within their configured world range', () => {
   assert.equal(ROBOT_ATTACK_RADIUS, 190);
   for (const kind of ['fire', 'ice', 'electric'] as const) for (const inside of [true, false]) {
-    assert.equal(ROBOTS[kind].attackRadius, kind === 'fire' ? 150 : ROBOT_ATTACK_RADIUS);
+    assert.equal(ROBOTS[kind].attackRadius, kind === 'fire' ? 150 : kind === 'ice' ? 370 : ROBOT_ATTACK_RADIUS);
     const game = new DefenseSimulation(() => 0);
     game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
@@ -164,12 +164,12 @@ test('a selected target leaving attack range is released without taking damage',
   assert.equal(game.robots[0].targetId, null);
 });
 
-test('no robot reaches monsters beyond melee range', () => {
+test('no robot reaches monsters beyond its configured attack range', () => {
   for (const kind of ['fire', 'ice', 'electric'] as const) {
     const game = new DefenseSimulation(() => 0); game.player = { x: 14, y: 11 };
     summon(game, kind); game.startWave(); game.step(0.05);
     game.robots[0].activeBlock = 'find'; game.robots[0].phaseTimer = 0;
-    game.enemies = [{ ...enemy(100, 6), slowTime: 100, slowFactor: 0 }];
+    game.enemies = [{ ...enemy(100, 8), slowTime: 100, slowFactor: 0 }];
     advance(game, 0.6);
     assert.equal(game.enemies[0].health, 1000, `${kind} must not damage distant monsters`);
   }
